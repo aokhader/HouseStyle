@@ -1,0 +1,210 @@
+[
+  {
+    "rule": "Use `AirflowProviderDeprecationWarning` (from `airflow.exceptions` or `airflow.sdk.exceptions`) instead of bare `DeprecationWarning` when deprecating provider-facing APIs, and record `deprecated_provider_since` on the warning.",
+    "category": "providers",
+    "trigger": "Code adds `warnings.warn(..., DeprecationWarning, ...)` inside `providers_manager.py` or provider hook/operator discovery paths",
+    "rationale": "`AirflowProviderDeprecationWarning` is the project-wide convention for provider deprecations; it carries `deprecated_provider_since` so tooling can track when the deprecation was introduced.",
+    "evidence": [
+      {
+        "pr": 63711,
+        "url": "https://github.com/apache/airflow/pull/63711#discussion_r2940856382",
+        "excerpt": "`AirflowProviderDeprecationWarning` is the Airflow convention for deprecating provider-facing APIs"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/providers_manager.py"
+    ]
+  },
+  {
+    "rule": "Every `decode_*` deserializer that calls `import_string` on a serialized type field must first verify the path with an `is_core_*_import_path` guard and fall back to a registered-custom lookup; bare `import_string` on untrusted serialized data is forbidden.",
+    "category": "security",
+    "trigger": "A new `decode_*` function calls `import_string(var[Encoding.TYPE])` without a preceding `is_core_*_import_path` check and a registry-based fallback",
+    "rationale": "A tampered serialized DAG can name any importable Python class; without an allowlist/registry gate the scheduler will import arbitrary code during deserialization.",
+    "evidence": [
+      {
+        "pr": 64571,
+        "url": "https://github.com/apache/airflow/pull/64571#discussion_r3268775477",
+        "excerpt": "tampered serialized DAG can name any importable Python class and have the scheduler import it"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/serialization/decoders.py"
+    ]
+  },
+  {
+    "rule": "Every `encode_*` serializer for a user-extensible type must validate the class against a registration registry before accepting `qualname(var)`; mirroring the `encode_partition_mapper` pattern is required.",
+    "category": "security",
+    "trigger": "A new `encode_*` function serializes a custom subclass using only `qualname(var)` without calling a `find_registered_custom_*` guard",
+    "rationale": "Without registration validation, moving a custom class to a different module silently breaks deserialization of older DagRuns with no early error, and allows unregistered classes to round-trip.",
+    "evidence": [
+      {
+        "pr": 64571,
+        "url": "https://github.com/apache/airflow/pull/64571#discussion_r3268775485",
+        "excerpt": "encode_partition_mapper calls find_registered_custom_partition_mapper; encode_window accepts any qualname without validation"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/serialization/encoders.py"
+    ]
+  },
+  {
+    "rule": "When adding `__repr__`, `__str__`, or `serialize()` to serialization sentinel classes (e.g. `ArgNotSet`), add a focused unit test asserting the returned string is stable and that subclasses produce distinct output.",
+    "category": "testing",
+    "trigger": "New `__repr__`, `__str__`, or `serialize()` methods added to a serialization sentinel/singleton class in `airflow-core/src/airflow/serialization/` without a corresponding unit test",
+    "rationale": "Non-deterministic `__repr__`/`serialize()` values cause spurious new DagVersions on every parse; a regression test guards the string contract and catches address-dependent output.",
+    "evidence": [
+      {
+        "pr": 65222,
+        "url": "https://github.com/apache/airflow/pull/65222#discussion_r3089785240",
+        "excerpt": "no regression test ensuring these values are stable/deterministic prevents reintroducing non-deterministic serialized DAG diffs"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/serialization/definitions/notset.py"
+    ]
+  },
+  {
+    "rule": "When sorting dicts that may contain callables as keys for DAG serialization, sort on the serialized (qualname-based) form of the key, not on `repr()`, because `repr` of callables embeds memory addresses causing non-deterministic DagVersion churn.",
+    "category": "correctness",
+    "trigger": "A dict-sorting helper in DAG serialization sorts using `repr(key)` or a key function that calls `repr()` on potentially-callable dict keys",
+    "rationale": "`repr()` of a lambda or function embeds its memory address (`<function f at 0x...>`), so two logically identical dicts sort differently across interpreter runs and produce a new DagVersion on every parse.",
+    "evidence": [
+      {
+        "pr": 63871,
+        "url": "https://github.com/apache/airflow/pull/63871#discussion_r3220723394",
+        "excerpt": "repr on a callable embeds its memory address; both lambdas collapse to the same output key but value depends on address-based sort"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/serialization/helpers.py"
+    ]
+  },
+  {
+    "rule": "DAG serialization leaf-value helpers must preserve the original Python type (int, bool, None, etc.) for non-callable values; only callables should be stringified.",
+    "category": "correctness",
+    "trigger": "A serialization helper function returns `str(obj)` as a catch-all for leaf values inside dicts/lists/tuples rather than only for callables",
+    "rationale": "Converting all non-container leaves to strings changes the data types seen by downstream consumers and breaks round-trip fidelity for numeric and boolean operator parameters.",
+    "evidence": [
+      {
+        "pr": 63871,
+        "url": "https://github.com/apache/airflow/pull/63871#discussion_r3025333502",
+        "excerpt": "Returning str(obj) for all leaf values changes data types of every non-container value inside dicts/lists/tuples"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/serialization/helpers.py"
+    ]
+  },
+  {
+    "rule": "Serialization flag-field patterns (e.g. `has_<field>` stored in place of a non-serializable object) applied to operator-level fields must also be applied consistently in DAG-level `default_args` serialization for the same fields.",
+    "category": "correctness",
+    "trigger": "A new `has_<field>` serialization pattern is added for a mapped operator but the same field in `serialize_dag`'s `default_args` loop is left using the `str(obj)` fallback",
+    "rationale": "`DAG(default_args={\"retry_policy\": policy})` will still serialize with an embedded memory address and produce a new DagVersion on every parse if the same flag-field treatment is not applied in `serialize_dag`.",
+    "evidence": [
+      {
+        "pr": 69243,
+        "url": "https://github.com/apache/airflow/pull/69243#discussion_r3514451148",
+        "excerpt": "same non-determinism survives when the policy arrives via DAG-level default_args; still produces a new DagVersion every parse"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/serialization/serialized_objects.py"
+    ]
+  },
+  {
+    "rule": "Numeric defaults for timedelta-backed fields in `schema.json` must be expressed as floats (e.g. `300.0`) to match the Python `timedelta`-to-seconds float representation, ensuring `test_generate_client_defaults_excludes_schema_defaults` passes strict equality.",
+    "category": "correctness",
+    "trigger": "A new or updated numeric default in `airflow-core/src/airflow/serialization/schema.json` for a timedelta field is written as an integer literal (e.g. `300`) rather than a float (`300.0`)",
+    "rationale": "The `TestClientDefaultsGeneration` test uses strict `!=` equality; Python deserializes timedelta seconds as `float`, so `300.0 != 300` fails the assertion.",
+    "evidence": [
+      {
+        "pr": 56202,
+        "url": "https://github.com/apache/airflow/pull/56202#discussion_r2388629986",
+        "excerpt": "test failing: Field retry_delay has value 300.0 which matches schema default 300; assert 300.0 != 300"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/serialization/schema.json"
+    ]
+  },
+  {
+    "rule": "Backward-compatibility fallback paths in triggers that extract values from `callback_kwargs` must use `.get()` not `.pop()`, so the trigger is idempotent if `run()` is invoked more than once on the same instance.",
+    "category": "correctness",
+    "trigger": "A trigger's `run()` method uses `self.callback_kwargs.pop(key, None)` as a backward-compat fallback to read context or metadata",
+    "rationale": "On a retry or watcher re-invocation, `.pop()` leaves `callback_kwargs` without the key on the second call, causing the callback to run without context while `self.context` is also `None`.",
+    "evidence": [
+      {
+        "pr": 66608,
+        "url": "https://github.com/apache/airflow/pull/66608#discussion_r3307566721",
+        "excerpt": "if run() invoked twice, second call sees self.context=None AND kwargs[context] already popped"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/triggers/callback.py"
+    ]
+  },
+  {
+    "rule": "Backward-compat fallback code in triggers that reads from old serialized state must include a comment stating in which Airflow version the fallback can be removed (once no pre-upgrade in-flight triggers remain).",
+    "category": "commit-hygiene",
+    "trigger": "A trigger adds a fallback branch for pre-upgrade serialized state without a `# TODO: remove in X.Y` or similar comment explaining the removal condition",
+    "rationale": "Reviewer explicitly requested a comment that the fallback can be removed in N+1 once no triggers queued before the change can still be in-flight.",
+    "evidence": [
+      {
+        "pr": 66608,
+        "url": "https://github.com/apache/airflow/pull/66608#discussion_r3307566721",
+        "excerpt": "worth a comment that this fallback can be removed in N+1 once no triggers queued before this PR can possibly still be in-flight"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/triggers/callback.py"
+    ]
+  },
+  {
+    "rule": "When creating a DAG run pinned to a specific `bundle_version`, deadline processing must use the resolved DAG version's deadline configuration, not the latest (head) DAG object.",
+    "category": "correctness",
+    "trigger": "Code inside `create_dagrun` that processes deadlines or accesses `self.deadline` while a `bundle_version` or resolved DAG argument is also present",
+    "rationale": "If v1 had a deadline and v2 removes it, triggering `bundle_version='v1'` with the latest `self` skips creating deadline rows; the run is pinned to an old version but inherits the latest DAG's deadline policy.",
+    "evidence": [
+      {
+        "pr": 61550,
+        "url": "https://github.com/apache/airflow/pull/61550#discussion_r3485787039",
+        "excerpt": "deadline processing gated on self.deadline where self is still the latest Dag; should use the resolved Dag version"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/serialization/definitions/dag.py"
+    ]
+  },
+  {
+    "rule": "Properties that are now delegated to `_runtime_manager` via `__getattr__` in `ProvidersManager` must be removed from any hardcoded property set to avoid redundant dual-handling.",
+    "category": "correctness",
+    "trigger": "A property name appears both in a hardcoded set (e.g. `runtime_properties`) and is also reachable via `getattr(object.__getattribute__(self, '_runtime_manager'), name)` in `ProvidersManager.__getattr__`",
+    "rationale": "Keeping stale entries in the hardcoded set means the property is handled twice; the reviewer flagged this as requiring cleanup when introducing `_runtime_manager` delegation.",
+    "evidence": [
+      {
+        "pr": 60218,
+        "url": "https://github.com/apache/airflow/pull/60218#discussion_r2693714161",
+        "excerpt": "cleanup existed properties belonging to runtime_properties since they will be handled by getattr _runtime_manager"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/providers_manager.py"
+    ]
+  },
+  {
+    "rule": "In DAG serialization helpers, using `to_dict()` as a generic serialization fallback is too broad; scope it explicitly to known Kubernetes client objects (e.g. gate with `inspect.getmodule(obj).__name__.startswith('kubernetes.')`).",
+    "category": "correctness",
+    "trigger": "A serialization helper applies a `to_dict()` fallback unconditionally to any object that has a `to_dict` attribute, without restricting to Kubernetes client types",
+    "rationale": "Other third-party objects may expose `to_dict()` with incompatible semantics; the reviewer asked to restrict this to the Kubernetes provider's known model classes.",
+    "evidence": [
+      {
+        "pr": 63871,
+        "url": "https://github.com/apache/airflow/pull/63871#discussion_r3233165043",
+        "excerpt": "Should we make it specifically for Kubernetes? e.g. inspect.getmodule(obj).__name__.startswith('kubernetes.')"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/serialization/helpers.py"
+    ]
+  }
+]

@@ -1,0 +1,204 @@
+[
+  {
+    "rule": "Do not introduce constructor-parameter coupling between separately-distributed providers (e.g. AWS and CNCF-K8s); adding such a parameter makes one provider require a specific version of the other at runtime",
+    "category": "providers",
+    "trigger": "A trigger or operator __init__ in one provider package gains a parameter whose type or default is imported from a different provider package",
+    "rationale": "Providers are shipped as independent distributions; users can pin them at different versions. A cross-provider constructor dependency creates a hard version coupling that breaks independently-versioned deployments.",
+    "evidence": [
+      {
+        "pr": 67229,
+        "url": "https://github.com/apache/airflow/pull/67229#discussion_r3293202352",
+        "excerpt": "users can deploy AWS and CNCF-K8s individually and cross-version"
+      },
+      {
+        "pr": 67229,
+        "url": "https://github.com/apache/airflow/pull/67229#discussion_r3276716933",
+        "excerpt": "adds coupling between AWS and CNCF-K8s providers packaged into different distributions"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/triggers/eks.py"
+    ]
+  },
+  {
+    "rule": "When a trigger instantiates a hook via self.hook(), pass all required domain-specific parameters (e.g. virtual_cluster_id) so that cancel-on-kill and other hook methods have the context they need",
+    "category": "correctness",
+    "trigger": "A trigger's hook() call omits a parameter that the hook's action methods (e.g. stop_query, cancel_job_run) require at the AWS API level",
+    "rationale": "If the hook is built without required identifiers, cancel-on-kill paths call the AWS API with None values and silently fail to cancel the job.",
+    "evidence": [
+      {
+        "pr": 64770,
+        "url": "https://github.com/apache/airflow/pull/64770#discussion_r3067064733",
+        "excerpt": "hook() passes only aws_conn_id; cancellation calls virtualClusterId=None and fails"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/triggers/emr.py"
+    ]
+  },
+  {
+    "rule": "Prefer a custom AWS waiter over a hand-rolled polling loop in async triggers; consult providers/amazon/src/airflow/providers/amazon/aws/waiters/README.md before writing a new trigger",
+    "category": "async",
+    "trigger": "A new BaseTrigger subclass in the amazon provider implements its own polling loop (e.g. asyncio.sleep + status check) instead of delegating to a custom waiter",
+    "rationale": "The AWS provider has a dedicated custom-waiter pattern that handles async polling; reinventing it in triggers creates inconsistency and bypasses the shared infrastructure.",
+    "evidence": [
+      {
+        "pr": 62240,
+        "url": "https://github.com/apache/airflow/pull/62240#discussion_r2843628199",
+        "excerpt": "perfect case for a custom waiter; see providers/amazon/aws/waiters/README.md"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/triggers/sagemaker_unified_studio_notebook.py"
+    ]
+  },
+  {
+    "rule": "When updating system-test example files from Jinja xcom_pull syntax to task.output syntax, retain the old Jinja form as an inline comment so users still on the older pattern can understand the migration",
+    "category": "docs",
+    "trigger": "A system-test example file replaces `\"{{ task_instance.xcom_pull(...) }}\"` with `<task>.output` without leaving the old form as a comment",
+    "rationale": "System-test examples serve as community documentation; the output syntax requires getting used to, so showing both old and new helps users who haven't migrated yet.",
+    "evidence": [
+      {
+        "pr": 65197,
+        "url": "https://github.com/apache/airflow/pull/65197#discussion_r3082388867",
+        "excerpt": "show both options for a while; show old syntax as comment next to the new"
+      },
+      {
+        "pr": 65197,
+        "url": "https://github.com/apache/airflow/pull/65197#discussion_r3084296289",
+        "excerpt": "let users know where it comes from if still using old syntax"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/system/amazon/aws/example_dms_serverless.py"
+    ]
+  },
+  {
+    "rule": "Every [START howto_...] / [END howto_...] marker added to a system-test example file must be referenced in the corresponding docs RST file",
+    "category": "docs",
+    "trigger": "A [START howto_<name>] marker is added to a tests/system/ file but no matching :ref:`howto/...<name>` exists in the docs directory",
+    "rationale": "Unreferenced markers are dead documentation fragments that are never rendered in the Airflow how-to guides, wasting maintenance effort and confusing contributors.",
+    "evidence": [
+      {
+        "pr": 62962,
+        "url": "https://github.com/apache/airflow/pull/62962#discussion_r2942519934",
+        "excerpt": "howto_operator_sagemaker_unified_studio_notebook_explicit_params marker not referenced anywhere in the docs"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/system/amazon/aws/example_sagemaker_unified_studio.py"
+    ]
+  },
+  {
+    "rule": "When removing SDK parameters or environment variables from a provider's system test, verify and update the minimum SDK version in the provider's pyproject.toml before removing them",
+    "category": "providers",
+    "trigger": "A system-test file removes SDK-specific env vars or parameters without a corresponding version bump or comment in pyproject.toml",
+    "rationale": "System tests run against multiple Airflow and provider package versions; removing parameters without pinning the minimum SDK version breaks older combinations.",
+    "evidence": [
+      {
+        "pr": 62962,
+        "url": "https://github.com/apache/airflow/pull/62962#discussion_r2897894877",
+        "excerpt": "Did you update the minimum version of that SDK in the pyproject.toml file?"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/system/amazon/aws/example_sagemaker_unified_studio.py"
+    ]
+  },
+  {
+    "rule": "Use @tenacity retry decorators instead of time.sleep() to handle transient waits or race conditions in provider system tests and cleanup functions",
+    "category": "testing",
+    "trigger": "A system-test helper or cleanup function contains time.sleep() to wait for an async resource state or race condition",
+    "rationale": "time.sleep() adds fixed latency and silently swallows failures; @tenacity retries are idiomatic in the Airflow codebase and make flaky resource-state waits self-documenting and resilient.",
+    "evidence": [
+      {
+        "pr": 66046,
+        "url": "https://github.com/apache/airflow/pull/66046#discussion_r3163650670",
+        "excerpt": "inclined to retry in case of failure; using @tenacity is easy and clean, many examples in codebase"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/system/amazon/aws/example_mwaa_serverless.py"
+    ]
+  },
+  {
+    "rule": "Tests for AWS operator link persistence (e.g. CloudWatch links) must not gate on do_xcom_push; they should supply a context dict with ti directly to decouple UI-link behaviour from XCom return-value behaviour",
+    "category": "testing",
+    "trigger": "A test sets do_xcom_push=True in order to exercise _persist_cloudwatch_link or similar link-persistence methods",
+    "rationale": "Link persistence is independent of XCom return-value behaviour; coupling them in tests makes the test misleading and will fail if the two concerns are decoupled in production code.",
+    "evidence": [
+      {
+        "pr": 64745,
+        "url": "https://github.com/apache/airflow/pull/64745#discussion_r3300377902",
+        "excerpt": "tests should avoid coupling to do_xcom_push; provide context with ti only"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/unit/amazon/aws/operators/test_batch.py"
+    ]
+  },
+  {
+    "rule": "Non-user-facing PRs (internal tooling, build configuration, CI changes) must be placed in the hidden section of provider changelog RST files, not in the public Misc section",
+    "category": "commit-hygiene",
+    "trigger": "A provider changelog.rst adds an internal/non-user-facing PR entry (e.g. pyproject.toml build config, CI tooling) under a visible section like Misc instead of the hidden section",
+    "rationale": "Providers are released based on user-visible changelog entries; placing internal PRs in visible sections triggers unnecessary provider releases.",
+    "evidence": [
+      {
+        "pr": 68642,
+        "url": "https://github.com/apache/airflow/pull/68642#discussion_r3426437307",
+        "excerpt": "not user facing PR; should be moved to the hidden part; some providers won't need to be released"
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/druid/docs/changelog.rst"
+    ]
+  },
+  {
+    "rule": "Use autospecced mocks (create_autospec or spec=) for hooks and async context managers in AWS trigger tests to catch API signature drift against the real hook class",
+    "category": "testing",
+    "trigger": "A trigger test creates MagicMock() without spec= for an AWS hook, its async connection method, or its async context manager",
+    "rationale": "Unspecced mocks silently accept any attribute access; if a production method is renamed or its signature changes, tests still pass, hiding the regression.",
+    "evidence": [
+      {
+        "pr": 64770,
+        "url": "https://github.com/apache/airflow/pull/64770#discussion_r3067080837",
+        "excerpt": "autospecced mocks better validate EmrContainerHook API; avoid silent passes if method signatures change"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/unit/amazon/aws/triggers/test_emr.py"
+    ]
+  },
+  {
+    "rule": "In async trigger tests, consume the async generator using await anext(generator) rather than calling the dunder method generator.__anext__() directly",
+    "category": "async",
+    "trigger": "A trigger test calls await generator.__anext__() to advance an async generator",
+    "rationale": "Calling dunder methods directly is non-idiomatic; anext() is the intended public API and makes the test intent clearer for reviewers.",
+    "evidence": [
+      {
+        "pr": 64612,
+        "url": "https://github.com/apache/airflow/pull/64612#discussion_r3066478215",
+        "excerpt": "prefer await anext(generator) over calling __anext__() directly"
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/kafka/tests/unit/apache/kafka/triggers/test_await_message.py"
+    ]
+  },
+  {
+    "rule": "Sensor and trigger docstrings must describe the granularity they wait on accurately; a sensor that waits for a Task Instance must say 'Task Instance', not 'DAG Run'",
+    "category": "docs",
+    "trigger": "A :param or docstring description in a sensor/trigger says 'DAG Run' when the actual wait target is a Task Instance (or vice versa)",
+    "rationale": "Airflow distinguishes DAG Runs from Task Instances as first-class concepts; mismatched terminology in public-facing docstrings misleads users integrating MWAA or cross-environment sensors.",
+    "evidence": [
+      {
+        "pr": 51719,
+        "url": "https://github.com/apache/airflow/pull/51719#discussion_r2164655582",
+        "excerpt": "contains the Task Instance you want to wait for (not DAG Run)"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/sensors/mwaa.py"
+    ]
+  }
+]

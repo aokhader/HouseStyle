@@ -1,0 +1,210 @@
+[
+  {
+    "rule": "Do not use `caplog` in provider tests; use direct log capture or logical assertions instead",
+    "category": "testing",
+    "trigger": "caplog` appears in a test function in providers/**/*.py",
+    "rationale": "caplog has been banned because it produces negative side effects when tests adjust log levels or run in parallel; the reviewer explicitly states it was banned some time ago",
+    "evidence": [
+      {
+        "pr": 65232,
+        "url": "https://github.com/apache/airflow/pull/65232#discussion_r3081754322",
+        "excerpt": "Since some time be banned caplog for testing — generated negative side effects"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/tests/unit/cncf/kubernetes/operators/test_pod.py"
+    ]
+  },
+  {
+    "rule": "Avoid real `asyncio.sleep` calls in trigger unit tests; patch `asyncio.sleep` or use `asyncio.wait_for` to assert non-completion",
+    "category": "async",
+    "trigger": "asyncio.sleep` with a literal float/int appears inside a test function in providers/**/triggers/test_*.py",
+    "rationale": "Real sleeps add wall-clock time to the CI suite and can be flaky on slow runners; the reviewer recommends patching sleep or using wait_for with a small timeout to verify the trigger does not yield immediately",
+    "evidence": [
+      {
+        "pr": 67229,
+        "url": "https://github.com/apache/airflow/pull/67229#discussion_r3276779804",
+        "excerpt": "adds noticeable wall-clock time to unit suite and can be flaky on slow CI"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/tests/unit/cncf/kubernetes/triggers/test_pod.py"
+    ]
+  },
+  {
+    "rule": "When adding a new operator entry to the operators `index.rst` table, also bump the operator count stated in the prose above the table and add a matching descriptive paragraph",
+    "category": "docs",
+    "trigger": "A new `* -` row is added to the operators comparison table in `providers/**/docs/operators/index.rst` without updating the operator count sentence",
+    "rationale": "The file explicitly states how many operators the provider ships; adding an entry without updating the count leaves the count stale; the reviewer also requires a descriptive paragraph per operator consistent with existing ones",
+    "evidence": [
+      {
+        "pr": 67120,
+        "url": "https://github.com/apache/airflow/pull/67120#discussion_r3260907256",
+        "excerpt": "line 24 still says 'five operators' — this PR makes it six, bump the count"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/docs/operators/index.rst"
+    ]
+  },
+  {
+    "rule": "In `AIRFLOW_CONN_*` quickstart doc examples, encode `extra` as a nested JSON object, not as a JSON-serialised string",
+    "category": "docs",
+    "trigger": "`extra` value in an `AIRFLOW_CONN_` shell export is a quoted JSON string (e.g. `'\\\"model\\\": ...'`) rather than a plain nested object",
+    "rationale": "`Connection.from_json` accepts a nested object for `extra`; the string form is error-prone and the reviewer verified the nested form resolves the model end-to-end",
+    "evidence": [
+      {
+        "pr": 69552,
+        "url": "https://github.com/apache/airflow/pull/69552#discussion_r3542711104",
+        "excerpt": "nested-JSON-as-a-string extra is the error-prone form; nested object equally valid"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/docs/quickstart.rst"
+    ]
+  },
+  {
+    "rule": "Keep `provider.yaml` field descriptions consistent with the current schema; remove references to parameters that have been deleted",
+    "category": "docs",
+    "trigger": "A `description:` value in `provider.yaml` references a field name that no longer exists in the same connection type block",
+    "rationale": "Stale cross-references in provider.yaml mislead users configuring connections; the reviewer flagged the same stale text appearing in both provider.yaml and the auto-generated get_provider_info.py",
+    "evidence": [
+      {
+        "pr": 62816,
+        "url": "https://github.com/apache/airflow/pull/62816#discussion_r2914866165",
+        "excerpt": "removed `service_account_file` a few rounds ago, so this reference is stale"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/provider.yaml"
+    ]
+  },
+  {
+    "rule": "Example DAGs must be self-contained and copy-pasteable; do not extract shared helpers across example DAG files",
+    "category": "docs",
+    "trigger": "A function or class defined outside an example DAG file is imported and used inside `providers/**/example_dags/*.py`",
+    "rationale": "Example DAGs are meant to serve as starting points; extracting helpers makes them harder to use independently; intentional duplication is acceptable",
+    "evidence": [
+      {
+        "pr": 65172,
+        "url": "https://github.com/apache/airflow/pull/65172#discussion_r3083306744",
+        "excerpt": "Example DAGs should be self-contained and copy-pasteable; duplication is intentional"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/example_dags/example_llm_survey_analysis.py"
+    ]
+  },
+  {
+    "rule": "Example DAGs must not wrap optional-dependency imports in `try/except`; import errors should surface immediately",
+    "category": "providers",
+    "trigger": "A `try: import ...; except ImportError` block appears inside `providers/**/example_dags/*.py`",
+    "rationale": "Example DAGs should fail clearly when a dependency is missing rather than silently hiding functionality; the try/except guard was intentionally removed in this provider",
+    "evidence": [
+      {
+        "pr": 65172,
+        "url": "https://github.com/apache/airflow/pull/65172#discussion_r3083306695",
+        "excerpt": "example DAGs should fail clearly on missing deps rather than silently hiding functionality"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/example_dags/example_llm_survey_analysis.py"
+    ]
+  },
+  {
+    "rule": "Do not manually edit `get_provider_info.py`; all changes must go to `provider.yaml` and be regenerated via `prek run update-providers-build-files`",
+    "category": "commit-hygiene",
+    "trigger": "A diff modifies `providers/**/get_provider_info.py` directly without a corresponding change to the same provider's `provider.yaml`",
+    "rationale": "get_provider_info.py is auto-generated; manual edits will be overwritten the next time the build-file update tool is run",
+    "evidence": [
+      {
+        "pr": 62816,
+        "url": "https://github.com/apache/airflow/pull/62816#discussion_r2892283042",
+        "excerpt": "auto-generated from provider.yaml — manual edits will be overwritten by prek run"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/get_provider_info.py"
+    ]
+  },
+  {
+    "rule": "When a hook subclass ignores parent-signature parameters (e.g. `api_key`, `base_url`) in favour of `extra`, document this explicitly in the docstring",
+    "category": "api-design",
+    "trigger": "A method in `providers/**/hooks/*.py` has parameters with the same names as `extra` keys but reads from `extra` rather than the parameters without a docstring note",
+    "rationale": "Having the same field name in two sources (method param vs. extra) is confusing; the reviewer requires either renaming extra keys or a docstring note that the parent params are intentionally unused",
+    "evidence": [
+      {
+        "pr": 62816,
+        "url": "https://github.com/apache/airflow/pull/62816#discussion_r2901281112",
+        "excerpt": "having the same field name in two sources is confusing; add a note or rename"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/hooks/pydantic_ai.py"
+    ]
+  },
+  {
+    "rule": "When hook/operator docs claim a parameter overrides a spec-file value, the implementation must only pass that parameter conditionally (omit it when unset) so the spec file's value is used as a fallback",
+    "category": "api-design",
+    "trigger": "A hook method unconditionally passes a keyword argument to an underlying factory (e.g. `Agent.from_file(model=self.get_conn(), ...)`) when docs state the spec file supplies the default",
+    "rationale": "Unconditionally passing the argument overrides the spec file regardless of whether the user set a connection model, contradicting documented behaviour and raising errors when neither source is configured",
+    "evidence": [
+      {
+        "pr": 67788,
+        "url": "https://github.com/apache/airflow/pull/67788#discussion_r3329411745",
+        "excerpt": "unconditionally overrides whatever model: is declared in the spec file"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/hooks/pydantic_ai.py"
+    ]
+  },
+  {
+    "rule": "When a parameter appends to rather than replaces spec-file content, docs, docstrings, test names, and example names must say 'appended'/'merged', not 'overrides'",
+    "category": "docs",
+    "trigger": "A docstring or RST file uses the word 'overrides' for a parameter that the underlying library (pydantic-ai, etc.) merges/appends with the spec-file value",
+    "rationale": "pydantic-ai's `from_spec` concatenates instructions rather than replacing them; claiming override semantics misleads users and the test only asserts kwarg forwarding to a mock, missing the merge behaviour",
+    "evidence": [
+      {
+        "pr": 67788,
+        "url": "https://github.com/apache/airflow/pull/67788#discussion_r3329421418",
+        "excerpt": "three spots claim override: the RST, the :param docstring, and the example name"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/hooks/pydantic_ai.py"
+    ]
+  },
+  {
+    "rule": "When an operator parameter replaces a built-in default prompt rather than appending to it, the docstring must say 'overrides' not 'appended to'",
+    "category": "docs",
+    "trigger": "An operator docstring says a `system_prompt` or similar param is 'appended to' or 'additional instructions' but the implementation assigns it directly (replacing the default)",
+    "rationale": "Users need accurate semantics to know whether they must manually concatenate the default; the reviewer notes the current docstring implies additive behaviour while the code replaces the default entirely",
+    "evidence": [
+      {
+        "pr": 62793,
+        "url": "https://github.com/apache/airflow/pull/62793#discussion_r2880993764",
+        "excerpt": "docstring says 'Additional instructions appended' but system_prompt overrides the default"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/operators/llm_schema_compare.py"
+    ]
+  },
+  {
+    "rule": "Plugin FastAPI sub-apps mounted under the Airflow webserver must add per-route or router-level `Depends(requires_access_*)` auth dependencies; do not rely on parent-app middleware alone",
+    "category": "security",
+    "trigger": "A FastAPI app or router is defined in `providers/**/plugins/*.py` and its route handlers lack `Depends(requires_access_*)` or equivalent auth dependency",
+    "rationale": "Plugin sub-apps mounted via `app.mount()` do not inherit route-level auth from the parent; JWTRefreshMiddleware only refreshes tokens and does not reject unauthenticated requests; without explicit auth any user with network access can call the endpoints",
+    "evidence": [
+      {
+        "pr": 63081,
+        "url": "https://github.com/apache/airflow/pull/63081#discussion_r2901184002",
+        "excerpt": "anyone with network access to the webserver can approve, reject, or submit feedback"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/plugins/hitl_review.py"
+    ]
+  }
+]

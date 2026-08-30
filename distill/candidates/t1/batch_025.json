@@ -1,0 +1,221 @@
+[
+  {
+    "rule": "A provider's docs requirements table must list exactly the packages declared as dependencies in that provider's pyproject.toml — no more, no less.",
+    "category": "providers",
+    "trigger": "diff adds a row to a Requirements table in providers/*/docs/index.rst whose package is absent from the provider's pyproject.toml dependencies",
+    "rationale": "Stale or phantom entries in the requirements table mislead users about what the provider actually needs to install.",
+    "evidence": [
+      {
+        "pr": 57610,
+        "url": "https://github.com/apache/airflow/pull/57610#discussion_r2761636702",
+        "excerpt": "pyproject.toml does not declare attrs; please remove from the table"
+      }
+    ],
+    "scope_paths": ["providers/"]
+  },
+  {
+    "rule": "Every provider hook that declares a custom conn_type must have a matching hooks: section and connection-types: entry in provider.yaml so the hook is discoverable in docs and UI.",
+    "category": "providers",
+    "trigger": "diff adds a Hook class with conn_type = \"<custom>\" but provider.yaml lacks a hooks: block or connection-types: entry for that type",
+    "rationale": "Without the hooks/connection-types entry the hook is invisible to the Airflow UI connection form and to automated doc generation, unlike all other providers.",
+    "evidence": [
+      {
+        "pr": 57610,
+        "url": "https://github.com/apache/airflow/pull/57610#discussion_r2761089771",
+        "excerpt": "Please add a hooks: section and connection-types: entry so the hook is discoverable"
+      }
+    ],
+    "scope_paths": ["providers/"]
+  },
+  {
+    "rule": "Providers must not re-implement operators that already exist in airflow-core/standard (e.g. EmptyOperator); refer users to the core version instead.",
+    "category": "providers",
+    "trigger": "diff introduces an operator in a provider package whose behaviour duplicates a core/standard operator (e.g. a no-op or passthrough task)",
+    "rationale": "The core EmptyOperator is scheduler-optimised (acknowledged as noop without routing to an executor); a provider duplicate confuses users and loses that optimisation.",
+    "evidence": [
+      {
+        "pr": 57610,
+        "url": "https://github.com/apache/airflow/pull/57610#discussion_r2761028878",
+        "excerpt": "core EmptyOperator is optimized, not routed to executor but acknowledged in Scheduler"
+      }
+    ],
+    "scope_paths": ["providers/"]
+  },
+  {
+    "rule": "Provider code (hooks, listeners, plugins) must not call settings.configure_orm(); ORM initialisation is the responsibility of the scheduler/executor context.",
+    "category": "providers",
+    "trigger": "diff inside providers/ adds a call to settings.configure_orm()",
+    "rationale": "If execution has reached provider code, ORM is already initialised; calling configure_orm() again from a provider is unexpected and indicates a misunderstanding of the execution context.",
+    "evidence": [
+      {
+        "pr": 57610,
+        "url": "https://github.com/apache/airflow/pull/57610#discussion_r2761040480",
+        "excerpt": "if running in executor context you should assume ORM is initialized"
+      }
+    ],
+    "scope_paths": [
+      "providers/",
+      "airflow/plugins/"
+    ]
+  },
+  {
+    "rule": "Provider unit tests must use the provider-specific conn_type when creating test Connection fixtures, not a generic type such as 'http'.",
+    "category": "testing",
+    "trigger": "diff in providers/*/tests/ creates a Connection with conn_type=\"http\" (or another generic type) for a hook that declares its own conn_type",
+    "rationale": "Using the correct conn_type reflects real-world configuration and catches any conn-type-specific validation or UI behaviour introduced by the provider.",
+    "evidence": [
+      {
+        "pr": 57610,
+        "url": "https://github.com/apache/airflow/pull/57610#discussion_r2761636642",
+        "excerpt": "Using provider-specific conn_type reflects real-world configuration and catches conn-type-specific behavior"
+      }
+    ],
+    "scope_paths": ["providers/"]
+  },
+  {
+    "rule": "All __init__.py files under airflow/providers/ namespace directories must use the legacy pkgutil namespace definition (__path__ = __import__(\"pkgutil\").extend_path(__path__, __name__)), not implicit namespace packages.",
+    "category": "providers",
+    "trigger": "diff adds an __init__.py under providers/ (or airflow/providers/) that is empty or omits the pkgutil.extend_path line",
+    "rationale": "Implicit namespaces conflict with explicit ones; the pre-commit hooks enforce the legacy pattern so that all provider packages remain discoverable alongside each other.",
+    "evidence": [
+      {
+        "pr": 57610,
+        "url": "https://github.com/apache/airflow/pull/57610#discussion_r2779286601",
+        "excerpt": "airflow.providers folders should have legacy namespaces, otherwise other providers will not be discovered"
+      }
+    ],
+    "scope_paths": [
+      "providers/",
+      "airflow/providers/"
+    ]
+  },
+  {
+    "rule": "Provider RST documentation must use RestructuredText footnote syntax for footnote references, not plain bracketed numbers such as [1].",
+    "category": "docs",
+    "trigger": "diff in providers/*/docs/*.rst adds a reference of the form [N] that is not a proper RST footnote (.. [N] ...) or citation",
+    "rationale": "Plain [N] notation is not rendered as a hyperlinked footnote by Sphinx; RST footnote syntax is required for correct HTML output.",
+    "evidence": [
+      {
+        "pr": 54928,
+        "url": "https://github.com/apache/airflow/pull/54928#discussion_r2299559411",
+        "excerpt": "This should use RestructuredText's footnote syntax"
+      }
+    ],
+    "scope_paths": ["providers/"]
+  },
+  {
+    "rule": "When a provider hook is fully async, the corresponding operator must implement waiting exclusively through the defer/trigger mechanism; a synchronous blocking polling path must not be added.",
+    "category": "async",
+    "trigger": "diff on a provider operator whose hook is async adds a non-deferrable polling loop (while True / time.sleep) gated by a deferrable=False parameter",
+    "rationale": "Blocking inside a worker slot wastes resources; Airflow's trigger mechanism exists precisely to avoid holding a worker while polling. Adding a blocking path is considered bad practice.",
+    "evidence": [
+      {
+        "pr": 60369,
+        "url": "https://github.com/apache/airflow/pull/60369#discussion_r2708669587",
+        "excerpt": "Polling should be handled by triggers; blocking means you block a worker slot doing nothing"
+      }
+    ],
+    "scope_paths": ["providers/microsoft/azure/src/airflow/providers/microsoft/azure/operators/"]
+  },
+  {
+    "rule": "Operators within a provider package must use the parameter name wait_for_completion (not wait_for_termination) to control whether the operator waits for an async operation to finish.",
+    "category": "naming",
+    "trigger": "diff adds a boolean parameter named wait_for_termination to an operator class inside providers/",
+    "rationale": "Consistent naming across operators in the same package lowers the learning curve for users; wait_for_completion is the established convention in Airflow provider operators.",
+    "evidence": [
+      {
+        "pr": 60369,
+        "url": "https://github.com/apache/airflow/pull/60369#discussion_r2760020633",
+        "excerpt": "use wait_for_completion for consistency; easier for users if operators follow the same naming convention"
+      }
+    ],
+    "scope_paths": ["providers/"]
+  },
+  {
+    "rule": "Adding deferrable mode to a provider operator requires both an RST docs update for that operator and a newsfragment file at providers/<pkg>/newsfragments/<pr>.feature.rst.",
+    "category": "docs",
+    "trigger": "diff adds self.defer(...) to a provider operator but providers/<pkg>/newsfragments/ contains no <pr>.feature.rst and/or the operator's RST docs page is not updated",
+    "rationale": "Deferrable mode is a user-visible feature; the changelog fragment and docs page keep the release notes and user-facing documentation accurate.",
+    "evidence": [
+      {
+        "pr": 63614,
+        "url": "https://github.com/apache/airflow/pull/63614#discussion_r3133297861",
+        "excerpt": "No newsfragment under providers/microsoft/azure/newsfragments/ — a 63614.feature.rst would be good"
+      }
+    ],
+    "scope_paths": [
+      "providers/microsoft/azure/src/airflow/providers/microsoft/azure/operators/",
+      "providers/microsoft/azure/newsfragments/"
+    ]
+  },
+  {
+    "rule": "Azure blob path segments must be joined with posixpath.join, not os.path.join, because Azure blob names are always forward-slash-separated regardless of OS.",
+    "category": "correctness",
+    "trigger": "diff in a provider transfer or hook for Azure Blob Storage uses os.path.join to construct a blob name or path",
+    "rationale": "os.path.join uses backslash on Windows, producing invalid blob names; posixpath.join is unambiguous and cross-platform.",
+    "evidence": [
+      {
+        "pr": 64966,
+        "url": "https://github.com/apache/airflow/pull/64966#discussion_r3143750771",
+        "excerpt": "Azure blob names are always /-separated, but os.path.join uses \\ on Windows"
+      }
+    ],
+    "scope_paths": ["providers/microsoft/azure/src/airflow/providers/microsoft/azure/"]
+  },
+  {
+    "rule": "Use str.removeprefix() instead of str.replace(prefix, \"\", 1) when stripping a known leading prefix from blob or file path strings.",
+    "category": "correctness",
+    "trigger": "diff uses .replace(some_prefix, \"\", 1) to strip a leading path prefix from a string",
+    "rationale": "str.replace finds the first occurrence anywhere in the string, not just at the start, so it can incorrectly strip a mid-string occurrence; removeprefix is unambiguous.",
+    "evidence": [
+      {
+        "pr": 64966,
+        "url": "https://github.com/apache/airflow/pull/64966#discussion_r3143750768",
+        "excerpt": "str.replace finds the first occurrence anywhere, not just at the leading edge; removeprefix is unambiguous"
+      }
+    ],
+    "scope_paths": ["providers/microsoft/azure/src/airflow/providers/microsoft/azure/transfers/"]
+  },
+  {
+    "rule": "Airflow triggers must yield a TriggerEvent with a timeout status and descriptive message when a polling timeout is reached, rather than breaking out of the loop without yielding.",
+    "category": "async",
+    "trigger": "diff in providers/*/triggers/*.py contains a polling loop that reaches a timeout condition and uses break (or return) without yielding a TriggerEvent",
+    "rationale": "Breaking silently leaves the operator with no event to act on; the operator never learns the real reason for termination, masking timeouts as errors or hangs.",
+    "evidence": [
+      {
+        "pr": 68799,
+        "url": "https://github.com/apache/airflow/pull/68799#discussion_r3514903842",
+        "excerpt": "Why not yield the timeout TriggerEvent immediately instead of break?"
+      }
+    ],
+    "scope_paths": ["providers/microsoft/azure/src/airflow/providers/microsoft/azure/triggers/"]
+  },
+  {
+    "rule": "In trigger timeout paths, cancellation side-effects must be wrapped in their own try/except so the timeout TriggerEvent is always yielded with the correct reason, not the cancellation error.",
+    "category": "async",
+    "trigger": "diff in providers/*/triggers/*.py performs a cancel call inside a timeout branch without an independent try/except around that cancel call",
+    "rationale": "A transient failure on the cancel call must not replace the timeout message with a cancellation error message; the user must always see the real reason (timeout) for trigger termination.",
+    "evidence": [
+      {
+        "pr": 63614,
+        "url": "https://github.com/apache/airflow/pull/63614#discussion_r3144426356",
+        "excerpt": "cancel fails, falls through to outer except, yielding cancel error instead of 'Timeout waiting…'"
+      }
+    ],
+    "scope_paths": ["providers/microsoft/azure/src/airflow/providers/microsoft/azure/triggers/"]
+  },
+  {
+    "rule": "Provider plugin class docstrings must accurately describe only the events that are actually registered and handled by that plugin.",
+    "category": "docs",
+    "trigger": "diff adds or modifies a docstring on an AirflowPlugin subclass that claims to handle event types (e.g. DAG run events) not implemented in the plugin body",
+    "rationale": "Overpromising in user-facing plugin docstrings misleads users who rely on docs to understand plugin behaviour without reading source code.",
+    "evidence": [
+      {
+        "pr": 57610,
+        "url": "https://github.com/apache/airflow/pull/57610#discussion_r2761728618",
+        "excerpt": "plugin only registers a task-instance listener; docstring claims DAG run events too"
+      }
+    ],
+    "scope_paths": ["providers/"]
+  }
+]

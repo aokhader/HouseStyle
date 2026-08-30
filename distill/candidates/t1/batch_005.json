@@ -1,0 +1,336 @@
+[
+  {
+    "rule": "Use `session.flush()` instead of `session.commit()` within multi-operation task-completion workflows to preserve transaction atomicity; an early `commit()` inside `register_asset_change` leaves `AssetEvent` persisted even if a subsequent operation rolls back, creating inconsistent state between task state and asset events.",
+    "category": "database",
+    "trigger": "diff adds or changes `session.commit()` inside `register_asset_change` or any method that is called as part of a task-completion transaction spanning multiple models",
+    "rationale": "Using session.commit() mid-workflow means AssetEvent can be persisted while task state is rolled back, leading to data inconsistency; flush() keeps both within the same transaction boundary.",
+    "evidence": [
+      {
+        "pr": 62501,
+        "url": "https://github.com/apache/airflow/pull/62501#discussion_r2856878746",
+        "excerpt": "early commit here means AssetEvent persisted but task state may be rolled back"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/assets/manager.py"]
+  },
+  {
+    "rule": "When early visibility of an `AssetEvent` is required before the caller's transaction commits, use `create_session(scoped=False)` to open a truly independent session/connection rather than calling `session.commit()` on the shared session.",
+    "category": "database",
+    "trigger": "diff adds `create_session` call near `AssetEvent` insertion, or replaces `session.commit()` with a separate session block in `assets/manager.py`",
+    "rationale": "The scheduler's session must be able to observe the new AssetEvent row immediately; a scoped=False session has its own connection and transaction, making the row visible outside the caller's transaction without breaking the caller's atomicity.",
+    "evidence": [
+      {
+        "pr": 62501,
+        "url": "https://github.com/apache/airflow/pull/62501#discussion_r3425189902",
+        "excerpt": "Use `scoped=False` to get a truly independent session with its own connection/transaction"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/assets/manager.py"]
+  },
+  {
+    "rule": "When locking an `AssetModel` row with `with_row_locks`, select only the primary key column rather than the full ORM object to confine the lock to an index scan and avoid fetching the entire row.",
+    "category": "performance",
+    "trigger": "diff adds `with_row_locks(select(AssetModel).where(...))` that retrieves the full model when only the id is subsequently used",
+    "rationale": "Selecting only the id means the lock query uses a primary-key index scan and does not materialise the full row, reducing I/O on the metadata DB for the hot asset-change path.",
+    "evidence": [
+      {
+        "pr": 59183,
+        "url": "https://github.com/apache/airflow/pull/59183#discussion_r2602787179",
+        "excerpt": "query will only use index scan on primary key and not retrieve the whole row"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/assets/manager.py"]
+  },
+  {
+    "rule": "Do not call `session.flush()` in a `finally` block when the block is entered during an exception path; flushing inside an error handler is meaningless if the transaction will never be committed.",
+    "category": "database",
+    "trigger": "diff adds `session.flush()` inside a `finally:` or `except:` clause in an asset or scheduler code path",
+    "rationale": "If something commits later, the flush is redundant; if nothing commits, the flush still doesn't persist data. Flushing on error in a finally block adds confusion with no benefit.",
+    "evidence": [
+      {
+        "pr": 59183,
+        "url": "https://github.com/apache/airflow/pull/59183#discussion_r2627464589",
+        "excerpt": "not sure why flushing when catching an error; if something else commits, no point"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/assets/manager.py"]
+  },
+  {
+    "rule": "The `token:workload` scope must not be granted on mutation routes (PUT/POST/DELETE); restrict `token:workload` to read-only routes (GET variable/keys, GET/HEAD xcom, GET connection, GET dag_run) and keep write/delete routes as `token:execution` only.",
+    "category": "security",
+    "trigger": "diff adds `Security(require_auth, scopes=[\"token:execution\", \"token:workload\"])` on a router.put, router.post, or router.delete endpoint in the execution API",
+    "rationale": "token:workload is used by callback subprocesses which only issue reads; widening it to writes lets a compromised workload token delete any Variable or XCom cluster-wide.",
+    "evidence": [
+      {
+        "pr": 66608,
+        "url": "https://github.com/apache/airflow/pull/66608#discussion_r3337752291",
+        "excerpt": "workload token can now write or delete any Variable and XCom cluster-wide"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/variables.py",
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/xcoms.py"
+    ]
+  },
+  {
+    "rule": "Do not add `token:workload` as an accepted scope on endpoints that previously relied on `has_variable_access` or `has_xcom_access` guards without also restricting those endpoints to reads only; the workload token is a long-lived, low-privilege token and must not be broadened to cover state-changing operations.",
+    "category": "security",
+    "trigger": "diff replaces `Depends(has_variable_access)` or `Depends(has_xcom_access)` with `Security(require_auth, scopes=[..., \"token:workload\"])` on a PUT/DELETE route",
+    "rationale": "token:workload was designed for a single purpose: exchanging for an execution token via /run; broadening it regresses the security model for the entire cluster.",
+    "evidence": [
+      {
+        "pr": 66608,
+        "url": "https://github.com/apache/airflow/pull/66608#discussion_r3461091808",
+        "excerpt": "this change is regression on security, so this part at least needs reverting"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/variables.py",
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/xcoms.py"
+    ]
+  },
+  {
+    "rule": "On the `/run` endpoint, only mint a new execution token when the incoming token is `workload`-scoped; do not unconditionally regenerate a token on every `/run` call because it replaces tokens with more remaining validity and bypasses the `JWTReissueMiddleware` 20%-remaining rule.",
+    "category": "security",
+    "trigger": "diff adds unconditional `generator.generate(extras={\"scope\": \"execution\"})` and `response.headers[\"Refreshed-API-Token\"]` assignment inside the `ti_run` handler without a scope guard",
+    "rationale": "JWTReissueMiddleware only refreshes when <20% validity remains; unconditional minting on /run bypasses that rule, wastes JWT signing on retries, and hands clients a shorter-lived token than they already have.",
+    "evidence": [
+      {
+        "pr": 60108,
+        "url": "https://github.com/apache/airflow/pull/60108#discussion_r3120520807",
+        "excerpt": "gate on incoming scope; only mint execution token when incoming scope is workload"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"]
+  },
+  {
+    "rule": "When both `JWTReissueMiddleware` and a route handler write the same `Refreshed-API-Token` response header, add an inline comment at the route handler explaining the non-collision contract (e.g. \"middleware skips workload tokens so there is no collision\").",
+    "category": "docs",
+    "trigger": "diff adds `response.headers[\"Refreshed-API-Token\"]` assignment in a route handler that co-exists with `JWTReissueMiddleware`",
+    "rationale": "The coupling between middleware and handler using the same header name is invisible; without a comment, a future scope-filter change in the middleware could cause both to write the header on the same response silently.",
+    "evidence": [
+      {
+        "pr": 60108,
+        "url": "https://github.com/apache/airflow/pull/60108#discussion_r3120520818",
+        "excerpt": "comment pointing at JWTReissueMiddleware would save future debugging"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"]
+  },
+  {
+    "rule": "Generate the execution JWT token before the `running` state transition is committed to the DB; if token generation fails after a commit, the TI is stuck in `running` with no execution token and the worker cannot recover.",
+    "category": "correctness",
+    "trigger": "diff places `generator.generate()` or `response.headers[\"Refreshed-API-Token\"]` after the `session.commit()` / `session.flush()` that transitions the TI to `running`",
+    "rationale": "A generate() failure post-commit leaves the TI in running state but returns 500 to the worker; the worker retries /run, gets 409, and is permanently stuck with a workload token that can no longer make API calls.",
+    "evidence": [
+      {
+        "pr": 60108,
+        "url": "https://github.com/apache/airflow/pull/60108#discussion_r3120520822",
+        "excerpt": "DB transaction already committed and TI is in running state, yet worker gets 500"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"]
+  },
+  {
+    "rule": "Keep JWT/token-generation code outside the `except SQLAlchemyError` catch block in execution-API route handlers; SQLAlchemy error handling should cover only actual DB operations, not JWT signing.",
+    "category": "correctness",
+    "trigger": "diff adds `services.aget(JWTGenerator)` or `generator.generate()` inside a `try: ... except SQLAlchemyError:` block in an execution API route",
+    "rationale": "A non-SQLAlchemy exception from services.aget() or generator.generate() propagates as an unhandled 500 when wrapped inside an SQLAlchemyError catcher, making the error invisible to callers.",
+    "evidence": [
+      {
+        "pr": 60108,
+        "url": "https://github.com/apache/airflow/pull/60108#discussion_r2957015926",
+        "excerpt": "non-SQLAlchemy exception propagates as unhandled 500 inside the SQLAlchemy catch"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"]
+  },
+  {
+    "rule": "All new routers in the execution API must set `route_class=ExecutionAPIRoute`; omitting it means the `allowed_token_types` default falls back to `{\"execution\"}` only, silently blocking any future `token:workload` routes on that router.",
+    "category": "security",
+    "trigger": "diff adds a new `VersionedAPIRouter(...)` in `airflow-core/src/airflow/api_fastapi/execution_api/routes/` without `route_class=ExecutionAPIRoute`",
+    "rationale": "The execution API security layer relies on ExecutionAPIRoute to expose the allowed_token_types mechanism; without it, workload-token routes can never be reached even if security decorators are present.",
+    "evidence": [
+      {
+        "pr": 66073,
+        "url": "https://github.com/apache/airflow/pull/66073#discussion_r3175794465",
+        "excerpt": "workload-token branch won't be reachable because allowed_token_types falls back to execution"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/api_fastapi/execution_api/routes/"]
+  },
+  {
+    "rule": "When `?all_map_indices=true` on a task-state endpoint can affect sibling mapped tasks (different TIs with different tokens), the route must either use a broader scope (e.g. `ti:fleet`), require a leader check (`map_index in (-1, 0)`), or document the intentional fleet-wide authority in the docstring.",
+    "category": "security",
+    "trigger": "diff adds an endpoint parameter (e.g. `all_map_indices: bool`) that expands the scope of a state-mutation beyond the single TI identified by the JWT subject",
+    "rationale": "Router-level `Security(require_auth, scopes=[\"ti:self\"])` only validates the one TI in the path; a worker for map_index=0 must not be able to silently clear state for map_index=1..N.",
+    "evidence": [
+      {
+        "pr": 66073,
+        "url": "https://github.com/apache/airflow/pull/66073#discussion_r3170621783",
+        "excerpt": "worker for map_index=0 can clear state for map_index=1..N"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/api_fastapi/execution_api/routes/task_state.py"]
+  },
+  {
+    "rule": "Execution-API list endpoints that query the metadata DB must apply pagination (`limit`/`offset`) or a documented hard cap; unbounded `session.scalars(stmt).all()` on large tables (e.g. Variables) is a slow-query risk at scale.",
+    "category": "performance",
+    "trigger": "diff adds a GET list route in the execution API that calls `session.scalars(stmt).all()` without a `limit`, `offset`, or `LIMIT` clause",
+    "rationale": "Deployments with 10k+ variables materialise the full result set in one response; other Variable endpoints paginate, so a new unbounded endpoint is an inconsistency and a metadata DB risk.",
+    "evidence": [
+      {
+        "pr": 66022,
+        "url": "https://github.com/apache/airflow/pull/66022#discussion_r3215276661",
+        "excerpt": "materializes every matching key with no upper bound; 10k+ variables is real perf concern"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/api_fastapi/execution_api/routes/variables.py"]
+  },
+  {
+    "rule": "High-volume execution-API endpoints (e.g. heartbeat) must use `log.debug` rather than `log.info` for fall-through diagnostic messages that fire on every fast-path miss; INFO-level logging on high-frequency paths floods production logs.",
+    "category": "correctness",
+    "trigger": "diff adds `log.info(...)` on a fallback or miss path inside a heartbeat or high-frequency execution API handler",
+    "rationale": "The heartbeat endpoint is very high volume; an INFO log on every fast-path miss creates significant log noise for non-running TIs, mismatched host/pid, or invalid IDs.",
+    "evidence": [
+      {
+        "pr": 65029,
+        "url": "https://github.com/apache/airflow/pull/65029#discussion_r3066476415",
+        "excerpt": "emitting INFO log on every fast-path miss can create significant log noise"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"]
+  },
+  {
+    "rule": "When archiving a `task_instance_history` snapshot on the retry path, copy `rendered_map_index` onto the in-memory TI object whenever the field is present in the patch payload, even when its value is `None`; a `None` check silently omits the cleared value from the archive.",
+    "category": "correctness",
+    "trigger": "diff archives a TIH row and conditionally sets `ti._rendered_map_index` only when the payload value is not None (e.g. `if ti_patch_payload.rendered_map_index is not None:`)",
+    "rationale": "A client sending rendered_map_index=null intends to clear the field; the live-row UPDATE will set it NULL but the TIH snapshot retains the old value, making history inconsistent with what the worker actually sent.",
+    "evidence": [
+      {
+        "pr": 69248,
+        "url": "https://github.com/apache/airflow/pull/69248#discussion_r3527361134",
+        "excerpt": "set _rendered_map_index whenever field is present in payload, even if None"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"]
+  },
+  {
+    "rule": "FastAPI router path ordering in the execution API must avoid greedy path parameter matching; static path segments (e.g. HEAD routes) must be declared before parameterised routes at the same prefix level.",
+    "category": "correctness",
+    "trigger": "diff reorders or removes `@router.head(...)` declarations relative to `@router.get(...)` with overlapping path patterns in the execution API routes",
+    "rationale": "FastAPI matches routes in declaration order; a greedy parameterised GET can shadow a HEAD route declared after it, causing CI failures due to incorrect routing.",
+    "evidence": [
+      {
+        "pr": 58344,
+        "url": "https://github.com/apache/airflow/pull/58344#discussion_r2553978553",
+        "excerpt": "necessary to reorder the router to avoid the greedy matching problem"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/api_fastapi/execution_api/routes/xcoms.py"]
+  },
+  {
+    "rule": "In `config.yml` descriptions, write `Dag` (title-case, not `DAG`) when referring to the Airflow concept in prose; use `DAG` only in code identifiers or quoted strings.",
+    "category": "docs",
+    "trigger": "diff adds or modifies a `description:` block in `config.yml` containing the word `DAG` in a prose sentence (not inside backticks or a code identifier)",
+    "rationale": "Reviewers consistently suggest `Dag` over `DAG` in prose descriptions in config.yml to match the project's capitalisation convention for user-facing documentation.",
+    "evidence": [
+      {
+        "pr": 59430,
+        "url": "https://github.com/apache/airflow/pull/59430#discussion_r2660900575",
+        "excerpt": "Controls the behavior of Dag stability checker performed before Dag parsing"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/config_templates/config.yml"]
+  },
+  {
+    "rule": "config.yml descriptions must not expose internal DB table names (e.g. `task_state rows`) in user-facing text; describe the concept abstractly instead.",
+    "category": "docs",
+    "trigger": "diff adds a `description:` in `config.yml` that references an internal database table name (e.g. `task_state rows`, `dag_run rows`)",
+    "rationale": "User-facing config descriptions should not leak DB schema implementation details; describe the logical concept so users are not confused by internal names.",
+    "evidence": [
+      {
+        "pr": 66463,
+        "url": "https://github.com/apache/airflow/pull/66463#discussion_r3217397224",
+        "excerpt": "user-facing, let's not emphasize the DB aspect"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/config_templates/config.yml"]
+  },
+  {
+    "rule": "Do not use `conf.has_option` to test whether a boolean config option is True or False; `has_option` returns True whenever the key exists (including when the stored value is False), producing incorrect branching for tri-state boolean configs with a `~` default.",
+    "category": "correctness",
+    "trigger": "diff adds `conf.has_option(section, key)` as a condition that branches on a boolean config option declared with `type: boolean` and `default: ~` in config.yml",
+    "rationale": "`conf.has_option` checks key presence, not truthiness; a False-valued config still returns True from has_option, breaking any conditional that intended to treat absence and False differently.",
+    "evidence": [
+      {
+        "pr": 63884,
+        "url": "https://github.com/apache/airflow/pull/63884#discussion_r3227471936",
+        "excerpt": "conf.has_option returning 'yes the config has an option' which in that case is False"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/config_templates/config.yml",
+      "airflow-core/src/airflow/"
+    ]
+  },
+  {
+    "rule": "CLI date-range arguments that filter by a `partition_date` must document whether the end date is inclusive or exclusive and what the correct bound is for an entire calendar period (e.g. January); ambiguity between midnight-on-the-last-day and first-of-next-month causes silent data loss.",
+    "category": "docs",
+    "trigger": "diff adds `--start-date` / `--end-date` (or similar) CLI arguments that filter DAG runs or partitioned runs by date in `cli_config.py` or `dag_command.py`",
+    "rationale": "If the end date is midnight on the 31st, January 31st data is excluded; if it is February 1st, it incorrectly includes midnight February 1st — the help text must be unambiguous.",
+    "evidence": [
+      {
+        "pr": 66520,
+        "url": "https://github.com/apache/airflow/pull/66520#discussion_r3272996988",
+        "excerpt": "2025-01-31 would only clear until midnight 31st but 2026-02-01 incorrectly includes midnight"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/cli/cli_config.py",
+      "airflow-core/src/airflow/cli/commands/dag_command.py"
+    ]
+  },
+  {
+    "rule": "When `parsedate` returns a UTC-normalised datetime, the help text for that CLI argument must note that the calendar day is derived from the UTC instant, not the user's local timezone or the timetable's timezone; a tz-aware input can silently shift the interpreted date.",
+    "category": "docs",
+    "trigger": "diff uses `type=parsedate` for a CLI argument whose help text says \"time-of-day is ignored\" but does not mention that the calendar day is the UTC calendar day of the parsed instant",
+    "rationale": "A tz-aware value like 2026-02-19T07:00:00+08:00 parses to 2026-02-18T23:00Z; .date() then yields 2026-02-18, not the user's intended 2026-02-19, with no warning.",
+    "evidence": [
+      {
+        "pr": 67717,
+        "url": "https://github.com/apache/airflow/pull/67717#discussion_r3325770709",
+        "excerpt": "calendar day is read from parsed UTC instant rather than re-projected into timetable tz"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/cli/commands/dag_command.py"]
+  },
+  {
+    "rule": "A PR that bundles logically independent features (e.g. DAG caching + worker recycling) must either update the PR description to explicitly include all features with rationale and compatibility notes, or split into separate PRs.",
+    "category": "commit-hygiene",
+    "trigger": "diff in `api_server_command.py` or a scheduler/worker config file introduces a second independent feature (e.g. `limit_max_requests`) alongside the one described in the PR title",
+    "rationale": "Unannounced features in a PR bypass the rationale/metrics/compat-notes review that new operational knobs require, and make the change history harder to bisect.",
+    "evidence": [
+      {
+        "pr": 60804,
+        "url": "https://github.com/apache/airflow/pull/60804#discussion_r3066474591",
+        "excerpt": "PR title focuses on DBDagBag caching and does not mention worker recycling"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/cli/commands/api_server_command.py"]
+  },
+  {
+    "rule": "Duplicate post-resolution logic shared between multiple asset-store endpoints (e.g. `/by-uri/value` and `/by-name/value`) must be extracted into a helper function to ensure consistency between the two paths.",
+    "category": "correctness",
+    "trigger": "diff adds a second execution-API asset-store route whose body after the `_resolve_asset_id_by_uri` / `_resolve_asset_id_by_name` call is identical or near-identical to an existing route",
+    "rationale": "Inconsistent copies of the same logic diverge silently over time; a shared helper guarantees both PUT routes behave identically for all future changes.",
+    "evidence": [
+      {
+        "pr": 67902,
+        "url": "https://github.com/apache/airflow/pull/67902#discussion_r3354295849",
+        "excerpt": "logic after _resolve_asset_id_by_uri/name is same; introduce a helper to ensure consistency"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/api_fastapi/execution_api/routes/asset_store.py"]
+  }
+]

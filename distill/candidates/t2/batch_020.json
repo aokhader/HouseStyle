@@ -1,0 +1,227 @@
+[
+  {
+    "rule": "When a provider supports Airflow versions below 3.2, do not call ExecutorConf methods (has_option, getsection, etc.) that were only added in 3.2; gate such calls behind an AIRFLOW_V_3_2_PLUS guard or use the pre-existing conf fallback.",
+    "category": "providers",
+    "trigger": "Provider code calls config.has_option(), config.getsection(), or similar ExecutorConf methods without an AIRFLOW_V_3_2_PLUS version guard",
+    "rationale": "ExecutorConf gained those methods in commit 5ba75af409 targeting Airflow 3.2+. Calling them on Airflow 3.1.x raises AttributeError at runtime, silently breaking backward compatibility for users who have not yet upgraded.",
+    "evidence": [
+      {
+        "pr": 60675,
+        "url": "https://github.com/apache/airflow/pull/60675#discussion_r2724353852",
+        "excerpt": "ExecutorConf lacks has_option; added in 3.2, breaks 3.1.3 users"
+      }
+    ],
+    "scope_paths": [
+      "providers/celery/src/airflow/providers/celery/cli/celery_command.py"
+    ]
+  },
+  {
+    "rule": "Centralise all cross-version Airflow compatibility shims for providers in providers/common/compat/src/airflow/providers/common/compat/sdk.py rather than scattering inline version checks throughout provider code.",
+    "category": "providers",
+    "trigger": "Provider code contains repeated inline `if AIRFLOW_V_3_2_PLUS` (or similar) blocks instead of a single helper in providers/common/compat",
+    "rationale": "The community maintains a dedicated compat/sdk.py for exactly these shims. Spreading them across multiple files makes version-bump migrations harder and increases the chance of inconsistent version gates.",
+    "evidence": [
+      {
+        "pr": 61153,
+        "url": "https://github.com/apache/airflow/pull/61153#discussion_r2858312360",
+        "excerpt": "Instead of many `if v3.2` checks, consider adding to compat/sdk.py"
+      }
+    ],
+    "scope_paths": [
+      "providers/celery/src/airflow/providers/celery/executors/celery_executor.py",
+      "providers/common/compat/src/airflow/providers/common/compat/sdk.py"
+    ]
+  },
+  {
+    "rule": "When raising AirflowException inside a try block that is followed by a broad `except Exception` handler, add an `except AirflowException: raise` clause before the generic handler to prevent the specific error from being swallowed and re-wrapped.",
+    "category": "correctness",
+    "trigger": "A function raises AirflowException inside a try block whose except clause is `except Exception` without a prior `except AirflowException: raise`",
+    "rationale": "Without a preceding re-raise clause the intentional, descriptive AirflowException gets caught and re-wrapped as a generic 'unknown error', defeating the purpose of the specific message and breaking tests that assert on it.",
+    "evidence": [
+      {
+        "pr": 64767,
+        "url": "https://github.com/apache/airflow/pull/64767#discussion_r3066476711",
+        "excerpt": "AirflowException caught by broad handler; defeats clearer error and breaks tests"
+      }
+    ],
+    "scope_paths": [
+      "providers/celery/src/airflow/providers/celery/executors/default_celery.py"
+    ]
+  },
+  {
+    "rule": "In provider changelog (.rst) entries and user-facing documentation, spell out full operator class names (e.g. KubernetesPodOperator) instead of internal abbreviations (e.g. KPO).",
+    "category": "docs",
+    "trigger": "A changelog or docs .rst file references an operator by an abbreviation (KPO, KJO, etc.) rather than its full class name",
+    "rationale": "Most users do not know what KPO stands for; using abbreviations in user-facing communications creates confusion. The community convention is to use the full class name in any externally visible text.",
+    "evidence": [
+      {
+        "pr": 67137,
+        "url": "https://github.com/apache/airflow/pull/67137#discussion_r3265556651",
+        "excerpt": "Most users don't know KPO; avoid this name in user-facing communications"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/docs/changelog.rst"
+    ]
+  },
+  {
+    "rule": "In provider code, prefer importing Context from airflow.sdk with a fallback to airflow.utils.context under TYPE_CHECKING, rather than using type: ignore suppression on a single-source import.",
+    "category": "providers",
+    "trigger": "A provider file imports Context from airflow.utils.context under TYPE_CHECKING with a `# type: ignore` comment instead of a try/except fallback preferring airflow.sdk",
+    "rationale": "airflow.sdk is the forward-compatible import path; the try/except pattern in TYPE_CHECKING blocks is the community-approved idiom for supporting both Airflow 2.x and 3.x in provider code without silencing type errors.",
+    "evidence": [
+      {
+        "pr": 53600,
+        "url": "https://github.com/apache/airflow/pull/53600#discussion_r2241642015",
+        "excerpt": "Prefer `try: from airflow.sdk import Context` with fallback under TYPE_CHECKING"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/decorators/kubernetes_cmd.py"
+    ]
+  },
+  {
+    "rule": "In the kubernetes provider, do not use the generic AirflowException; raise a provider-specific exception class instead.",
+    "category": "providers",
+    "trigger": "Code under providers/cncf/kubernetes/ raises AirflowException directly",
+    "rationale": "The community decided to ban AirflowException in the kubernetes provider because it is too unspecific; static checks enforce this. Provider-specific exceptions give callers a meaningful type to catch and improve debuggability.",
+    "evidence": [
+      {
+        "pr": 56875,
+        "url": "https://github.com/apache/airflow/pull/56875#discussion_r2446083077",
+        "excerpt": "Community decided to ban AirflowException; create K8s provider-specific exception"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/hooks/kubernetes.py"
+    ]
+  },
+  {
+    "rule": "The return-type annotation of a public Hook method (e.g. get_conn) must not be changed to expose a private internal wrapper class; keep the public API type stable.",
+    "category": "api-design",
+    "trigger": "A public Hook method's return annotation is changed from a public SDK type (e.g. client.ApiClient) to a private/internal class (prefixed with _)",
+    "rationale": "Callers rely on the declared public type. Exposing an internal wrapper class leaks implementation details, confuses users reading type hints, and constitutes an unnecessary breaking change to the hook's public contract.",
+    "evidence": [
+      {
+        "pr": 60254,
+        "url": "https://github.com/apache/airflow/pull/60254#discussion_r2677651649",
+        "excerpt": "Do NOT change signature to private wrapper; exposes impl detail, confuses users"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/hooks/kubernetes.py"
+    ]
+  },
+  {
+    "rule": "When a method's caching or reload semantics change (e.g. from 'load once' to 'reload conditionally'), update the docstring to reflect the new behaviour.",
+    "category": "docs",
+    "trigger": "A method's internal logic changes its execution frequency (e.g. a `_config_loaded` flag is bypassed) but the docstring still describes the old 'once per instance' semantics",
+    "rationale": "Stale docstrings mislead callers who read them when debugging repeated config loads or unexpected re-initialisation, and are flagged during review as a source of confusion.",
+    "evidence": [
+      {
+        "pr": 65212,
+        "url": "https://github.com/apache/airflow/pull/65212#discussion_r3081674884",
+        "excerpt": "_load_config docstring says 'once per instance' but new exec-auth reloads every call"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/hooks/kubernetes.py"
+    ]
+  },
+  {
+    "rule": "When an isinstance(x, str) guard is added as a defensive safeguard against a violation of the declared type contract (e.g. the Kubernetes API returning a str where DateTime is expected), add an inline comment explaining the deviation from the interface spec.",
+    "category": "correctness",
+    "trigger": "Code adds `if isinstance(arg, str)` to handle a type that is not in the parameter's declared annotation, without an explanatory comment",
+    "rationale": "Silent spec violations confuse future readers; the community requires an explicit comment (e.g. '# against interface spec but accept string as safeguard') so the defensive code is not mistakenly cleaned up as dead code.",
+    "evidence": [
+      {
+        "pr": 65498,
+        "url": "https://github.com/apache/airflow/pull/65498#discussion_r3107101391",
+        "excerpt": "Add comment: 'against interface spec but accept string as safeguard'"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/pod.py"
+    ]
+  },
+  {
+    "rule": "Do not set core.parallelism on a per-team basis via AIRFLOW__TEAM_<name>___CORE__PARALLELISM; per-team configuration must use executor-specific config sections only.",
+    "category": "correctness",
+    "trigger": "Test or production code sets AIRFLOW__TEAM_*___CORE__PARALLELISM or overrides core.parallelism per executor team",
+    "rationale": "The scheduler reads core.parallelism and assumes it is consistent across all executor teams; allowing per-team overrides breaks scheduling logic that depends on a single authoritative parallelism value.",
+    "evidence": [
+      {
+        "pr": 61798,
+        "url": "https://github.com/apache/airflow/pull/61798#discussion_r2824222896",
+        "excerpt": "core.parallelism must be consistent across executors; scheduler depends on it"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/tests/unit/cncf/kubernetes/executors/test_kubernetes_executor.py"
+    ]
+  },
+  {
+    "rule": "Keep test assertions on log messages in sync with the actual log strings emitted by production code; do not update expected strings in tests without updating the corresponding log call in the source.",
+    "category": "testing",
+    "trigger": "A test asserts `caplog.text` or a log message string that does not match the string passed to self.log.* / logger.* in the corresponding production code",
+    "rationale": "Mismatched expected log strings make tests pass vacuously when they should fail, hiding regressions in log output that operators and users rely on for observability.",
+    "evidence": [
+      {
+        "pr": 63888,
+        "url": "https://github.com/apache/airflow/pull/63888#discussion_r2997414459",
+        "excerpt": "Changed expected message in tests but didn't change the actual log in code"
+      }
+    ],
+    "scope_paths": [
+      "providers/celery/tests/integration/celery/test_celery_executor.py"
+    ]
+  },
+  {
+    "rule": "Do not rename or broaden a method's signature to imply it handles additional entity types (e.g. both tasks and callbacks) until the implementation actually handles all those types.",
+    "category": "api-design",
+    "trigger": "A method is renamed from a specific type (update_task_state) to a broader type (update_workload_state) but the body still only handles one of the implied types",
+    "rationale": "Broadening a method name without complete implementation misleads callers and reviewers into assuming full coverage; partial implementations should keep the narrower name or add explicit NotImplemented guards for unsupported cases.",
+    "evidence": [
+      {
+        "pr": 63888,
+        "url": "https://github.com/apache/airflow/pull/63888#discussion_r2997464277",
+        "excerpt": "Callbacks not supported yet; method name implies full handling when it doesn't"
+      }
+    ],
+    "scope_paths": [
+      "providers/celery/src/airflow/providers/celery/executors/celery_executor.py"
+    ]
+  },
+  {
+    "rule": "Remove TYPE_CHECKING annotation blocks that assign a type hint to a local variable when that variable already receives a concrete type from the surrounding runtime logic; do not leave copy-paste TYPE_CHECKING stubs in function bodies.",
+    "category": "correctness",
+    "trigger": "A function body contains `if TYPE_CHECKING: _var: SomeType` where _var is already assigned a concrete value by an if/else branch in the same function",
+    "rationale": "Such blocks are copy-paste artefacts that add noise without any type-narrowing benefit; the annotation never escapes the function and the type checker already infers the concrete type from the assignment.",
+    "evidence": [
+      {
+        "pr": 67127,
+        "url": "https://github.com/apache/airflow/pull/67127#discussion_r3262851261",
+        "excerpt": "TYPE_CHECKING annotation is copy-paste leftover; _conf already gets concrete type"
+      }
+    ],
+    "scope_paths": [
+      "providers/celery/src/airflow/providers/celery/executors/celery_executor_utils.py"
+    ]
+  },
+  {
+    "rule": "Provider documentation describing operator enum-valued parameters (such as on_finish_action) must enumerate and accurately describe every valid enum value, including its exact state-transition semantics.",
+    "category": "docs",
+    "trigger": "A docs .rst file lists only a subset of the valid values for an enum-type operator parameter without noting the omission",
+    "rationale": "Incomplete documentation of valid parameter values forces users to read source code; for KubernetesPodOperator the community requires all on_finish_action values documented with their precise pod-state behaviour.",
+    "evidence": [
+      {
+        "pr": 62401,
+        "url": "https://github.com/apache/airflow/pull/62401#discussion_r2850588383",
+        "excerpt": "Missing delete_active_pod value; delete_succeeded_pod semantics also unspecified"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/docs/operators.rst"
+    ]
+  }
+]

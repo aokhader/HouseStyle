@@ -1,0 +1,226 @@
+[
+  {
+    "rule": "Use the AIRFLOW_V_X_Y_PLUS sentinel from version_compat instead of inline packaging.version.parse comparisons for Airflow version guards",
+    "category": "providers",
+    "trigger": "packaging.version.parse(airflow_version) compared against a literal version string inside a provider",
+    "rationale": "The repo provides pre-computed version sentinels (e.g. AIRFLOW_V_3_1_PLUS) in airflow.providers.fab.version_compat; using raw packaging.version.parse is verbose and inconsistent with the canonical pattern",
+    "evidence": [
+      {
+        "pr": 54043,
+        "url": "https://github.com/apache/airflow/pull/54043#discussion_r2249218988",
+        "excerpt": "use AIRFLOW_V_3_1_PLUS from airflow.providers.fab.version_compat"
+      }
+    ],
+    "scope_paths": ["providers/fab/src/airflow/providers/fab/"]
+  },
+  {
+    "rule": "Do not mutate Flask-AppBuilder's global Model.metadata at import time; scope metadata overrides to Airflow's own mapper registry only",
+    "category": "correctness",
+    "trigger": "Model.metadata = ... or assignment to Base.metadata at module level inside the FAB provider",
+    "rationale": "Mutating FAB's shared Model.metadata at import time silently overrides naming conventions and schema config for all code importing FAB's Model, not just Airflow's own tables",
+    "evidence": [
+      {
+        "pr": 62234,
+        "url": "https://github.com/apache/airflow/pull/62234#discussion_r2914981226",
+        "excerpt": "global side effect changes Model.metadata for all code importing Flask-AppBuilder"
+      }
+    ],
+    "scope_paths": ["providers/fab/src/airflow/providers/fab/auth_manager/models/"]
+  },
+  {
+    "rule": "Prefer removing existing type: ignore suppressions rather than adding new suppression codes",
+    "category": "correctness",
+    "trigger": "diff adds a new mypy error code to an existing # type: ignore comment",
+    "rationale": "Airflow reviewers explicitly ask contributors to look for ways to remove existing ignores instead of broadening suppression lists",
+    "evidence": [
+      {
+        "pr": 57369,
+        "url": "https://github.com/apache/airflow/pull/57369#discussion_r2468874725",
+        "excerpt": "we should be looking for ways to remove existing ignores instead of adding more"
+      }
+    ],
+    "scope_paths": ["providers/fab/src/airflow/providers/fab/"]
+  },
+  {
+    "rule": "When running under Uvicorn (ASGI), remove the Flask/Werkzeug Date response header unconditionally so the server emits only one Date header",
+    "category": "correctness",
+    "trigger": "flask_app.after_request hook reads or conditionally removes the Date header when integrating with Uvicorn",
+    "rationale": "Flask's Date header is added before Uvicorn adds its own; conditional removal still results in duplicate headers because Flask's header is not visible to Uvicorn's layer",
+    "evidence": [
+      {
+        "pr": 64726,
+        "url": "https://github.com/apache/airflow/pull/64726#discussion_r3066472608",
+        "excerpt": "remove the Date header from Flask response unconditionally so only server-provided Date is emitted"
+      }
+    ],
+    "scope_paths": ["providers/fab/src/airflow/providers/fab/www/app.py"]
+  },
+  {
+    "rule": "Derive the secure-cookie flag from both the request scheme and the ssl_cert config, not from ssl_cert alone",
+    "category": "security",
+    "trigger": "secure = bool(conf.get('api', 'ssl_cert', fallback='')) without checking request.base_url.scheme",
+    "rationale": "SSL termination may happen upstream; relying solely on ssl_cert misses HTTPS requests that arrive without a configured cert path",
+    "evidence": [
+      {
+        "pr": 55506,
+        "url": "https://github.com/apache/airflow/pull/55506#discussion_r2348802441",
+        "excerpt": "secure = request.base_url.scheme == 'https' or bool(conf.get('api', 'ssl_cert'))"
+      }
+    ],
+    "scope_paths": ["providers/fab/src/airflow/providers/fab/www/views.py"]
+  },
+  {
+    "rule": "Use spec= or autospec= when creating Mock objects for SQLAlchemy sessions and ORM model instances in Airflow tests",
+    "category": "testing",
+    "trigger": "Mock() or MagicMock() without spec= used for a session, role, or permission object in a provider test",
+    "rationale": "Unspecced mocks allow tests to pass with invalid attribute/method usage; Airflow testing expectations require spec'd mocks for session and ORM objects",
+    "evidence": [
+      {
+        "pr": 62737,
+        "url": "https://github.com/apache/airflow/pull/62737#discussion_r2874870299",
+        "excerpt": "Using spec/autospec aligns better with Airflow's testing expectations"
+      }
+    ],
+    "scope_paths": ["providers/fab/tests/unit/fab/"]
+  },
+  {
+    "rule": "When a provider imports an API added in a recent version of another provider, guard the import with a try/except ImportError and early-return to maintain compatibility with older provider versions",
+    "category": "providers",
+    "trigger": "unconditional import of a symbol from another provider's recently-added API module (e.g. airflow.providers.openlineage.api.*)",
+    "rationale": "Providers have independent release cycles; an unconditional import of a newly added API breaks installations running an older version of the dependency provider",
+    "evidence": [
+      {
+        "pr": 69234,
+        "url": "https://github.com/apache/airflow/pull/69234#discussion_r3549548031",
+        "excerpt": "will not work with older OL provider; api was added recently, so we need try/except and early return"
+      }
+    ],
+    "scope_paths": ["providers/google/src/airflow/providers/google/cloud/openlineage/"]
+  },
+  {
+    "rule": "In Google provider hooks, decompose compound resource-name strings (e.g. projects/{p}/locations/{l}/reasoningEngines/{id}) into individual parameters rather than accepting the full name as a single argument",
+    "category": "api-design",
+    "trigger": "a Google provider hook method accepts a parameter named `name` typed as str that represents a full GCP resource path",
+    "rationale": "The common practice in the google provider is to split compound resource names into constituent parts (project_id, location, resource_id) as seen in endpoint_service.py and other hooks",
+    "evidence": [
+      {
+        "pr": 68479,
+        "url": "https://github.com/apache/airflow/pull/68479#discussion_r3412039649",
+        "excerpt": "common practice in google provider is to divide the name by parts"
+      }
+    ],
+    "scope_paths": ["providers/google/src/airflow/providers/google/cloud/hooks/vertex_ai/"]
+  },
+  {
+    "rule": "Hook method parameter types must match the corresponding Google Cloud client library types exactly, not be widened to Any",
+    "category": "api-design",
+    "trigger": "a Google provider hook method uses Any for a parameter whose client counterpart has a concrete type (e.g. types.DeleteAgentEngineConfigOrDict)",
+    "rationale": "Using Any instead of the client library type loses static checking and diverges from the client contract; reviewers require parity with the client's declared types",
+    "evidence": [
+      {
+        "pr": 68479,
+        "url": "https://github.com/apache/airflow/pull/68479#discussion_r3427479097",
+        "excerpt": "type should be consistent with type in the Client; client uses types.DeleteAgentEngineConfigOrDict"
+      }
+    ],
+    "scope_paths": ["providers/google/src/airflow/providers/google/cloud/hooks/vertex_ai/"]
+  },
+  {
+    "rule": "In Google provider hooks that use @GoogleBaseHook.fallback_to_default_project_id, describe project_id as optional in the docstring and position it last in the parameter list",
+    "category": "docs",
+    "trigger": "a hook method decorated with @GoogleBaseHook.fallback_to_default_project_id documents project_id as 'Required' or places it before other parameters",
+    "rationale": "The fallback decorator supplies a default project_id, making it optional; describing it as required and placing it early in the signature is misleading and inconsistent with other Google provider hooks",
+    "evidence": [
+      {
+        "pr": 68479,
+        "url": "https://github.com/apache/airflow/pull/68479#discussion_r3410627885",
+        "excerpt": "project_id described as required when default implies optional; should be moved to end"
+      }
+    ],
+    "scope_paths": ["providers/google/src/airflow/providers/google/cloud/hooks/vertex_ai/"]
+  },
+  {
+    "rule": "Operator execute_complete methods must branch explicitly on success, timeout, and error trigger statuses rather than collapsing all non-success states into a single error branch",
+    "category": "correctness",
+    "trigger": "execute_complete contains if event['status'] != 'success': raise ... without separate handling for timeout",
+    "rationale": "Timeout and error are distinct outcomes; collapsing them loses actionable information and prevents callers from distinguishing transient failures from hard errors",
+    "evidence": [
+      {
+        "pr": 68479,
+        "url": "https://github.com/apache/airflow/pull/68479#discussion_r3410679318",
+        "excerpt": "explicitly branch on success, timeout and error"
+      }
+    ],
+    "scope_paths": ["providers/google/src/airflow/providers/google/cloud/operators/vertex_ai/"]
+  },
+  {
+    "rule": "Every Google provider operator execute method must emit a self.log.info call describing the operation being performed",
+    "category": "correctness",
+    "trigger": "an operator execute() method in providers/google that calls a hook without a preceding or following self.log.info()",
+    "rationale": "Consistent with the established pattern in google provider operators (e.g. endpoint_service.py); reviewers explicitly require log.info for observability",
+    "evidence": [
+      {
+        "pr": 68479,
+        "url": "https://github.com/apache/airflow/pull/68479#discussion_r3412787021",
+        "excerpt": "could you add a self.log.info for this method as in endpoint_service.py"
+      }
+    ],
+    "scope_paths": ["providers/google/src/airflow/providers/google/cloud/operators/vertex_ai/"]
+  },
+  {
+    "rule": "Connection environment variable examples in provider docs must use URI format (not JSON object format) for AIRFLOW_CONN_* variables",
+    "category": "docs",
+    "trigger": "provider .rst doc contains export AIRFLOW_CONN_<ID>='{...}' with a JSON object literal",
+    "rationale": "Airflow's env-var connection backend parses AIRFLOW_CONN_* as URIs, not JSON; JSON examples are rejected or silently misparsed",
+    "evidence": [
+      {
+        "pr": 56324,
+        "url": "https://github.com/apache/airflow/pull/56324#discussion_r3066475428",
+        "excerpt": "AIRFLOW_CONN_ env variable is parsed as URI, not JSON; this example will be rejected"
+      }
+    ],
+    "scope_paths": ["providers/google/docs/connections/"]
+  },
+  {
+    "rule": "Provider pyproject.toml workaround dependencies must include a comment explaining the upstream issue and when the workaround can be removed",
+    "category": "providers",
+    "trigger": "a transitive or pinned dependency added to pyproject.toml with only a brief inline comment but no upstream issue reference or removal condition",
+    "rationale": "Reviewers require workaround pins to document the upstream library that needs fixing, a link to an open issue, and the condition under which the pin can be dropped",
+    "evidence": [
+      {
+        "pr": 63520,
+        "url": "https://github.com/apache/airflow/pull/63520#discussion_r2936594896",
+        "excerpt": "add instructions on when/how we will remove it and link upstream issue"
+      }
+    ],
+    "scope_paths": ["providers/google/pyproject.toml"]
+  },
+  {
+    "rule": "When a new operator parameter will have its default value changed in a future release, accept None as the unset sentinel, default to None, and raise FutureWarning when None is detected rather than using the final default directly",
+    "category": "api-design",
+    "trigger": "a new operator __init__ parameter is added with a default value that a reviewer notes will change in a future release",
+    "rationale": "Airflow must warn users before changing defaults to avoid silent breaking changes; the None-sentinel + FutureWarning pattern allows the current behaviour while signalling the upcoming change",
+    "evidence": [
+      {
+        "pr": 61284,
+        "url": "https://github.com/apache/airflow/pull/61284#discussion_r2749499895",
+        "excerpt": "accept None as unset, set to True + raise FutureWarning about expected change"
+      }
+    ],
+    "scope_paths": ["providers/google/src/airflow/providers/google/cloud/transfers/"]
+  },
+  {
+    "rule": "URL substring checks used for security-sensitive routing must validate that the trusted substring appears at the expected position (e.g. as the hostname), not anywhere in the URL string",
+    "category": "security",
+    "trigger": "if '<trusted-domain>' in url or similar substring check used to authenticate or route a request",
+    "rationale": "An attacker can craft a URL that contains the trusted substring at an arbitrary position (e.g. as a path component), bypassing the check; positional validation is required",
+    "evidence": [
+      {
+        "pr": 59558,
+        "url": "https://github.com/apache/airflow/pull/59558#discussion_r2626777246",
+        "excerpt": "trusted substring may be at an arbitrary position in the sanitized URL"
+      }
+    ],
+    "scope_paths": ["providers/google/src/airflow/providers/google/cloud/hooks/ray.py"]
+  }
+]

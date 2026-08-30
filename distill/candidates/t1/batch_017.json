@@ -1,0 +1,310 @@
+[
+  {
+    "rule": "When renaming public executor attributes (e.g. `pending_tasks` → `pending_workloads`), keep the old name as a deprecated property shim that delegates to the new name to preserve back-compat.",
+    "category": "providers",
+    "trigger": "diff renames an instance attribute or method on a class that subclasses BaseExecutor (e.g. `self.pending_tasks` → `self.pending_workloads`) without adding a `@property` shim",
+    "rationale": "Executor subclasses are part of the public/semi-public API; removing old names without shims breaks any code (including third-party plugins) that references the old attribute names.",
+    "evidence": [
+      {
+        "pr": 63035,
+        "url": "https://github.com/apache/airflow/pull/63035#discussion_r3133852800",
+        "excerpt": "Can you add property shim for `pending_tasks` and `running_tasks` as well?"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/executors/"
+    ]
+  },
+  {
+    "rule": "When renaming public executor methods (e.g. `sync_running_tasks` → `sync_running_workloads`), add a deprecated forwarding wrapper under the old name to preserve back-compat.",
+    "category": "providers",
+    "trigger": "diff renames a public method on an executor subclass without adding a same-named wrapper method that calls the new name",
+    "rationale": "Executor method renames are breaking changes for any subclass or downstream code calling the old name; shims are required for back-compat until the old name can be formally deprecated.",
+    "evidence": [
+      {
+        "pr": 63657,
+        "url": "https://github.com/apache/airflow/pull/63657#discussion_r3113972841",
+        "excerpt": "Why no shims? Pretty sure we need them for back-compat, no?"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/executors/"
+    ]
+  },
+  {
+    "rule": "When a provider imports a type from airflow-core that does not yet exist in the minimum supported core version, gate the import behind a runtime version check rather than importing it unconditionally.",
+    "category": "providers",
+    "trigger": "diff adds an unconditional import of a symbol from `airflow.executors.workloads.types` or a similarly new airflow-core module in a provider that targets an older min_ver",
+    "rationale": "Providers must remain compatible with the declared minimum Airflow core version; a conditional import forces a clean-up when the min version is bumped.",
+    "evidence": [
+      {
+        "pr": 62984,
+        "url": "https://github.com/apache/airflow/pull/62984#discussion_r3119521170",
+        "excerpt": "we can't use that until we bump the min_ver"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/executors/"
+    ]
+  },
+  {
+    "rule": "In `BaseExecutor._process_workloads` and its overrides, name the sequence parameter `workload_items` (not `workloads`) to avoid shadowing the `airflow.executors.workloads` module import.",
+    "category": "providers",
+    "trigger": "diff adds or modifies a method with a parameter named `workloads` in an executor subclass where `from airflow.executors import workloads` is also imported",
+    "rationale": "The parameter name `workloads` shadows the module import, forcing an `import … as …` workaround; using `workload_items` eliminates the shadowing across all executor implementations.",
+    "evidence": [
+      {
+        "pr": 62984,
+        "url": "https://github.com/apache/airflow/pull/62984#discussion_r3119521170",
+        "excerpt": "name the parameter `workload_items` then you get rid of the name shadowing"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/executors/",
+      "airflow/executors/"
+    ]
+  },
+  {
+    "rule": "AWS executor failures must not log each individual failure inline; they must be aggregated and logged once at the summary point to avoid spam.",
+    "category": "providers",
+    "trigger": "diff adds `self.log.info(…)` or `self.log.error(…)` inside a per-task failure branch in an AWS executor's sync loop",
+    "rationale": "ECS executor design intentionally omits per-failure logs; all failures are logged further down the line to reduce scheduler log noise.",
+    "evidence": [
+      {
+        "pr": 54038,
+        "url": "https://github.com/apache/airflow/pull/54038#discussion_r2248883087",
+        "excerpt": "failures intentionally aren't logged here to reduce spam"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/executors/ecs/"
+    ]
+  },
+  {
+    "rule": "AWS hooks that use a Boto3 client must subclass the appropriate Boto-specific base class (e.g. `AwsBaseHook`), not the generic `BaseHook`.",
+    "category": "providers",
+    "trigger": "diff introduces a new AWS hook that imports from `airflow.providers.common.compat.sdk` to get `BaseHook` while also creating a Boto3 client",
+    "rationale": "Boto-specific base classes provide shared connection handling, retry logic, and allow future shared features to flow through all hooks and operators automatically.",
+    "evidence": [
+      {
+        "pr": 62240,
+        "url": "https://github.com/apache/airflow/pull/62240#discussion_r2849979671",
+        "excerpt": "you are using a Boto client, so please use all the appropriate base classes"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/hooks/"
+    ]
+  },
+  {
+    "rule": "Do not raise `AirflowException` for failures that are not caused by Airflow itself; use the most appropriate Python built-in exception instead.",
+    "category": "providers",
+    "trigger": "diff raises `AirflowException` for a non-Airflow-infrastructure failure (e.g. an external service returning an unexpected state, bad user input)",
+    "rationale": "Overuse of `AirflowException` obscures the true error category; reviewers ask for `ValueError`, `RuntimeError`, etc. to better communicate failure semantics.",
+    "evidence": [
+      {
+        "pr": 62240,
+        "url": "https://github.com/apache/airflow/pull/62240#discussion_r2843460423",
+        "excerpt": "avoid overuse of `AirflowException`; use whatever exception more closely matches"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/"
+    ]
+  },
+  {
+    "rule": "In deferrable operators, call `self.persist()` (or equivalent link/metadata persistence) before `self.defer()`, because `defer()` raises `TaskDeferred` making every subsequent line unreachable.",
+    "category": "providers",
+    "trigger": "diff places a `self.persist(…)` or XCom push or operator-link-persist call after a `self.defer(…)` call in the same code path",
+    "rationale": "`self.defer()` raises `TaskDeferred`; code after it in deferrable mode never executes, so UI links and persisted metadata are silently lost.",
+    "evidence": [
+      {
+        "pr": 64274,
+        "url": "https://github.com/apache/airflow/pull/64274#discussion_r3283465186",
+        "excerpt": "self.defer() raises TaskDeferred, so every line from there is unreachable"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/"
+    ]
+  },
+  {
+    "rule": "In `execute_complete`, never fall back to `self.<attribute>` set during `execute`; read all required state exclusively from the trigger event dict.",
+    "category": "providers",
+    "trigger": "diff uses `self.job_id` (or any attribute set in `execute`) inside `execute_complete` as a fallback when the event dict does not contain the value",
+    "rationale": "The worker running `execute_complete` may differ from the one that ran `execute`, so instance attributes set in `execute` are not guaranteed to exist.",
+    "evidence": [
+      {
+        "pr": 64770,
+        "url": "https://github.com/apache/airflow/pull/64770#discussion_r3073359387",
+        "excerpt": "Never use `self.job_id` in `execute_complete`. Worker running execute and execute_complete could differ."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/"
+    ]
+  },
+  {
+    "rule": "In `execute_complete`, always check `event[\"status\"]` and raise on error before treating the event as a success.",
+    "category": "providers",
+    "trigger": "diff implements `execute_complete` and reads payload fields from `event` without first checking `event[\"status\"]` for an error value",
+    "rationale": "The base trigger emits `{\"status\": \"error\", …}` on failure; ignoring status causes the task to silently succeed even when the underlying operation failed.",
+    "evidence": [
+      {
+        "pr": 64274,
+        "url": "https://github.com/apache/airflow/pull/64274#discussion_r3283416317",
+        "excerpt": "event[\"status\"] is never read … Task = SUCCESS"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/"
+    ]
+  },
+  {
+    "rule": "When an operator adds a new boolean parameter that controls trigger behavior, the operator must accept and pass that parameter through rather than hard-coding a value in the trigger instantiation.",
+    "category": "providers",
+    "trigger": "diff instantiates an Airflow trigger with a boolean argument (e.g. `cancel_on_kill=True`) that is not exposed as a parameter on the enclosing operator",
+    "rationale": "Hard-coding trigger parameters removes user control and contradicts documented opt-out behavior; operator parameters should be threaded through to triggers.",
+    "evidence": [
+      {
+        "pr": 64770,
+        "url": "https://github.com/apache/airflow/pull/64770#discussion_r3066476259",
+        "excerpt": "hard-codes `cancel_on_kill=True`… leaving no opt-out path for operator users"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/"
+    ]
+  },
+  {
+    "rule": "When an operator parameter changes behavior (e.g. `awslogs_enabled` previously controlling log fetching), the new implementation must preserve the parameter's documented effect in both deferrable and non-deferrable code paths.",
+    "category": "providers",
+    "trigger": "diff refactors deferrable operator execution and leaves a previously-honored parameter (e.g. `awslogs_enabled`) without effect in the `execute_complete` path",
+    "rationale": "Silently ignoring a documented parameter is a behavior regression; reviewers require parity or a docs/deprecation update.",
+    "evidence": [
+      {
+        "pr": 64745,
+        "url": "https://github.com/apache/airflow/pull/64745#discussion_r3289450896",
+        "excerpt": "`awslogs_enabled` is no longer honored in deferrable mode"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/"
+    ]
+  },
+  {
+    "rule": "For CloudWatch / external-resource operator links, persist links that require job completion (e.g. log stream ARN) after the job completes, not before, in the non-deferrable path.",
+    "category": "providers",
+    "trigger": "diff calls `_persist_links()` or equivalent before `hook.wait_for_job()` in a non-deferrable execute path where the link data is only available post-completion",
+    "rationale": "Persisting a link before the job completes may push a `None` placeholder that is never updated, leaving the operator link broken in the UI.",
+    "evidence": [
+      {
+        "pr": 64745,
+        "url": "https://github.com/apache/airflow/pull/64745#discussion_r3066475075",
+        "excerpt": "If CloudWatch logs not available yet, `_persist_links()` pushes a `None` placeholder"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/"
+    ]
+  },
+  {
+    "rule": "When changing behavior covered by existing tests, update tests to explicitly cover both the new branch and any removed/altered branch; do not leave tests asserting old behavior that no longer applies.",
+    "category": "testing",
+    "trigger": "diff changes conditional logic in an AWS operator (e.g. `awslogs_enabled` branch) without adding or updating unit tests for both the enabled and disabled paths",
+    "rationale": "Existing tests may assert stale behavior (e.g. `get_job_description` called twice unconditionally); failing to update them masks regressions and leaves coverage gaps.",
+    "evidence": [
+      {
+        "pr": 64745,
+        "url": "https://github.com/apache/airflow/pull/64745#discussion_r3068820279",
+        "excerpt": "will require updating/adding unit tests… adjust tests to cover both branches"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/",
+      "providers/amazon/tests/"
+    ]
+  },
+  {
+    "rule": "Amazon provider operator docstrings must tag templatable parameters with `(templated)` in the parameter description.",
+    "category": "docs",
+    "trigger": "diff adds a new parameter docstring line in an Amazon provider operator, trigger, or sensor without appending `(templated)` to the description of a parameter that is listed in `template_fields`",
+    "rationale": "Tagging with `(templated)` is a pre-existing, project-wide convention in the Amazon provider package that signals to users which parameters support Jinja templating.",
+    "evidence": [
+      {
+        "pr": 69886,
+        "url": "https://github.com/apache/airflow/pull/69886#discussion_r3590977819",
+        "excerpt": "tag the param with '(templated)'… common/pre-existing pattern in the Amazon provider"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/",
+      "providers/amazon/src/airflow/providers/amazon/aws/sensors/",
+      "providers/amazon/src/airflow/providers/amazon/aws/triggers/"
+    ]
+  },
+  {
+    "rule": "AWS operator `execute()` return values should be minimal, meaningful identifiers (e.g. ARN, URI, name) rather than raw, full boto3 response dicts.",
+    "category": "api-design",
+    "trigger": "diff adds `return response` (the raw boto3 response dict) as the final statement of an AWS operator's `execute()` method",
+    "rationale": "Full boto3 responses are large, contain redundant metadata, and are pushed to XCom; returning only the essential identifiers keeps XCom payloads small and the operator contract clear.",
+    "evidence": [
+      {
+        "pr": 69886,
+        "url": "https://github.com/apache/airflow/pull/69886#discussion_r3589730248",
+        "excerpt": "parse out the repository URI/ARN/name and then return that"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/"
+    ]
+  },
+  {
+    "rule": "Removing a parameter that controls waiter policy selection is a breaking change; instead, deprecate the old parameter and map its values to the new parameter.",
+    "category": "providers",
+    "trigger": "diff removes a parameter (e.g. `wait_policy`) from an EMR operator and hard-codes one of its former values, silently eliminating other valid enum values",
+    "rationale": "Removing enum-valued parameters that users already rely on eliminates documented, supported functionality and constitutes a breaking change.",
+    "evidence": [
+      {
+        "pr": 56158,
+        "url": "https://github.com/apache/airflow/pull/56158#discussion_r2384296825",
+        "excerpt": "eliminates support for `WaitPolicy.WAIT_FOR_STEPS_COMPLETION`… breaking change"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/emr.py"
+    ]
+  },
+  {
+    "rule": "Provider operator RST how-to docs must order lifecycle sections to reflect the natural resource lifecycle (Create → Start → Stop → Update → Delete).",
+    "category": "docs",
+    "trigger": "diff adds a new RST section in a provider how-to doc where the section order does not follow the resource lifecycle sequence",
+    "rationale": "Consistent lifecycle ordering makes provider docs predictable and easier to navigate; Delete should be the last section as a final teardown action.",
+    "evidence": [
+      {
+        "pr": 66891,
+        "url": "https://github.com/apache/airflow/pull/66891#discussion_r3244170126",
+        "excerpt": "match the natural lifecycle order: Create → Start → Stop → Update → Delete"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/docs/"
+    ]
+  },
+  {
+    "rule": "When documenting a constraint (e.g. maximum list size) in an operator's docstring, enforce that constraint with a runtime check in `__init__`; do not document bounds that are not validated.",
+    "category": "correctness",
+    "trigger": "diff adds a docstring stating a numeric bound (e.g. \"maximum 200\") for a parameter but `__init__` does not validate that bound",
+    "rationale": "Documented constraints that are not enforced mislead users about what the operator accepts, leading to silent errors at runtime.",
+    "evidence": [
+      {
+        "pr": 64545,
+        "url": "https://github.com/apache/airflow/pull/64545#discussion_r3025328207",
+        "excerpt": "`__init__` only validates non-empty and does not enforce an upper bound"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/sagemaker.py"
+    ]
+  }
+]

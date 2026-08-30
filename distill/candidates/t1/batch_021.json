@@ -1,0 +1,202 @@
+[
+  {
+    "rule": "Use `Literal[...]` for Pydantic model fields that accept a fixed set of string values; do not rely on a description string to document the constraint.",
+    "category": "api-design",
+    "trigger": "A Pydantic `Field(description='One of: ...')` or similar free-string field whose valid values are enumerable",
+    "rationale": "LLMs or external callers can return values outside the documented set and Pydantic validation will silently pass; Literal enforces the constraint at the schema level.",
+    "evidence": [
+      {
+        "pr": 62793,
+        "url": "https://github.com/apache/airflow/pull/62793#discussion_r2880130356",
+        "excerpt": "Use `Literal` to enforce it"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/"
+    ]
+  },
+  {
+    "rule": "Provider code must import SDK symbols (e.g. `AirflowException`) through `airflow.providers.common.compat.sdk`, not directly from `airflow.sdk.*`.",
+    "category": "providers",
+    "trigger": "A direct `from airflow.sdk.<module> import <Symbol>` inside any `providers/` source file",
+    "rationale": "Direct airflow.sdk imports break Airflow 2.x compatibility; the compat layer exists specifically to shield providers from SDK version differences.",
+    "evidence": [
+      {
+        "pr": 62793,
+        "url": "https://github.com/apache/airflow/pull/62793#discussion_r2880805695",
+        "excerpt": "Providers should go through `airflow.providers.common.compat.sdk` to maintain Airflow 2.x compatibility"
+      }
+    ],
+    "scope_paths": [
+      "providers/"
+    ]
+  },
+  {
+    "rule": "Optional provider feature dependencies must be imported lazily inside the function that uses them, not at module level, when multiple independent code paths exist.",
+    "category": "providers",
+    "trigger": "A module-level `try: from <optional_provider> import X` that raises `AirflowOptionalProviderFeatureException` when only one of several independent operator paths requires that dependency",
+    "rationale": "A module-level import of an optional dependency blocks the entire operator from importing for users who never use that code path, forcing an unnecessary transitive dependency.",
+    "evidence": [
+      {
+        "pr": 62793,
+        "url": "https://github.com/apache/airflow/pull/62793#discussion_r2880130353",
+        "excerpt": "Move the `DataFusionEngine` import into `_introspect_datasource_schema()` where it's actually needed"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/operators/"
+    ]
+  },
+  {
+    "rule": "When wrapping the LangChain bridge's `_sync_call`/`_async_call`, catch `pydantic_core.ValidationError` alongside `ModelRetry` and route it through `_handle_retry`.",
+    "category": "providers",
+    "trigger": "A `except ModelRetry` clause inside `_sync_call` or `_async_call` in `langchain_bridge.py` that does not also catch `ValidationError`",
+    "rationale": "pydantic-ai's ToolManager converts ValidationError to a bounded retry on the native path; the LangChain bridge must mirror this behaviour or arg-validation failures will abort the run uncaught.",
+    "evidence": [
+      {
+        "pr": 70096,
+        "url": "https://github.com/apache/airflow/pull/70096#discussion_r3624822602",
+        "excerpt": "Catching `ValidationError` alongside `ModelRetry` … would restore that on the bridge too"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/"
+    ]
+  },
+  {
+    "rule": "SQL validation denylist for data-modifying statements must include `exp.Command` (sqlglot's fallback for unrecognised syntax) to fail closed.",
+    "category": "security",
+    "trigger": "A tuple of `exp.*` node types used as a SQL mutation denylist that omits `exp.Command`",
+    "rationale": "sqlglot falls back to `exp.Command` for any syntax it cannot parse; omitting it allows unknown vendor-specific write statements to bypass the security check.",
+    "evidence": [
+      {
+        "pr": 64173,
+        "url": "https://github.com/apache/airflow/pull/64173#discussion_r2983533614",
+        "excerpt": "`exp.Command` is sqlglot's fallback … makes the denylist fail-closed"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/utils/"
+    ]
+  },
+  {
+    "rule": "Test helper/fixture functions must not hide imports inside their bodies; place imports at module scope unless a lazy import is explicitly justified with a comment.",
+    "category": "testing",
+    "trigger": "An `import` or `from … import` statement inside a `def _make_*` or other test helper function body",
+    "rationale": "Lazy imports in helpers obscure dependencies, complicate linting, and are unnecessary when the test module already transitively requires the same package.",
+    "evidence": [
+      {
+        "pr": 62850,
+        "url": "https://github.com/apache/airflow/pull/62850#discussion_r2886669149",
+        "excerpt": "Imports inside helper functions make dependency and linting behavior harder to reason about"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/tests/",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "Use `spec=` or `spec_set=` when creating `MagicMock` objects in tests; `MagicMock(autospec=True)` is a no-op and does not apply autospeccing.",
+    "category": "testing",
+    "trigger": "A `MagicMock(autospec=True)` constructor call, or a bare `MagicMock()` for a well-known interface such as `RunContext`, `ToolsetTool`, or task-state-store objects",
+    "rationale": "`autospec=True` is a `mock.patch` keyword, not a `MagicMock` constructor argument; unspecced mocks silently accept calls to non-existent methods, producing false-positive tests when the production interface changes.",
+    "evidence": [
+      {
+        "pr": 68974,
+        "url": "https://github.com/apache/airflow/pull/68974#discussion_r3473214532",
+        "excerpt": "`MagicMock(autospec=True)` … does not actually apply autospeccing"
+      },
+      {
+        "pr": 62850,
+        "url": "https://github.com/apache/airflow/pull/62850#discussion_r2886669079",
+        "excerpt": "Using a spec … helps ensure the call signature stays correct"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/tests/",
+      "providers/databricks/tests/"
+    ]
+  },
+  {
+    "rule": "Log messages in the `airflow.providers.common.compat.connection` module must interpolate the actual hook class name rather than hardcoding `BaseHook`.",
+    "category": "providers",
+    "trigger": "A `log.debug(…)` or `log.info(…)` call inside `get_async_connection` or related compat-connection helpers that contains the literal string `BaseHook` after the `hook` parameter has been made configurable",
+    "rationale": "When callers pass a custom hook, the log message becomes misleading; interpolating `hook.__name__` makes logs accurate and aids debugging.",
+    "evidence": [
+      {
+        "pr": 69140,
+        "url": "https://github.com/apache/airflow/pull/69140#discussion_r3500996009",
+        "excerpt": "Why not do `log.debug(\"Get connection using `%s.aget_connection()`.\", hook.__name__)`"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/compat/src/airflow/providers/common/compat/connection/"
+    ]
+  },
+  {
+    "rule": "Tests for `get_async_connection` must cover both the `aget_connection` path and the sync-fallback (`get_connection`) path when a custom hook is passed.",
+    "category": "testing",
+    "trigger": "A test class/function that exercises `get_async_connection` with a custom `hook=` argument but only asserts against the `aget_connection` branch",
+    "rationale": "The compat connection layer has two distinct resolution branches; testing only the async branch leaves the sync fallback uncovered and can mask regressions in the compat shim.",
+    "evidence": [
+      {
+        "pr": 69140,
+        "url": "https://github.com/apache/airflow/pull/69140#discussion_r3501051810",
+        "excerpt": "Might be worth adding a test for `get_connection` as well"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/compat/tests/unit/common/compat/connection/"
+    ]
+  },
+  {
+    "rule": "Operator `__init__` must not coerce a `None` parameter to `[]` with `param or []` when an explicit empty list has distinct API semantics (e.g. clearing permissions).",
+    "category": "api-design",
+    "trigger": "An `self.param = param or []` assignment in an operator `__init__` where `param` is forwarded to an external API call and an empty list is semantically meaningful",
+    "rationale": "Using `or []` makes it impossible for callers to explicitly pass an empty collection; combined with a truthy check before the API call, `param=[]` silently omits the field rather than sending an empty value.",
+    "evidence": [
+      {
+        "pr": 64538,
+        "url": "https://github.com/apache/airflow/pull/64538#discussion_r3038203070",
+        "excerpt": "passing `access_control_list=[]` will silently omit the field from the job spec"
+      }
+    ],
+    "scope_paths": [
+      "providers/databricks/src/airflow/providers/databricks/operators/"
+    ]
+  },
+  {
+    "rule": "New operator parameters must be documented in both the class docstring parameter list and the corresponding provider RST operator guide.",
+    "category": "docs",
+    "trigger": "A new `__init__` parameter added to a provider operator that appears in the class body but is absent from the `providers/<name>/docs/operators/*.rst` guide",
+    "rationale": "Autodoc alone is not sufficient for discoverability; users rely on the operator guide RST pages as the primary entry point and will not find undocumented parameters there.",
+    "evidence": [
+      {
+        "pr": 64538,
+        "url": "https://github.com/apache/airflow/pull/64538#discussion_r3113736037",
+        "excerpt": "adding `access_control_list` to … `workflow.rst` so users discover it from the guide"
+      }
+    ],
+    "scope_paths": [
+      "providers/databricks/src/airflow/providers/databricks/operators/",
+      "providers/databricks/docs/operators/"
+    ]
+  },
+  {
+    "rule": "RST documentation references to Airflow version milestones must say \"Airflow version X.Y.Z\", not just \"version X.Y.Z\".",
+    "category": "docs",
+    "trigger": "An RST phrase matching `version [0-9]+\\.[0-9]+` without the word `Airflow` immediately preceding it",
+    "rationale": "Provider docs cover multiple software components; omitting the product name creates ambiguity about which version the note applies to.",
+    "evidence": [
+      {
+        "pr": 57372,
+        "url": "https://github.com/apache/airflow/pull/57372#discussion_r2468291107",
+        "excerpt": "starting from Airflow version 3.0.0"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/docs/"
+    ]
+  }
+]

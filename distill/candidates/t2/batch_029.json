@@ -1,0 +1,202 @@
+[
+  {
+    "rule": "In DAG-parsing or other hot paths, pass log-format arguments lazily using %-style placeholders instead of calling repr() or str() unconditionally before log.debug()",
+    "category": "performance",
+    "trigger": "log.debug(..., repr(x), ...) or log.debug(..., str(x), ...) outside a log.isEnabledFor() guard in a DAG-parsing code path",
+    "rationale": "repr() is evaluated unconditionally even when debug logging is disabled, adding unnecessary work during DAG parsing on every scheduler cycle",
+    "evidence": [
+      {
+        "pr": 64563,
+        "url": "https://github.com/apache/airflow/pull/64563#discussion_r3025276607",
+        "excerpt": "repr(r) is evaluated unconditionally here, even when debug logging is disabled"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/definitions/dag.py"
+    ]
+  },
+  {
+    "rule": "Do not place stdlib imports inside function bodies when the module is already imported at the top level or when there is no circular-dependency risk; keep all such imports at the top of the file",
+    "category": "correctness",
+    "trigger": "import statement for a stdlib module (sys, uuid, socket, traceback, etc.) appearing inside a function or method body in task-sdk source files",
+    "rationale": "Project guideline: stdlib imports with no circular dep risk belong at the top of the file; in-function imports obscure dependencies and violate project conventions",
+    "evidence": [
+      {
+        "pr": 62645,
+        "url": "https://github.com/apache/airflow/pull/62645#discussion_r2991911037",
+        "excerpt": "stdlib imports with no circular dep risk. Should be at the top of the file"
+      },
+      {
+        "pr": 64874,
+        "url": "https://github.com/apache/airflow/pull/64874#discussion_r3114300722",
+        "excerpt": "This file already imports socket at module scope… keeping imports at the top level per project guidelines"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/callback_supervisor.py",
+      "task-sdk/src/airflow/sdk/execution_time/supervisor.py"
+    ]
+  },
+  {
+    "rule": "Task-SDK supervisor-comms response handlers must raise (or propagate) on unexpected response types rather than silently returning an empty result; compare behaviour to _get_variable which propagates errors",
+    "category": "correctness",
+    "trigger": "SUPERVISOR_COMMS.send(...) result checked with isinstance() where a non-matching branch returns [] or None without raising, inside task-sdk execution_time context functions",
+    "rationale": "Returning [] on any non-matching response makes 'no data exists' indistinguishable from 'the API call failed'; DAG authors cannot tell the difference and transient failures look like empty namespaces",
+    "evidence": [
+      {
+        "pr": 66022,
+        "url": "https://github.com/apache/airflow/pull/66022#discussion_r3215276658",
+        "excerpt": "no-keys-exist indistinguishable from API call failed; compare to _get_variable which propagates errors"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/context.py"
+    ]
+  },
+  {
+    "rule": "Wire-contract literal strings that form a serialisation envelope (e.g. __type, __var, type-tag values) must be hoisted to module-level constants and wrapped in small helper functions rather than repeated inline",
+    "category": "correctness",
+    "trigger": "the same string literal (e.g. \"__type\", \"__var\", a type-tag string) appearing more than once across a file that encodes/decodes a task-SDK IPC or state payload",
+    "rationale": "A single typo silently breaks the round-trip in one direction; constants make the wire contract visible to downstream consumers (UI, server-side readers) and are the natural place to add malformed-envelope guards",
+    "evidence": [
+      {
+        "pr": 67530,
+        "url": "https://github.com/apache/airflow/pull/67530#discussion_r3307394137",
+        "excerpt": "four times across this file and form the wire contract between worker SDK and downstream consumer"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/context.py"
+    ]
+  },
+  {
+    "rule": "When registering a signal handler with signal.signal(), capture the previous handler from its return value rather than making a separate signal.getsignal() call",
+    "category": "correctness",
+    "trigger": "signal.getsignal(SIG...) called immediately before signal.signal(SIG..., handler) for the same signal constant in supervisor or task-runner code",
+    "rationale": "signal.signal() already returns the previous handler; the separate getsignal() is redundant and introduces a small race between the lookup and the install",
+    "evidence": [
+      {
+        "pr": 61627,
+        "url": "https://github.com/apache/airflow/pull/61627#discussion_r3295434802",
+        "excerpt": "signal.signal() returns the previous handler, so separate getsignal() calls are redundant"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/supervisor.py"
+    ]
+  },
+  {
+    "rule": "After a fork(), a child-process error path must call os._exit() unconditionally and never continue executing or return to the parent code path",
+    "category": "correctness",
+    "trigger": "exception handler in a post-fork child code path (e.g. _fork_main, _child_exec_main) that logs but does not terminate with os._exit()",
+    "rationale": "Continuing after an error in a forked child violates the invariant documented in supervisor.py ('never exit this block… THINGS GET WEIRD') and can leave the parent/supervisor in a confused state",
+    "evidence": [
+      {
+        "pr": 64874,
+        "url": "https://github.com/apache/airflow/pull/64874#discussion_r3066479465",
+        "excerpt": "logs an error but then continues executing. This violates the invariant… child should unconditionally terminate"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/supervisor.py"
+    ]
+  },
+  {
+    "rule": "Every method implemented on a concrete class that forms part of a Protocol must also be declared in the Protocol definition",
+    "category": "api-design",
+    "trigger": "a method present on a concrete implementation class (e.g. _RealFernet) that is absent from the corresponding Protocol class (e.g. FernetProtocol) in task-sdk crypto or similar Protocol/impl pairs",
+    "rationale": "Calling a method via the Protocol type would fail at runtime on alternative implementations (e.g. _NullFernet); the Protocol must declare the full interface contract",
+    "evidence": [
+      {
+        "pr": 60771,
+        "url": "https://github.com/apache/airflow/pull/60771#discussion_r2705300272",
+        "excerpt": "_RealFernet has rotate but FernetProtocol doesn't define it. Calling rotate() on a FernetProtocol would fail at runtime"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/crypto.py"
+    ]
+  },
+  {
+    "rule": "New IPC/comms protocol-shape changes in the task-SDK must be covered by direct unit tests verifying both the populated and absent cases of each new field",
+    "category": "testing",
+    "trigger": "new field added to a CommsDecoder message type or _RequestFrame structure in task-sdk/src/airflow/sdk/execution_time/comms.py without corresponding tests in task-sdk/tests/ for that field's presence and None/absence case",
+    "rationale": "Manual end-to-end validation does not catch silent regressions when the IPC layer is refactored; protocol-shape fields like context_carrier have a specific contract (carrier or None, never empty dict) that only unit tests can lock in",
+    "evidence": [
+      {
+        "pr": 66151,
+        "url": "https://github.com/apache/airflow/pull/66151#discussion_r3173543590",
+        "excerpt": "doesn't catch silent regressions if someone refactors this later… the carrier or None here is the contract"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/comms.py",
+      "task-sdk/tests/"
+    ]
+  },
+  {
+    "rule": "All data models consumed by CommsDecoder must be versioned in the task-SDK schema-versions bundle, regardless of whether they originate from the Execution API spec",
+    "category": "api-design",
+    "trigger": "a new or modified Pydantic model used as a message type in CommsDecoder that is not registered in task-sdk/src/airflow/sdk/execution_time/schema/versions/",
+    "rationale": "Supervisor-only models that are not in the Execution API spec still flow through the IPC channel and must be versioned so the schema migrator can handle version skew between supervisor and worker",
+    "evidence": [
+      {
+        "pr": 67235,
+        "url": "https://github.com/apache/airflow/pull/67235#discussion_r3274194034",
+        "excerpt": "all data models consumed by CommsDecoder should be versioned somewhere"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/comms.py",
+      "task-sdk/src/airflow/sdk/execution_time/schema/versions/__init__.py"
+    ]
+  },
+  {
+    "rule": "When __attrs_post_init__ normalises a field in-place (e.g. resolving a preset alias to its canonical value), add a brief inline comment explaining the transformation so future readers understand why attrs.evolve, equality, and serialisation see the resolved value",
+    "category": "docs",
+    "trigger": "self.<field> = <transform>(self.<field>) inside __attrs_post_init__ in a task-sdk attrs class with no explanatory comment",
+    "rationale": "Without a comment the in-place mutation looks like a bug; readers must trace git blame to understand that the original preset string is intentionally lost after init, matching the behaviour of legacy CronMixin",
+    "evidence": [
+      {
+        "pr": 66102,
+        "url": "https://github.com/apache/airflow/pull/66102#discussion_r3171539178",
+        "excerpt": "Worth a brief comment explaining that self.expression is being normalised in place… save the next reader a trip through git blame"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/definitions/timetables/_cron.py"
+    ]
+  },
+  {
+    "rule": "Coordinator classes must not expose a separate close() method; lifecycle cleanup must happen inside execute_task so that the coordinator is self-contained",
+    "category": "api-design",
+    "trigger": "a close() or cleanup() method defined on a class that also implements execute_task() inside task-sdk/src/airflow/sdk/execution_time/coordinator.py or a subclass",
+    "rationale": "A separate close() creates an obligation on callers to sequence teardown correctly across multiple languages; encapsulating cleanup in execute_task makes the contract clear and avoids resource leaks",
+    "evidence": [
+      {
+        "pr": 65958,
+        "url": "https://github.com/apache/airflow/pull/65958#discussion_r3310194040",
+        "excerpt": "each coordinator should do all the closing inside execute_task… I don't think having a close() method is useful"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/coordinator.py"
+    ]
+  },
+  {
+    "rule": "Accessor .get() methods on task-SDK context objects (VariableAccessor, TaskStateAccessor, AssetStateAccessor) must accept a default parameter so callers can distinguish 'key not set' from 'key set to None'",
+    "category": "api-design",
+    "trigger": "a get(key) method on a task-SDK accessor class that returns None on missing without accepting a default parameter, in task-sdk/src/airflow/sdk/execution_time/context.py",
+    "rationale": "The stored value type includes None as a meaningful sentinel; without a default parameter users cannot distinguish an absent key from a key explicitly set to None — compare VariableAccessor.get(key, default=NOTSET)",
+    "evidence": [
+      {
+        "pr": 66160,
+        "url": "https://github.com/apache/airflow/pull/66160#discussion_r3171192445",
+        "excerpt": "VariableAccessor.get(key, default=NOTSET) lets users distinguish 'not set' from 'set to None'"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/context.py"
+    ]
+  }
+]

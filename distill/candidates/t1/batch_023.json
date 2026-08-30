@@ -1,0 +1,262 @@
+[
+  {
+    "rule": "Set a sensible default for `timetable_type` in the `DagModel` constructor so that test code does not need to manually assign it on every instance.",
+    "category": "testing",
+    "trigger": "diff adds `dag_model.timetable_type = \"\"` (or similar manual assignment) in test setUp or individual test bodies",
+    "rationale": "Manually patching `timetable_type` across hundreds of tests is tedious and error-prone; a constructor default removes the need entirely.",
+    "evidence": [
+      {
+        "pr": 58852,
+        "url": "https://github.com/apache/airflow/pull/58852#discussion_r2664331789",
+        "excerpt": "how about setting the timetable_type in the constructor directly"
+      }
+    ],
+    "scope_paths": [
+      "airflow/models/dag.py",
+      "providers/fab/tests/unit/fab/auth_manager/"
+    ]
+  },
+  {
+    "rule": "In `GitDagBundle._initialize()`, always assign and properly close `self.repo` before returning early from a cached-version path when `prune_dotgit_folder=False`.",
+    "category": "providers",
+    "trigger": "diff introduces an early `return` inside `_initialize()` of a git bundle after `_local_repo_has_version()` without assigning `self.repo`",
+    "rationale": "`get_current_version()` falls back to the raw `self.version` string (e.g. a tag) instead of the resolved HEAD SHA when `self.repo` is not set, producing an observable behaviour change versus a first-time initialise.",
+    "evidence": [
+      {
+        "pr": 63814,
+        "url": "https://github.com/apache/airflow/pull/63814#discussion_r3066479418",
+        "excerpt": "with this early-return path `get_current_version()` will return the raw `self.version` string"
+      }
+    ],
+    "scope_paths": [
+      "providers/git/src/airflow/providers/git/bundles/"
+    ]
+  },
+  {
+    "rule": "Treat `self.version` in `GitDagBundle` as a commit-ish (tag, short SHA, branch); always resolve it via `repo.commit(self.version).hexsha` before comparing to `repo.head.commit.hexsha`.",
+    "category": "providers",
+    "trigger": "diff compares `self.version` directly to `repo.head.commit.hexsha` (string equality) inside a git bundle method",
+    "rationale": "`self.version` is used elsewhere as a general commit-ish; direct string comparison against a full 40-char hexsha silently breaks the optimisation for tags and short SHAs.",
+    "evidence": [
+      {
+        "pr": 63814,
+        "url": "https://github.com/apache/airflow/pull/63814#discussion_r3025334096",
+        "excerpt": "`self.version` is treated elsewhere as a general "commit-ish""
+      }
+    ],
+    "scope_paths": [
+      "providers/git/src/airflow/providers/git/bundles/"
+    ]
+  },
+  {
+    "rule": "Only include an entry in a provider's `changelog.rst` when that provider's own source files are changed; omit entries for changes that only touch tests in another provider.",
+    "category": "docs",
+    "trigger": "diff adds a bullet in `providers/<name>/docs/changelog.rst` for a PR whose diff is limited to test files of a different provider",
+    "rationale": "Changelog entries are user-facing; a test-only change in a sibling provider has no user-visible impact on the listed provider.",
+    "evidence": [
+      {
+        "pr": 60706,
+        "url": "https://github.com/apache/airflow/pull/60706#discussion_r2701325643",
+        "excerpt": "changes only the tests so nothing to notify users about"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/docs/changelog.rst"
+    ]
+  },
+  {
+    "rule": "Place forward-looking compatibility notes (e.g. new Python version support caveats) in a provider changelog above the upcoming release section, not inside or below an already-published release block.",
+    "category": "docs",
+    "trigger": "diff inserts a `.. note::` or compatibility banner inside or after an existing versioned release block in `changelog.rst`",
+    "rationale": "A note about the next release must appear above that release's section so it is visible to users upgrading to that version.",
+    "evidence": [
+      {
+        "pr": 64061,
+        "url": "https://github.com/apache/airflow/pull/64061#discussion_r2971764170",
+        "excerpt": "this banner now must be moved above the 21.0.0 as it will be relevant with next release"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/docs/changelog.rst"
+    ]
+  },
+  {
+    "rule": "Add new Google provider documentation as `.rst` files integrated into the existing docs structure, not as standalone `.md` files.",
+    "category": "docs",
+    "trigger": "diff adds a new `.md` file under `providers/google/docs/`",
+    "rationale": "Google provider docs follow the RST format with links to examples; adding a separate Markdown file breaks the consistent documentation structure.",
+    "evidence": [
+      {
+        "pr": 56324,
+        "url": "https://github.com/apache/airflow/pull/56324#discussion_r2454751843",
+        "excerpt": "This shouldn't be added as a separate file, please add all information to rst document"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/docs/"
+    ]
+  },
+  {
+    "rule": "Bump a provider cross-dependency lower-bound version constraint only when the API change is genuinely breaking; additive changes with a default-`None` parameter do not require a version bump.",
+    "category": "providers",
+    "trigger": "diff raises a `>=` version floor on `apache-airflow-providers-*` in another provider's `pyproject.toml` for a change that added a parameter with a `None` default",
+    "rationale": "Unnecessarily raising the lower-bound breaks users who have the older provider installed; backward compatibility is maintained when new parameters have safe defaults.",
+    "evidence": [
+      {
+        "pr": 60706,
+        "url": "https://github.com/apache/airflow/pull/60706#discussion_r2701404331",
+        "excerpt": "google provider will actually work with both old and new cncf.kubernetes provider"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/pyproject.toml",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "Do not add a minimum version constraint to an optional provider extra dependency solely because of a new additive (non-breaking) feature in that dependency.",
+    "category": "providers",
+    "trigger": "diff adds `>=x.y.z` version floor to an optional extra in `pyproject.toml` for a feature addition rather than a breaking API change",
+    "rationale": "Version constraints on optional extras should reflect genuine incompatibilities; additive features do not break existing integrations.",
+    "evidence": [
+      {
+        "pr": 69234,
+        "url": "https://github.com/apache/airflow/pull/69234#discussion_r3549760728",
+        "excerpt": "should probably not add this version constraint, since the new feature is an addition"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/pyproject.toml",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "Use `run_after` (not `logical_date` or `date`) as the parameter name when passing scheduling-time context through hook or utility methods.",
+    "category": "naming",
+    "trigger": "diff renames or introduces a parameter called `logical_date` or `date` in a hook/utility method that carries the DAG run scheduling timestamp",
+    "rationale": "Airflow is aligning its scheduling vocabulary around `run_after`; using `date` is an intermediate misnaming that will require another rename.",
+    "evidence": [
+      {
+        "pr": 55110,
+        "url": "https://github.com/apache/airflow/pull/55110#discussion_r2317575671",
+        "excerpt": "if we want to replace it with `run_after` in the future, let's make it `run_after`"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/hooks/"
+    ]
+  },
+  {
+    "rule": "Use camelCase REST API field names (e.g. `\"definitionBody\"`, `\"routineType\"`) — not Python SDK attribute names (e.g. `\"body\"`, `\"type_\"`) — in the `fields` argument passed to Google SDK update methods such as `client.update_routine()`.",
+    "category": "api-design",
+    "trigger": "diff defines a `_WRITABLE_PROPERTIES` list or similar constant using Python attribute names (`\"body\"`, `\"type_\"`) passed as the `fields` arg to a Google client update method",
+    "rationale": "Google client update methods forward `fields` directly into the REST update mask, which expects camelCase names; using Python attribute names silently drops the update mask and causes full resource replacements.",
+    "evidence": [
+      {
+        "pr": 65499,
+        "url": "https://github.com/apache/airflow/pull/65499#discussion_r3110073673",
+        "excerpt": "passing Python attribute names may result in update mask being silently ignored"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/hooks/"
+    ]
+  },
+  {
+    "rule": "Do not import private modules of a transitive dependency in a provider; if such an import is required, add tracking, tests, and guards against upstream breakage.",
+    "category": "providers",
+    "trigger": "diff adds an import of a symbol whose module path contains a leading underscore (e.g. `from google.genai._api_client import ...`) from a package that is only a transitive dependency",
+    "rationale": "Private attributes of transitive dependencies break silently after upgrades; the breakage may go undetected without explicit version-pinning guards and tests.",
+    "evidence": [
+      {
+        "pr": 68479,
+        "url": "https://github.com/apache/airflow/pull/68479#discussion_r3415895815",
+        "excerpt": "needs guardrails, testing, and tracking so it won't break after upgrading"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/hooks/vertex_ai/"
+    ]
+  },
+  {
+    "rule": "Declare every directly imported package as a direct dependency in the provider's `pyproject.toml`; do not rely on a transitive dependency being present.",
+    "category": "providers",
+    "trigger": "diff imports a top-level package (e.g. `google.genai`) that is not listed under `dependencies` or the relevant extras in the provider's `pyproject.toml`",
+    "rationale": "Transitive dependencies are not guaranteed; the installed version may not match what the provider was developed against, and the package may disappear if the direct dependency changes its own deps.",
+    "evidence": [
+      {
+        "pr": 68479,
+        "url": "https://github.com/apache/airflow/pull/68479#discussion_r3415873392",
+        "excerpt": "`google.genai` is a transitive dependency — if we import it directly we should declare it"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/hooks/vertex_ai/",
+      "providers/google/pyproject.toml"
+    ]
+  },
+  {
+    "rule": "Changing an operator's return value is a breaking change; gate new return-value formats behind a deprecation flag with a `False` default before removing the old behaviour.",
+    "category": "api-design",
+    "trigger": "diff changes the return value of an operator's `execute()` (e.g. from a bare filename to a full `gs://` URI) without introducing a backward-compatible flag",
+    "rationale": "Operator return values are consumed by downstream tasks via XCom; silently changing the format breaks existing DAGs without warning.",
+    "evidence": [
+      {
+        "pr": 61284,
+        "url": "https://github.com/apache/airflow/pull/61284#discussion_r2787581438",
+        "excerpt": "changing the returned value could be a breaking change, so we should deprecate it slowly"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/transfers/"
+    ]
+  },
+  {
+    "rule": "Inside Airflow triggers, raise `RuntimeError` for unexpected internal states rather than `AirflowException`.",
+    "category": "correctness",
+    "trigger": "diff raises `AirflowException` inside a `BaseTrigger.run()` coroutine for an unexpected or internal error condition",
+    "rationale": "Triggers run in the triggerer process; `AirflowException` is for task-level user-facing errors. `RuntimeError` is the appropriate signal for internal/unexpected trigger failures.",
+    "evidence": [
+      {
+        "pr": 55068,
+        "url": "https://github.com/apache/airflow/pull/55068#discussion_r2497942742",
+        "excerpt": "suggestion: raise RuntimeError (inside trigger)"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/triggers/"
+    ]
+  },
+  {
+    "rule": "When yielding a `TriggerEvent` with `status: error` under a broad `except Exception` handler, include an operation-describing prefix in the `message` field (e.g. `\"Failed while polling <resource>: {err}\"`).",
+    "category": "providers",
+    "trigger": "diff yields `TriggerEvent({\"status\": \"error\", \"message\": str(err)})` inside a bare `except Exception` block without contextual prefix",
+    "rationale": "A bare `str(err)` gives no context about which operation failed; a prefix makes triage significantly faster.",
+    "evidence": [
+      {
+        "pr": 68479,
+        "url": "https://github.com/apache/airflow/pull/68479#discussion_r3444882356",
+        "excerpt": "provide more context: `\"Failed while polling Agent Engine query job: {err}\"`"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/triggers/"
+    ]
+  },
+  {
+    "rule": "When adding validation for GCP resource IDs (e.g. project IDs) in a Google hook, include all enforced constraints — both format and length — in the `AirflowException` error message.",
+    "category": "correctness",
+    "trigger": "diff adds a regex-based GCP ID validation that raises `AirflowException` but the error message omits the length range enforced by the regex",
+    "rationale": "Users see only the exception message; omitting the length constraint leaves them unable to diagnose rejections caused solely by ID length.",
+    "evidence": [
+      {
+        "pr": 56324,
+        "url": "https://github.com/apache/airflow/pull/56324#discussion_r2662090327",
+        "excerpt": "Update the error message to include the length requirement: 6-30 characters"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/common/hooks/"
+    ]
+  }
+]

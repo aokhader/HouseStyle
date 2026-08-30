@@ -1,0 +1,264 @@
+[
+  {
+    "rule": "Route SQLAlchemy 1.4/2.0 compatibility shims through `airflow.utils.sqlalchemy` rather than inline try/except blocks inside individual model files.",
+    "category": "database",
+    "trigger": "A model file adds a try/except ImportError block to shim `mapped_column` or `Mapped` from sqlalchemy.orm instead of importing from `airflow.utils.sqlalchemy`.",
+    "rationale": "Inline shims scatter dual-version compatibility logic across every model; a single shared shim in airflow.utils.sqlalchemy centralises the 1.4/2.0 bridge and makes eventual removal a one-line change per importer.",
+    "evidence": [
+      {
+        "pr": 55954,
+        "url": "https://github.com/apache/airflow/pull/55954#discussion_r2382719028",
+        "excerpt": "in the models it's as simple as: from airflow.utils.sqlalchemy import Mapped"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/",
+      "airflow-core/src/airflow/utils/sqlalchemy.py"
+    ]
+  },
+  {
+    "rule": "Do not pass an explicit `nullable=True` kwarg to `mapped_column` when the type hint already uses `X | None`; under SQLAlchemy 2.0 the hint is authoritative.",
+    "category": "database",
+    "trigger": "A `mapped_column(...)` call includes `nullable=True` while the `Mapped` annotation is `Mapped[SomeType | None]`.",
+    "rationale": "SQLAlchemy 2.0 derives nullability from the `Mapped` type hint; the redundant kwarg creates a maintenance burden and will be actively wrong once 1.4 support is dropped.",
+    "evidence": [
+      {
+        "pr": 55954,
+        "url": "https://github.com/apache/airflow/pull/55954#discussion_r2382766419",
+        "excerpt": "The `nullable` kwarg is unnecessary if `None` is part of the type hint."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/"
+    ]
+  },
+  {
+    "rule": "Validate user-supplied DAG run configuration (`dag_run_conf`) via `dag.params.deep_merge(dag_run_conf).validate()` before executing a backfill, so bad input returns a 4xx rather than a 500.",
+    "category": "api-design",
+    "trigger": "A backfill code path accepts a `dag_run_conf` argument and passes it to `create_dagrun` or similar without first calling `dag.params.deep_merge(...).validate()`.",
+    "rationale": "Failing to validate user configuration before use lets schema violations propagate into the scheduler, producing an unhandled 500; early validation gives the caller an actionable error.",
+    "evidence": [
+      {
+        "pr": 64939,
+        "url": "https://github.com/apache/airflow/pull/64939#discussion_r3101212138",
+        "excerpt": "Getting 500 error for a bad user configuration is not ideal."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/backfill.py"
+    ]
+  },
+  {
+    "rule": "Extract duplicated encrypt/decrypt field logic from model classes into a shared mixin (e.g. `ConnectionMixin` or `FernetFieldMixin`) rather than copying it into each model.",
+    "category": "correctness",
+    "trigger": "A new model class re-implements `get_extra`/`set_extra` property + `synonym` pattern already present in the `Connection` model.",
+    "rationale": "Duplicating the Fernet field pattern across models means security-relevant logic drifts out of sync; a shared mixin keeps the single implementation authoritative.",
+    "evidence": [
+      {
+        "pr": 62343,
+        "url": "https://github.com/apache/airflow/pull/62343#discussion_r3028371251",
+        "excerpt": "all that is duplicated from `Connection` model. Can we factorize into a common mixin"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/connection_test.py",
+      "airflow-core/src/airflow/models/"
+    ]
+  },
+  {
+    "rule": "Use `is not None` (identity check) rather than truthiness to guard `bundle_version` lookups so that an empty string does not silently fall through to the latest-version path.",
+    "category": "correctness",
+    "trigger": "A conditional on `bundle_version` uses `if bundle_version:` (truthiness) instead of `if bundle_version is not None:`.",
+    "rationale": "An empty string `\"\"` is falsy but is a distinct, invalid value; a truthiness check makes it indistinguishable from `None` and would serve the latest DAG version instead of returning 404.",
+    "evidence": [
+      {
+        "pr": 61550,
+        "url": "https://github.com/apache/airflow/pull/61550#discussion_r3486308679",
+        "excerpt": "guard against `bundle_version=\"\"` selecting the latest version instead of 404"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/dag_version.py"
+    ]
+  },
+  {
+    "rule": "Write SQLAlchemy type constructors in `mapped_column` and Alembic migrations as instantiated calls — `sa.JSON()` not `sa.JSON` — to match project-wide convention.",
+    "category": "database",
+    "trigger": "A `mapped_column(sa.JSON, ...)` or `Column(sa.JSON, ...)` appears without parentheses on the type constructor.",
+    "rationale": "The project convention (enforced consistently across models and migration files) is to pass type instances; mixing class references and instances creates visual inconsistency that obscures intent.",
+    "evidence": [
+      {
+        "pr": 66491,
+        "url": "https://github.com/apache/airflow/pull/66491#discussion_r3215213649",
+        "excerpt": "project convention everywhere else is `sa.JSON()` with parens"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/dag_version.py",
+      "airflow-core/src/airflow/migrations/"
+    ]
+  },
+  {
+    "rule": "Prefix module-internal helper functions with `_` to keep them out of the public API surface; only promote to public if external callers are expected.",
+    "category": "api-design",
+    "trigger": "A new function is added at module level in `airflow-core` without a leading underscore but is only referenced within the same file or package.",
+    "rationale": "Airflow reviewers explicitly ask for `_` prefix on internal helpers so that the public API remains intentional and stable, avoiding accidental exports.",
+    "evidence": [
+      {
+        "pr": 69185,
+        "url": "https://github.com/apache/airflow/pull/69185#discussion_r3507389084",
+        "excerpt": "looks like an internal helper that's only used within Airflow itself"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/dag_version.py"
+    ]
+  },
+  {
+    "rule": "Import exceptions from `airflow.sdk.exceptions` once they have been migrated there; never import the legacy `airflow.exceptions` path even with `# type: ignore[no-redef]`.",
+    "category": "providers",
+    "trigger": "A file imports an exception with `from airflow.exceptions import <Name>  # type: ignore[no-redef]` where `<Name>` is already available in `airflow.sdk.exceptions`.",
+    "rationale": "The SDK exceptions module is the canonical home after migration; importing from the deprecated location issues deprecation warnings and may be removed in a future major version.",
+    "evidence": [
+      {
+        "pr": 54505,
+        "url": "https://github.com/apache/airflow/pull/54505#discussion_r2355033274",
+        "excerpt": "shouldn't this _always_ be `airflow.sdk.exceptions import AirflowDagCycleException` now?"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/dagbag.py"
+    ]
+  },
+  {
+    "rule": "All cache hit/miss branches — including double-checked locking fast-paths — must increment the corresponding `Stats.incr(\"api_server.dag_bag.cache_hit\")` metric so hit counts are accurate under concurrency.",
+    "category": "performance",
+    "trigger": "A double-checked locking block or secondary fast-path returns a cached DAG without calling `Stats.incr(\"api_server.dag_bag.cache_hit\")`.",
+    "rationale": "Skipping the metric increment in the second lock-check branch causes systematic undercounting of cache hits, making the api_server.dag_bag metrics unreliable for capacity planning.",
+    "evidence": [
+      {
+        "pr": 60804,
+        "url": "https://github.com/apache/airflow/pull/60804#discussion_r3066474449",
+        "excerpt": "double-checked-locking fast-path returns a cached DAG without incrementing the cache_hit metric"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/dagbag.py"
+    ]
+  },
+  {
+    "rule": "Bound DAG cache TTLs to `min_serialized_dag_update_interval` since DAGs cannot be reparsed more frequently than that interval; do not use an arbitrary shorter TTL.",
+    "category": "performance",
+    "trigger": "A DAG bag or serialized-DAG cache introduces a TTL constant or parameter without referencing or defaulting to `min_serialized_dag_update_interval`.",
+    "rationale": "Using `min_serialized_dag_update_interval` as the cache TTL floor aligns cache invalidation with the actual DAG reparse cadence, avoiding unnecessary DB round-trips without serving stale DAGs.",
+    "evidence": [
+      {
+        "pr": 68558,
+        "url": "https://github.com/apache/airflow/pull/68558#discussion_r3411765499",
+        "excerpt": "consider using `min_serialized_dag_update_interval` since a dag can't be updated more frequently"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/dagbag.py"
+    ]
+  },
+  {
+    "rule": "When a new context key is introduced for one callback execution path (executor or triggerer), it must also be added to the other path via the shared `build_context_from_dag_run` helper, declared in the `Context` TypedDict, and listed in `KNOWN_CONTEXT_KEYS`.",
+    "category": "async",
+    "trigger": "New context data is populated in `callback_supervisor.py` (executor path) but the corresponding `build_context_from_dag_run` call in `triggerer_job_runner.py` is not updated, or vice versa.",
+    "rationale": "Executor and triggerer callback paths must produce identical `Context` objects; diverging context keys cause template rendering differences between sync and async callbacks (e.g. `{{ deadline.deadline_time }}` renders empty on the triggerer path).",
+    "evidence": [
+      {
+        "pr": 66608,
+        "url": "https://github.com/apache/airflow/pull/66608#discussion_r3338512929",
+        "excerpt": "triggerer path goes through `build_context_from_dag_run`, which never adds a `deadline` key"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/deadline.py",
+      "airflow-core/src/airflow/jobs/triggerer_job_runner.py",
+      "airflow-core/src/airflow/executors/"
+    ]
+  },
+  {
+    "rule": "Avoid `session.flush()` in the middle of a `write_dag` unit of work; defer all flushes until the complete set of objects has been added to the session to prevent partial-commit state on error.",
+    "category": "database",
+    "trigger": "A `session.flush()` call appears mid-function inside a `write_dag` or similar multi-object DB write, before all related objects have been added.",
+    "rationale": "Flushing mid-transaction allocates IDs early; if a later `session.add()` or operation raises, the transaction may commit the flushed row while the rest of the work is rolled back, corrupting referential integrity.",
+    "evidence": [
+      {
+        "pr": 58248,
+        "url": "https://github.com/apache/airflow/pull/58248#discussion_r2564438062",
+        "excerpt": "once we flush and now have some id, we risk committing it differently if there's error"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/serialized_dag.py"
+    ]
+  },
+  {
+    "rule": "When updating a `DagVersion` record, always update `bundle_version` together with other version metadata; omitting it causes workers with versioned bundles to not see newly added tasks.",
+    "category": "correctness",
+    "trigger": "Code updates `DagVersion` (or calls `DagVersion.get_latest_version`) without also updating the associated `bundle_version` on the same record.",
+    "rationale": "Workers resolve task code via the bundle; if `bundle_version` lags behind the new DAG version, the worker fetches the old bundle and cannot find newly introduced task IDs.",
+    "evidence": [
+      {
+        "pr": 59764,
+        "url": "https://github.com/apache/airflow/pull/59764#discussion_r2820388000",
+        "excerpt": "with versioned bundles, its likely you wont even have the new tasks"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/taskinstance.py",
+      "airflow-core/src/airflow/models/dag_version.py"
+    ]
+  },
+  {
+    "rule": "Deferred task instances must be counted against `max_active_tis_per_dag` and `max_active_tis_per_dagrun` limits because they remain logically in-flight.",
+    "category": "correctness",
+    "trigger": "A query counting active task instances for concurrency limits filters on states `[running, queued]` but omits `deferred`.",
+    "rationale": "Deferred TIs hold a slot in the triggerer and will resume execution; excluding them from active-TI counts allows the scheduler to over-schedule, violating the user-configured concurrency ceiling.",
+    "evidence": [
+      {
+        "pr": 61769,
+        "url": "https://github.com/apache/airflow/pull/61769#discussion_r2860434455",
+        "excerpt": "Deferred TIs are included because they are still logically in-flight"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/taskinstance.py"
+    ]
+  },
+  {
+    "rule": "Never issue a per-iteration DB query inside a loop over mapped task instances; batch or hoist the lookup before the loop to avoid N+1 query patterns.",
+    "category": "performance",
+    "trigger": "A `session.scalar(select(DagRun).where(...))` or equivalent single-row query appears inside a `for` loop that iterates over task map entries.",
+    "rationale": "Mapped tasks can expand to thousands of instances; a query per iteration multiplies DB round-trips proportionally, causing severe slowdowns during large dynamic task mapping.",
+    "evidence": [
+      {
+        "pr": 63568,
+        "url": "https://github.com/apache/airflow/pull/63568#discussion_r2974587013",
+        "excerpt": "SQLA will issue a query for each and every time around this loop"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/taskmap.py"
+    ]
+  },
+  {
+    "rule": "In `PartitionMapper.to_upstream()` implementations, derive the parse format from `self.output_format` rather than hard-coding a fixed slice and format string, so custom output format overrides remain consistent.",
+    "category": "correctness",
+    "trigger": "A `to_upstream` method in a temporal partition mapper uses a hard-coded `downstream_key[:10]` slice and `\"%Y-%m-%d\"` literal instead of parsing via `self.output_format`.",
+    "rationale": "`_BaseTemporalMapper` allows `output_format` overrides; hard-coding the parse format silently breaks the rollup mapping for any user who customises the output format.",
+    "evidence": [
+      {
+        "pr": 64571,
+        "url": "https://github.com/apache/airflow/pull/64571#discussion_r3025334923",
+        "excerpt": "silently break for customized week output formats"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/partition_mappers/temporal.py"
+    ]
+  }
+]

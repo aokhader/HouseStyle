@@ -1,0 +1,212 @@
+[
+  {
+    "rule": "Use the ContextVar token/reset pattern (set → try/finally → reset) for every Airflow ContextVar mutation, matching the precedent set by initdb().",
+    "category": "correctness",
+    "trigger": "A ContextVar is assigned via .set() but no token variable is stored and no corresponding .reset(token) call exists in a finally block.",
+    "rationale": "A ContextVar that is set but never reset leaks state into subsequent calls within the same process. Airflow's own initdb() demonstrates the canonical token/try/finally/reset pattern, and new code must follow it.",
+    "evidence": [
+      {
+        "pr": 65547,
+        "url": "https://github.com/apache/airflow/pull/65547#discussion_r3154020811",
+        "excerpt": "using the ContextVar token/reset pattern (like initdb() does) avoids leaking state"
+      }
+    ],
+    "scope_paths": ["scripts/in_container/"]
+  },
+  {
+    "rule": "Do not use caplog in tests; assert observable behaviour or return values, not log output.",
+    "category": "testing",
+    "trigger": "A test imports or uses caplog (pytest's log-capture fixture) to assert on logged messages.",
+    "rationale": "CLAUDE.md explicitly bans caplog. Log text is an implementation detail; rewording a message would break the test without anything actually breaking. Tests should assert the load-bearing contract (e.g., no exception raised, correct return value).",
+    "evidence": [
+      {
+        "pr": 63878,
+        "url": "https://github.com/apache/airflow/pull/63878#discussion_r3215299268",
+        "excerpt": "CLAUDE.md is explicit: 'Do not use caplog in tests, prefer checking logic'"
+      }
+    ],
+    "scope_paths": ["shared/logging/tests/", "airflow-core/tests/", "task-sdk/tests/"]
+  },
+  {
+    "rule": "Name async variants of existing methods with the 'a' prefix (e.g., aget_connection), not an 'async_' prefix.",
+    "category": "naming",
+    "trigger": "A new async classmethod or method is named async_<something> where a synchronous counterpart <something> already exists.",
+    "rationale": "Airflow has an established convention of prefixing async versions with 'a' (aget_connection, aget_records, etc.). The 'async_' prefix breaks that pattern and diverges from the style copied from elsewhere in the codebase.",
+    "evidence": [
+      {
+        "pr": 53831,
+        "url": "https://github.com/apache/airflow/pull/53831#discussion_r2249148386",
+        "excerpt": "I wonder if this should be called aget_connection instead"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/bases/", "airflow-core/src/airflow/hooks/"]
+  },
+  {
+    "rule": "When a new config-driven default is introduced on a class, add a regression test that changes the relevant config key before constructing the object and asserts the default is read correctly.",
+    "category": "testing",
+    "trigger": "A class __init__ reads a config value (e.g., conf.getfloat) to supply a default for an argument, but no test constructs the class after modifying that config section/key.",
+    "rationale": "Config-driven defaults are a Airflow-specific behaviour surface. Without an explicit test, the config read can be silently broken (e.g., wrong section/key name) and the regression goes undetected because existing tests always inject the value explicitly.",
+    "evidence": [
+      {
+        "pr": 66979,
+        "url": "https://github.com/apache/airflow/pull/66979#discussion_r3246183590",
+        "excerpt": "add a regression test that changes the config before constructing the sensor"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/bases/sensor.py", "task-sdk/tests/"]
+  },
+  {
+    "rule": "Local imports used to break a circular dependency must have a comment identifying the circular dependency being avoided; prefer module-level imports otherwise.",
+    "category": "correctness",
+    "trigger": "A local (function- or method-body) import exists without an adjacent comment explaining why it cannot be a module-level import.",
+    "rationale": "Airflow's monorepo has many packages with subtle circular-import risks. A silent local import hides the reason, making refactoring harder and causing repeated import overhead. Documenting the circular dependency makes the constraint visible to future maintainers.",
+    "evidence": [
+      {
+        "pr": 62696,
+        "url": "https://github.com/apache/airflow/pull/62696#discussion_r2973215185",
+        "excerpt": "If this is to avoid a circular import, please add a short comment explaining that"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/configuration.py", "airflow-core/src/airflow/"]
+  },
+  {
+    "rule": "Entries added to airflow/sdk/__init__.py __all__ and the lazy-import dict must be inserted in alphabetical order.",
+    "category": "api-design",
+    "trigger": "A new symbol is appended to the __all__ list or the lazy-import dict in task-sdk/src/airflow/sdk/__init__.py without being placed in the correct alphabetical position.",
+    "rationale": "The task-sdk public API surface is large; alphabetical ordering in __all__ and the companion lazy-import dict is the established convention that makes the list scannable and diffs reviewable.",
+    "evidence": [
+      {
+        "pr": 67118,
+        "url": "https://github.com/apache/airflow/pull/67118#discussion_r3270207194",
+        "excerpt": "ResumableJobMixin is out of alphabetical order in __all__"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/__init__.py"]
+  },
+  {
+    "rule": "In the Java coordinator, register stdout/stderr socketpair pipe readers before the connection accept loop starts, not after.",
+    "category": "correctness",
+    "trigger": "A subprocess coordinator calls _accept_connections (or equivalent selector-based accept loop) before calling _register_pipe_readers (or equivalent) on the socketpair write-ends passed to the subprocess.",
+    "rationale": "The JVM writes to stdout/stderr before making its --comm= connection (banners, JAVA_TOOL_OPTIONS, slf4j init). If the pipe readers are not draining concurrently, the socketpair buffer (~16–64 KB) fills and the JVM blocks in write(), causing the accept loop to time out with a misleading 'process did not connect within timeout' error.",
+    "evidence": [
+      {
+        "pr": 65958,
+        "url": "https://github.com/apache/airflow/pull/65958#discussion_r3295487550",
+        "excerpt": "JVM writes before connecting, fills socketpair buffer, accept loop times out"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/coordinators/java/"]
+  },
+  {
+    "rule": "Language-agnostic coordinator plumbing (_start_server, _accept_connections, socketpair setup) must live in BaseCoordinator, not be duplicated per language coordinator.",
+    "category": "api-design",
+    "trigger": "A new language coordinator under task-sdk/src/airflow/sdk/coordinators/ re-implements socket server startup or connection-accept helpers that are not specific to that runtime.",
+    "rationale": "The coordinator architecture has a BaseCoordinator; each language-specific subclass should only implement the runtime-specific parts. Duplicating shared plumbing across coordinators makes the code harder to maintain and fix.",
+    "evidence": [
+      {
+        "pr": 65958,
+        "url": "https://github.com/apache/airflow/pull/65958#discussion_r3293670791",
+        "excerpt": "_start_server, _accept_connections aren't JVM-specific; move to BaseCoordinator"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/coordinators/"]
+  },
+  {
+    "rule": "Each language coordinator's constructor arguments need only make sense for its own runtime; coordinators do not need matching argument signatures.",
+    "category": "api-design",
+    "trigger": "A language coordinator is given arguments whose names or types are copied to match a different coordinator rather than being idiomatic for that runtime.",
+    "rationale": "Different runtimes (JVM, Python, etc.) require fundamentally different configuration. Forcing argument parity across coordinators produces awkward APIs; each coordinator's interface should reflect only what that language needs.",
+    "evidence": [
+      {
+        "pr": 65958,
+        "url": "https://github.com/apache/airflow/pull/65958#discussion_r3296280299",
+        "excerpt": "each coordinator only needs arguments meaningful to its own runtime"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/coordinators/"]
+  },
+  {
+    "rule": "SecretsMasker tests for exception-redaction paths must assert that chained exceptions (__context__ / __cause__) are also redacted, not merely that the primary exception is handled.",
+    "category": "testing",
+    "trigger": "A test for _redact_exception_with_context_or_cause (or equivalent) only checks exc.args and does not attach a __context__ or __cause__ containing a secret to verify chain traversal.",
+    "rationale": "The masker's contract is to redact secrets from the full exception chain. A test that only checks the direct args will miss regressions where an early AttributeError (e.g., on immutable args) silently aborts redaction of chained exceptions.",
+    "evidence": [
+      {
+        "pr": 61776,
+        "url": "https://github.com/apache/airflow/pull/61776#discussion_r2795611409",
+        "excerpt": "test won't catch regressions where AttributeError stops redaction of chained exceptions"
+      }
+    ],
+    "scope_paths": ["shared/secrets_masker/tests/"]
+  },
+  {
+    "rule": "SecretsMasker exception-chain traversal tests must include a cross-circular case (exc1.__cause__ = exc2; exc2.__context__ = exc1) to verify the visited-set guard works for mixed __cause__/__context__ cycles.",
+    "category": "testing",
+    "trigger": "Tests for circular exception chain handling only cover same-attribute cycles (__cause__/__cause__ or __context__/__context__) but not the cross-attribute cycle.",
+    "rationale": "The visited set in _redact_exception_with_context_or_cause must handle mixed-attribute cycles. Testing only within-attribute loops leaves a gap where cross-circular chains could re-enter and cause infinite recursion.",
+    "evidence": [
+      {
+        "pr": 61776,
+        "url": "https://github.com/apache/airflow/pull/61776#discussion_r2794954033",
+        "excerpt": "no test for the cross-circular case; the visited set should handle it"
+      }
+    ],
+    "scope_paths": ["shared/secrets_masker/tests/"]
+  },
+  {
+    "rule": "Task-SDK documentation examples that show async @task functions must include a complete @dag-decorated wrapper so the example is a runnable DAG file.",
+    "category": "docs",
+    "trigger": "A .rst or .md docs example defines an @task-decorated function and calls it at module level without an enclosing @dag-decorated function.",
+    "rationale": "Task-sdk docs establish the convention of complete, runnable DAG examples. A snippet that calls task_fn() outside a @dag context will not work when a user copies it, and it misrepresents how Airflow scheduling works.",
+    "evidence": [
+      {
+        "pr": 63500,
+        "url": "https://github.com/apache/airflow/pull/63500#discussion_r2934450549",
+        "excerpt": "never shows a @dag-decorated function; every other task-sdk example shows a complete DAG"
+      }
+    ],
+    "scope_paths": ["task-sdk/docs/"]
+  },
+  {
+    "rule": "The pre-commit hook test suite for check_provide_session_kwargs must cover the bypass path where an allowlist entry is removed or newly added (not only the 'loosen count' path).",
+    "category": "testing",
+    "trigger": "Tests for _expand_for_allowlist_edits only exercise the case where an existing entry's count is increased, without a test where an entry is removed from or added fresh to known_provide_session_positional.txt.",
+    "rationale": "Without a test for allowlist entry removal/addition, edits to the known_provide_session_positional.txt allowlist can silently bypass validation of affected Python files, undermining the hook's entire purpose.",
+    "evidence": [
+      {
+        "pr": 67150,
+        "url": "https://github.com/apache/airflow/pull/67150#discussion_r3264141965",
+        "excerpt": "no regression test for the bypass where an allowlist entry is removed or newly added"
+      }
+    ],
+    "scope_paths": ["scripts/tests/ci/prek/"]
+  },
+  {
+    "rule": "Pre-commit hook tests must pass resolved paths (Path.resolve()) matching the production hook's path-normalization behaviour.",
+    "category": "testing",
+    "trigger": "A test for a pre-commit hook passes a raw Path or string where the production code calls Path(f).resolve() before comparison, causing the test to use non-normalised paths.",
+    "rationale": "The production hook resolves all paths before matching; tests that pass unresolved paths can pass even when path-normalization bugs are introduced, making them ineffective regression guards.",
+    "evidence": [
+      {
+        "pr": 67150,
+        "url": "https://github.com/apache/airflow/pull/67150#discussion_r3263801495",
+        "excerpt": "tests pass an unresolved allowlist_path, missing path-normalization issues"
+      }
+    ],
+    "scope_paths": ["scripts/tests/ci/prek/"]
+  },
+  {
+    "rule": "MetricsMap implementations must use a consistent key strategy across all instrument types, or use separate sub-maps per instrument type, to prevent slot collisions between gauges and histograms.",
+    "category": "correctness",
+    "trigger": "A MetricsMap (or equivalent shared metrics registry) keys different instrument types (gauge, histogram, counter) using different key schemes (one uses name alone, another uses name+tags), or stores all instruments in the same dict.",
+    "rationale": "Airflow's OTel MetricsMap stores all instrument types together. If gauge keys by _generate_key_name(name, tags) but histogram keys by name alone, the same metric name emitted via both gauge() and timing() retrieves the wrong object type and raises AttributeError at runtime.",
+    "evidence": [
+      {
+        "pr": 64207,
+        "url": "https://github.com/apache/airflow/pull/64207#discussion_r3110473059",
+        "excerpt": "same metric name through gauge() and timing() raises AttributeError: 'InternalGauge' has no attribute 'record'"
+      }
+    ],
+    "scope_paths": ["shared/observability/src/airflow_shared/observability/metrics/"]
+  }
+]

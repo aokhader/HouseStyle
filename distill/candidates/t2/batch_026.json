@@ -1,0 +1,183 @@
+[
+  {
+    "rule": "Guard imports of optional cross-provider bases (e.g. BaseMessageQueueProvider) with a try/except that raises AirflowOptionalProviderFeatureException when the dependency is absent",
+    "category": "providers",
+    "trigger": "A provider module imports from another optional provider package (e.g. airflow.providers.common.messaging, airflow.providers.openlineage) at module top-level without a try/except AirflowOptionalProviderFeatureException guard",
+    "rationale": "Without the guard, importing the provider module crashes Airflow in environments where the optional provider is not installed; every other message-queue provider in the repo already follows this pattern",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r2984868963",
+        "excerpt": "importing this module doesn't crash Airflow in environments without that optional provider"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/src/airflow/providers/ibm/mq/queues/mq.py"
+    ]
+  },
+  {
+    "rule": "AssetWatcher triggers must use a while-True polling loop so the trigger never exits silently; a single await that can return None is not sufficient",
+    "category": "async",
+    "trigger": "A trigger's async run() method contains a single await call that can return None or raise, without an enclosing while True loop",
+    "rationale": "If run() exits without yielding a TriggerEvent the AssetWatcher is silently killed and the DAG never triggers; Kafka's AwaitMessageTrigger uses while True as the established pattern",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r2956603901",
+        "excerpt": "trigger exits silently without yielding a TriggerEvent … kills the watcher and the DAG never triggers"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/src/airflow/providers/ibm/mq/triggers/mq.py"
+    ]
+  },
+  {
+    "rule": "Do not mutate sys.modules in a provider test package __init__.py; use a pytest fixture (monkeypatch.setitem) scoped to the relevant tests instead",
+    "category": "testing",
+    "trigger": "sys.modules[\"...\"] = ... appears in a tests/ package __init__.py rather than inside a pytest fixture or conftest",
+    "rationale": "Module-level sys.modules mutation is a global side effect that leaks into unrelated tests and masks missing-dependency behaviour across the test suite",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r2984869055",
+        "excerpt": "global side effect that can leak into unrelated tests and mask missing-dependency behavior"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/tests/unit/ibm/mq/__init__.py"
+    ]
+  },
+  {
+    "rule": "Provider documentation examples targeting Airflow 3+ must use schedule= (not schedule_interval=) and import PythonOperator from airflow.providers.standard.operators.python",
+    "category": "docs",
+    "trigger": "A provider README or docs example contains schedule_interval= or imports PythonOperator from airflow.operators.python when the provider's minimum Airflow version is 3",
+    "rationale": "schedule_interval was removed in Airflow 3 and PythonOperator moved to the Standard provider; using legacy imports in docs contradicts the provider's declared Airflow 3+ requirement",
+    "evidence": [
+      {
+        "pr": 57610,
+        "url": "https://github.com/apache/airflow/pull/57610#discussion_r2761089797",
+        "excerpt": "inconsistent with the provider's Airflow 3+ requirement … update to Airflow 3 style"
+      }
+    ],
+    "scope_paths": [
+      "providers/informatica/README.rst"
+    ]
+  },
+  {
+    "rule": "Use wait_for_completion (not wait_for_termination) as the boolean parameter name for operators that poll until a job/resource finishes, for consistency with the AWS provider convention",
+    "category": "api-design",
+    "trigger": "An operator __init__ declares a parameter named wait_for_termination",
+    "rationale": "The AWS provider package already uses wait_for_completion universally; diverging names create an inconsistent user experience across providers",
+    "evidence": [
+      {
+        "pr": 60369,
+        "url": "https://github.com/apache/airflow/pull/60369#discussion_r2759608445",
+        "excerpt": "We usually use wait_for_completion in the AWS provider package … use it as well for consistency"
+      }
+    ],
+    "scope_paths": [
+      "providers/microsoft/azure/src/airflow/providers/microsoft/azure/operators/powerbi.py"
+    ]
+  },
+  {
+    "rule": "Guard imports of BaseEventTrigger / TriggerEvent with an AIRFLOW_V_3_0_PLUS check and fall back to BaseTrigger for Airflow 2 compatibility",
+    "category": "providers",
+    "trigger": "A provider trigger imports BaseEventTrigger or TriggerEvent from airflow.triggers.base unconditionally without an AIRFLOW_V_3_0_PLUS guard",
+    "rationale": "BaseEventTrigger was introduced in Airflow 3; unconditional import breaks providers that must remain compatible with Airflow 2",
+    "evidence": [
+      {
+        "pr": 53356,
+        "url": "https://github.com/apache/airflow/pull/53356#discussion_r2553195034",
+        "excerpt": "Adding compact import should fix the CI … AIRFLOW_V_3_0_PLUS guard"
+      }
+    ],
+    "scope_paths": [
+      "providers/microsoft/azure/src/airflow/providers/microsoft/azure/triggers/message_bus.py"
+    ]
+  },
+  {
+    "rule": "An async (deferrable) hook must support the same connection extras as its synchronous counterpart; if an extra is unsupported, raise AirflowException explicitly rather than silently ignoring it",
+    "category": "providers",
+    "trigger": "An async hook's credential-setup branch omits handling of connection extras (e.g. key_path, key_json) that the corresponding sync hook supports",
+    "rationale": "Silent omission makes deferrable=True behave differently from the sync path for existing connections, breaking user workflows without a clear error",
+    "evidence": [
+      {
+        "pr": 62772,
+        "url": "https://github.com/apache/airflow/pull/62772#discussion_r3066478401",
+        "excerpt": "async hook currently ignores them … make deferrable=True behave differently or fail for existing connections"
+      }
+    ],
+    "scope_paths": [
+      "providers/microsoft/azure/src/airflow/providers/microsoft/azure/hooks/container_instance.py"
+    ]
+  },
+  {
+    "rule": "Tests for polling-retry loops must assert the sleep mock call count to verify the loop actually sleeps between polls",
+    "category": "testing",
+    "trigger": "A test mocks time.sleep and tests a polling retry loop but does not assert mock_sleep.call_count",
+    "rationale": "Without asserting sleep call count the test passes even if the implementation stops sleeping between polls, producing false positives",
+    "evidence": [
+      {
+        "pr": 63765,
+        "url": "https://github.com/apache/airflow/pull/63765#discussion_r3025342432",
+        "excerpt": "avoid false positives if the implementation stops sleeping between polls"
+      }
+    ],
+    "scope_paths": [
+      "providers/microsoft/azure/tests/unit/microsoft/azure/hooks/test_batch.py"
+    ]
+  },
+  {
+    "rule": "In deferrable operators, do not use provisioning_state alone as a terminal-state signal for deferral decisions; only treat the container execution state as terminal",
+    "category": "async",
+    "trigger": "A deferrable operator checks cg_state.provisioning_state (e.g. 'Succeeded') as a condition to stop deferring, without also verifying instance_view.current_state",
+    "rationale": "Provisioning can reach Succeeded while the container is still running and instance_view is not yet populated, causing premature exit from the deferral loop",
+    "evidence": [
+      {
+        "pr": 62772,
+        "url": "https://github.com/apache/airflow/pull/62772#discussion_r3066478430",
+        "excerpt": "provisioning_state as a terminal state can prevent deferral … defer until container execution state is terminal"
+      }
+    ],
+    "scope_paths": [
+      "providers/microsoft/azure/src/airflow/providers/microsoft/azure/operators/container_instances.py"
+    ]
+  },
+  {
+    "rule": "When comparing cross-provider version strings use packaging.Version directly; do not wrap Version().base_version in another Version() call",
+    "category": "providers",
+    "trigger": "Code contains Version(Version(...).base_version) when performing a cross-provider version comparison",
+    "rationale": "packaging.Version already handles pre-release ordering correctly; the redundant base_version round-trip strips pre-release tags unnecessarily and adds confusion",
+    "evidence": [
+      {
+        "pr": 64966,
+        "url": "https://github.com/apache/airflow/pull/64966#discussion_r3143750764",
+        "excerpt": "Version(Version(...).base_version) is redundant — packaging.Version already orders pre-release tags correctly"
+      }
+    ],
+    "scope_paths": [
+      "providers/microsoft/azure/src/airflow/providers/microsoft/azure/transfers/gcs_to_wasb.py"
+    ]
+  },
+  {
+    "rule": "The OpenLineage JDBC authority extractor must strip userinfo (user:pass@) from the URL and handle Oracle thin URLs that use @// instead of ://",
+    "category": "providers",
+    "trigger": "A _get_openlineage_authority or equivalent JDBC URL parser splits on :// without also handling @// (Oracle thin) and does not strip user:pass@ from the result",
+    "rationale": "Oracle thin JDBC URLs use jdbc:oracle:thin:@//host:port/service and many drivers allow embedding userinfo; missing these cases emits wrong or missing authority in OpenLineage events",
+    "evidence": [
+      {
+        "pr": 67457,
+        "url": "https://github.com/apache/airflow/pull/67457#discussion_r3303746654",
+        "excerpt": "jdbc:oracle:thin:@//host doesn't contain :// … authority is lost for a perfectly parseable URL"
+      },
+      {
+        "pr": 67457,
+        "url": "https://github.com/apache/airflow/pull/67457#discussion_r3303746640",
+        "excerpt": "user embeds userinfo in the JDBC URL … after ends up as user:pass@host:5432"
+      }
+    ],
+    "scope_paths": [
+      "providers/jdbc/src/airflow/providers/jdbc/hooks/jdbc.py"
+    ]
+  }
+]

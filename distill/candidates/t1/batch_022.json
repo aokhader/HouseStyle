@@ -1,0 +1,291 @@
+[
+  {
+    "rule": "Use `timezone.utcnow()` for timestamps in provider models, not `datetime.now()`; never initialise mutable timestamps as class-level attributes.",
+    "category": "providers",
+    "trigger": "class attribute assigned `datetime.now()` or `datetime.utcnow()` outside `__init__`",
+    "rationale": "A class-level `datetime.now()` is evaluated at import time, so every instance shares the same frozen timestamp and local-time ambiguity breaks serialisation/display.",
+    "evidence": [
+      {
+        "pr": 65472,
+        "url": "https://github.com/apache/airflow/pull/65472#discussion_r3106990078",
+        "excerpt": "use `timezone.utcnow()` to avoid local-time ambiguity when displayed/serialized"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/"
+    ]
+  },
+  {
+    "rule": "When referencing attributes added in a later Airflow minor version inside a provider that supports older minors, use `getattr(obj, 'attr', default)` instead of direct attribute access.",
+    "category": "providers",
+    "trigger": "direct attribute access on `self.<attr>` where `<attr>` was introduced after the provider's minimum supported Airflow version",
+    "rationale": "Edge provider supports 3.0+; `team_name` was added in 3.1, so direct access breaks on 3.0 installs; `getattr` with a fallback guards backward compatibility.",
+    "evidence": [
+      {
+        "pr": 69005,
+        "url": "https://github.com/apache/airflow/pull/69005#discussion_r3484117644",
+        "excerpt": "self.team_name was added in 3.1, this could be a problem"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/executors/"
+    ]
+  },
+  {
+    "rule": "Provider migration version filenames must reflect the next unreleased Airflow version at the time of merge; rename before merge if a new minor has been cut.",
+    "category": "providers",
+    "trigger": "migration file path containing a version string that is ≤ the latest released Airflow version",
+    "rationale": "Version 3.3.0 shipped before the PR merged, forcing a rename to 3.4.0; keeping stale version identifiers causes migration ordering conflicts.",
+    "evidence": [
+      {
+        "pr": 61646,
+        "url": "https://github.com/apache/airflow/pull/61646#discussion_r3005412551",
+        "excerpt": "Version 3.3.0 has been released now; must be renamed to 3.4.0"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/migrations/"
+    ]
+  },
+  {
+    "rule": "Provider compatibility shims guarding against an older Airflow core API must carry a `# TODO: Remove once minimum supported Airflow version is X.Y` comment referencing the exact version.",
+    "category": "providers",
+    "trigger": "compatibility override or workaround block in a provider that lacks a `TODO: Remove` version comment",
+    "rationale": "Explicit version-gated TODO comments make it mechanical to clean up shims once the minimum supported version advances.",
+    "evidence": [
+      {
+        "pr": 66674,
+        "url": "https://github.com/apache/airflow/pull/66674#discussion_r3222421403",
+        "excerpt": "Remove these compatibility overrides once minimum supported Airflow version is 3.3"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/models/"
+    ]
+  },
+  {
+    "rule": "Edge provider UI API routes must include `requires_access_view` dependency for authentication.",
+    "category": "security",
+    "trigger": "new `@ui_router.post/get/patch/delete` route in `worker_api/routes/ui.py` without a `Depends(requires_access_view(...))` in its `dependencies=`",
+    "rationale": "UI endpoints without access checks are publicly open; every route must declare an access guard so the API is not unauthenticated.",
+    "evidence": [
+      {
+        "pr": 55301,
+        "url": "https://github.com/apache/airflow/pull/55301#discussion_r2325991100",
+        "excerpt": "ensure this API is not 'public/open' but authenticated, please add access check"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/worker_api/routes/"
+    ]
+  },
+  {
+    "rule": "Edge provider UI API route handlers that mutate state must inject `GetUserDep` alongside `SessionDep` for auditing.",
+    "category": "security",
+    "trigger": "route function with `SessionDep` parameter on a mutating route (POST/PATCH/DELETE) in `worker_api/routes/ui.py` missing a `GetUserDep` parameter",
+    "rationale": "Mutating routes need a user dependency for access control and audit trails, mirroring the pattern applied in other maintenance endpoint commits.",
+    "evidence": [
+      {
+        "pr": 55301,
+        "url": "https://github.com/apache/airflow/pull/55301#discussion_r2328667637",
+        "excerpt": "session: SessionDep, user: GetUserDep — replication of earlier commit pattern"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/worker_api/routes/"
+    ]
+  },
+  {
+    "rule": "When a FastAPI route raises a new HTTP error code, declare it in the route's `responses=` dict so the OpenAPI schema reflects it.",
+    "category": "api-design",
+    "trigger": "`raise HTTPException(status.HTTP_4xx_...)` in a route body whose `@router.get/post(...)` decorator does not list that status code in `responses=`",
+    "rationale": "Clients rely on the OpenAPI spec to know which error codes to handle; undocumented status codes make the contract incomplete.",
+    "evidence": [
+      {
+        "pr": 64556,
+        "url": "https://github.com/apache/airflow/pull/64556#discussion_r3025326748",
+        "excerpt": "route's documented responses= only includes 400/403; update OpenAPI docs to include 404"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/worker_api/routes/"
+    ]
+  },
+  {
+    "rule": "FastAPI `Query` parameter descriptions in provider routes must match the actual implementation behaviour (e.g. single-field vs multi-field ordering).",
+    "category": "api-design",
+    "trigger": "`Query(...)` description in a route file says 'comma-separated fields' but implementation accepts only a single field",
+    "rationale": "Mismatched OpenAPI descriptions mislead clients; descriptions are generated into the spec YAML and must accurately reflect the actual backend logic.",
+    "evidence": [
+      {
+        "pr": 63418,
+        "url": "https://github.com/apache/airflow/pull/63418#discussion_r2923138461",
+        "excerpt": "spec describes order_by as comma-separated but implementation supports only a single field"
+      }
+    ],
+    "scope_paths": [
+      "providers/fab/src/airflow/providers/fab/auth_manager/api_fastapi/",
+      "providers/fab/src/airflow/providers/fab/auth_manager/api_fastapi/openapi/"
+    ]
+  },
+  {
+    "rule": "FastAPI route handler functions in provider packages must carry an explicit return type annotation matching their declared `response_model`.",
+    "category": "api-design",
+    "trigger": "route handler function in `routes/*.py` with `response_model=Foo` in its decorator but no `-> Foo` return annotation on the function",
+    "rationale": "Consistent return-type annotations across route handlers improve static typing and readability, matching the pattern of other handlers in the module.",
+    "evidence": [
+      {
+        "pr": 63418,
+        "url": "https://github.com/apache/airflow/pull/63418#discussion_r2923138484",
+        "excerpt": "for consistency with other route handlers, annotate handler returning PermissionCollectionResponse"
+      }
+    ],
+    "scope_paths": [
+      "providers/fab/src/airflow/providers/fab/auth_manager/api_fastapi/routes/"
+    ]
+  },
+  {
+    "rule": "SQLAlchemy `before_create` DDL event listeners must not permanently mutate `table.indexes` (shared metadata); use dialect-scoped DDL that adds/skips rather than discards.",
+    "category": "database",
+    "trigger": "`table.indexes.discard(...)` or `table.indexes.remove(...)` inside a `@event.listens_for(Table, 'before_create')` listener",
+    "rationale": "Shared metadata mutations persist for the process lifetime, causing inconsistent schema creation when the same metadata is reused across dialects (e.g. in multi-dialect test suites).",
+    "evidence": [
+      {
+        "pr": 62234,
+        "url": "https://github.com/apache/airflow/pull/62234#discussion_r2926164423",
+        "excerpt": "table.indexes is shared metadata; permanently removes index, inconsistent if metadata reused"
+      }
+    ],
+    "scope_paths": [
+      "providers/fab/src/airflow/providers/fab/auth_manager/models/"
+    ]
+  },
+  {
+    "rule": "Edge provider frontend code must use React Query (on top of Axios) for HTTP calls, not bare Axios.",
+    "category": "providers",
+    "trigger": "direct `axios.get/post/...` call in a `.tsx` component file that does not go through `useQuery`/`useMutation` from `@tanstack/react-query`",
+    "rationale": "React Query provides loading/error/success states, caching, and retries automatically; bypassing it with raw Axios loses these guarantees and breaks consistency.",
+    "evidence": [
+      {
+        "pr": 54994,
+        "url": "https://github.com/apache/airflow/pull/54994#discussion_r2322263065",
+        "excerpt": "ReactQuery on top of Axios is the most simplistic way to handle HTTP calls"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/plugins/www/src/"
+    ]
+  },
+  {
+    "rule": "OpenAPI client code and the source spec YAML for a provider must be regenerated together and kept in sync via the `ts-compile-lint-ui` pre-commit hook.",
+    "category": "providers",
+    "trigger": "changes to an `openapi/*.yaml` spec file without a corresponding regeneration of the `openapi-gen/` client files, or vice-versa",
+    "rationale": "The pre-commit hook ensures generated client code and the spec are always in sync; manual partial updates leave them diverged.",
+    "evidence": [
+      {
+        "pr": 53563,
+        "url": "https://github.com/apache/airflow/pull/53563#discussion_r2316543061",
+        "excerpt": "done via precommit hook ts-compile-lint-ui; generated code and spec always in sync"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/plugins/www/"
+    ]
+  },
+  {
+    "rule": "Provider `package.json` files must not include `npm` or single-letter packages (e.g. `i`) as dependencies.",
+    "category": "providers",
+    "trigger": "`\"npm\"` or `\"i\"` appearing as a key in the `dependencies` or `devDependencies` section of a provider `package.json`",
+    "rationale": "`npm` is a tool, not a runtime dependency; `i` is a typo artefact of `npm i`; both should be removed to keep the dependency list clean.",
+    "evidence": [
+      {
+        "pr": 55356,
+        "url": "https://github.com/apache/airflow/pull/55356#discussion_r2328840532",
+        "excerpt": "'i' and 'npm' appear to be accidentally added dependencies; should be removed"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/plugins/www/"
+    ]
+  },
+  {
+    "rule": "Provider prek/pre-commit hooks and their supporting scripts must live inside the provider's own folder, not in the repo root.",
+    "category": "providers",
+    "trigger": "a `prek`/pre-commit hook entry in a provider `hatch_build.py` referencing a hook stage whose scripts reside outside the provider directory",
+    "rationale": "Self-contained provider folders require that all build and hook tooling travels with the provider rather than depending on root-level scripts.",
+    "evidence": [
+      {
+        "pr": 56456,
+        "url": "https://github.com/apache/airflow/pull/56456#discussion_r2645244307",
+        "excerpt": "move the prek hooks to edge3 folder for this to make sense"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/hatch_build.py"
+    ]
+  },
+  {
+    "rule": "Provider log-handler field names must track airflow-core renames (e.g. `.message` → `.event` on log records) and gate on the core version when both must be supported.",
+    "category": "providers",
+    "trigger": "access to `.message` attribute on a structured log record object inside a provider log handler",
+    "rationale": "Airflow 3 renamed the log-record field from `.message` to `.event`; providers must handle both or pin to the correct attribute per supported core version.",
+    "evidence": [
+      {
+        "pr": 53821,
+        "url": "https://github.com/apache/airflow/pull/53821#discussion_r2271894987",
+        "excerpt": "handle .message with .event depends on airflow-core version"
+      }
+    ],
+    "scope_paths": [
+      "providers/elasticsearch/src/airflow/providers/elasticsearch/log/"
+    ]
+  },
+  {
+    "rule": "In provider log handlers that receive task-log location via task startup metadata, do not re-fetch `TaskInstance` from the DB to determine where to write logs.",
+    "category": "providers",
+    "trigger": "`TaskInstance.get_task_instance(...)` call inside a provider log handler's write/emit path",
+    "rationale": "Log write location is passed as `log_relative_loc` in task startup metadata; re-querying the DB couples the log handler to ORM unnecessarily and duplicates available information.",
+    "evidence": [
+      {
+        "pr": 53821,
+        "url": "https://github.com/apache/airflow/pull/53821#discussion_r2316636883",
+        "excerpt": "log_relative_loc already passed along as part of task startup"
+      }
+    ],
+    "scope_paths": [
+      "providers/elasticsearch/src/airflow/providers/elasticsearch/log/"
+    ]
+  },
+  {
+    "rule": "Provider test suites must use shared fixtures for repeated `dependency_overrides` setup rather than duplicating the pattern per test.",
+    "category": "testing",
+    "trigger": "multiple test methods in the same test class that repeat the same `test_client.app.dependency_overrides[...] = ...` block",
+    "rationale": "Consolidating into a fixture also centralises `dependency_overrides.pop` teardown, preventing state leaking between tests.",
+    "evidence": [
+      {
+        "pr": 57199,
+        "url": "https://github.com/apache/airflow/pull/57199#discussion_r2462769025",
+        "excerpt": "consolidate duplicate dependency_overrides setup as fixture; handle teardown in fixture"
+      }
+    ],
+    "scope_paths": [
+      "providers/fab/tests/unit/fab/auth_manager/api_fastapi/routes/"
+    ]
+  },
+  {
+    "rule": "Optional provider dependencies that are imported inline must suppress the chained `ImportError` with `raise ImportError(...) from None`.",
+    "category": "providers",
+    "trigger": "`except ImportError: raise ImportError(...)` or `except ImportError as e: raise` pattern without `from None` on an optional provider dependency import",
+    "rationale": "Using `from None` hides the internal `ImportError` traceback for users who merely lack the optional package, producing a cleaner error message.",
+    "evidence": [
+      {
+        "pr": 66220,
+        "url": "https://github.com/apache/airflow/pull/66220#discussion_r3316117188",
+        "excerpt": "raise ... from None to hide chained ImportError; cleaner traceback for users"
+      }
+    ],
+    "scope_paths": [
+      "providers/elasticsearch/src/airflow/providers/elasticsearch/utils/"
+    ]
+  }
+]

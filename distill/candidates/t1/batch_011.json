@@ -1,0 +1,260 @@
+[
+  {
+    "rule": "Centralise all localStorage key strings in `src/constants/localStorage.ts`; do not scatter inline string literals across components.",
+    "category": "naming",
+    "trigger": "useLocalStorage(\\`[a-z_]+-\\$\\{",
+    "rationale": "Reviewer asked for a dedicated constants file so every localStorage key is discoverable and avoids silent key collisions across DAGs.",
+    "evidence": [
+      {
+        "pr": 53216,
+        "url": "https://github.com/apache/airflow/pull/53216#discussion_r2794563055",
+        "excerpt": "make a `src/constants/localStorage.ts` file to keep track"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/"
+    ]
+  },
+  {
+    "rule": "When a persisted UI state value (e.g. `dagView`) becomes invalid because a required URL context (e.g. `runId`) is absent, add a `useEffect` to coerce the stored value back to a valid default.",
+    "category": "correctness",
+    "trigger": "useLocalStorage.*dagView|localStorage.*gantt",
+    "rationale": "Without coercion, `dagView === 'gantt'` with no `runId` renders the wrong branch and the view toggle has no matching option.",
+    "evidence": [
+      {
+        "pr": 64335,
+        "url": "https://github.com/apache/airflow/pull/64335#discussion_r3025334530",
+        "excerpt": "coerce `dagView` back to 'grid' when `dagView === 'gantt' && !runId`"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/layouts/Details/"
+    ]
+  },
+  {
+    "rule": "Extract shared visual constants (gradient strings, pixel offsets, colours) that are used across two or more components into the nearest `constants.ts` file for the feature folder.",
+    "category": "api-design",
+    "trigger": "const [A-Z_]+ =\\s*\"linear-gradient|const [A-Z_]+_PX =",
+    "rationale": "Reviewer required `NOTE_GRADIENT` to be factored into `Grid/constants.ts` using a pixel-based split instead of duplicating the string inline.",
+    "evidence": [
+      {
+        "pr": 69121,
+        "url": "https://github.com/apache/airflow/pull/69121#discussion_r3514504818",
+        "excerpt": "Factorize this with the TI one. Put it in `Grid/constants.ts`"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/layouts/Details/Grid/"
+    ]
+  },
+  {
+    "rule": "Use `total_entries` from the API response for displaying counts when a hard `limit` is applied; never use `array.length` as the displayed count.",
+    "category": "correctness",
+    "trigger": "limit:\\s*\\d+.*\\.length|missedDeadlines\\.length|pendingDeadlines\\.length",
+    "rationale": "When total entries exceed the page limit, using `.length` silently undercounts; `total_entries` is the authoritative count.",
+    "evidence": [
+      {
+        "pr": 62195,
+        "url": "https://github.com/apache/airflow/pull/62195#discussion_r3030078526",
+        "excerpt": "hard-limits query to 20 but uses `missedDeadlines.length` — will undercount"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Dag/Calendar/",
+      "airflow-core/src/airflow/ui/src/pages/Run/"
+    ]
+  },
+  {
+    "rule": "When a component queries with a hard `limit`, check `data.total_entries > limit` and show a '+ N more' affordance (e.g. a modal) rather than silently truncating results.",
+    "category": "api-design",
+    "trigger": "limit:\\s*\\d+[^,]*(totalEntries|total_entries)",
+    "rationale": "Reviewer stated 'People's Airflow use cases can get crazy'; always surface overflow to the user instead of silently hiding results.",
+    "evidence": [
+      {
+        "pr": 62195,
+        "url": "https://github.com/apache/airflow/pull/62195#discussion_r3053855735",
+        "excerpt": "if deadlineData.totalEntries > 10, add '+ X more' button"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Run/"
+    ]
+  },
+  {
+    "rule": "Filter-reset logic must not delete the ordering/sort search param; only clear actual filter params.",
+    "category": "correctness",
+    "trigger": "searchParams\\.delete\\(.*ORDER|resetFilters.*searchParams\\.delete",
+    "rationale": "Bulk `searchParams.delete` calls that include ordering params remove the sort preference the user did not ask to reset.",
+    "evidence": [
+      {
+        "pr": 54210,
+        "url": "https://github.com/apache/airflow/pull/54210#discussion_r2285490267",
+        "excerpt": "This will remove 'ordering' too — not what we want"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Events/"
+    ]
+  },
+  {
+    "rule": "Do not use `Boolean(value)` to test whether a filter is active; check `value !== undefined && value !== null` so that valid falsy values (e.g. `map_index = 0`) are correctly counted as active filters.",
+    "category": "correctness",
+    "trigger": "Boolean\\([a-zA-Z]+\\).*count|count.*Boolean\\(",
+    "rationale": "Reviewer noted that `Boolean(0)` returns `false`, making `map_index = 0` appear unfiltered — a known bug class in the Airflow UI filter-count helpers.",
+    "evidence": [
+      {
+        "pr": 54210,
+        "url": "https://github.com/apache/airflow/pull/54210#discussion_r2266280970",
+        "excerpt": "`Boolean(0)` returns 'false', no filter applied but there is a filter"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Events/",
+      "airflow-core/src/airflow/ui/src/pages/DagsList/"
+    ]
+  },
+  {
+    "rule": "Filter inputs that are redundant in a context-specific view (e.g. DAG ID filter when `dagId` is already in the URL path) must be hidden via conditional rendering.",
+    "category": "api-design",
+    "trigger": "dagId.*===.*undefined.*EventsFilters|dagId.*filter.*Input",
+    "rationale": "Reviewer required conditional rendering to suppress the DAG ID filter when the component is embedded inside a DAG-scoped view.",
+    "evidence": [
+      {
+        "pr": 54210,
+        "url": "https://github.com/apache/airflow/pull/54210#discussion_r2266241556",
+        "excerpt": "if `dagId` from the path is defined, hide via conditional rendering"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Events/"
+    ]
+  },
+  {
+    "rule": "Feature sub-components must be grouped in a named folder (e.g. `TaskFilters/`) with a single barrel export; only the folder's root component is imported from outside.",
+    "category": "api-design",
+    "trigger": "import.*from.*\\.\\./[A-Z][a-zA-Z]+/[A-Z][a-zA-Z]+Filter",
+    "rationale": "Reviewer required a `TaskFilters` folder mirroring the `DagsList` pattern so the external interface is a single named export.",
+    "evidence": [
+      {
+        "pr": 54484,
+        "url": "https://github.com/apache/airflow/pull/54484#discussion_r2290364695",
+        "excerpt": "move everything related to filters inside a `TaskFilters` folder"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Dag/Tasks/"
+    ]
+  },
+  {
+    "rule": "Reset the pagination OFFSET search param whenever a filter mode (e.g. tag match mode) changes to avoid landing on an empty page.",
+    "category": "correctness",
+    "trigger": "setTagFilterMode|TAGS_MATCH_MODE.*searchParams\\.set",
+    "rationale": "Changing tag match mode from 'any' to 'all' can reduce result count below the current offset, leaving the user on a blank page.",
+    "evidence": [
+      {
+        "pr": 63273,
+        "url": "https://github.com/apache/airflow/pull/63273#discussion_r2945731700",
+        "excerpt": "reset OFFSET when changing the match mode — could leave blank page"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/DagsList/"
+    ]
+  },
+  {
+    "rule": "Check API error HTTP status using `(error as ExpandedApiError).status` or optional-chaining `error?.status`; do not use `instanceof ApiError`.",
+    "category": "correctness",
+    "trigger": "instanceof ApiError",
+    "rationale": "Reviewer required consistent status-check style across the UI codebase; `instanceof` is not used elsewhere for API errors.",
+    "evidence": [
+      {
+        "pr": 61560,
+        "url": "https://github.com/apache/airflow/pull/61560#discussion_r2799659840",
+        "excerpt": "don't check `instanceof ApiError` to keep things consistent"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/queries/"
+    ]
+  },
+  {
+    "rule": "Normalize field values (e.g. `\"\" → undefined/null`) before comparing against the initial value to build `updateMask`; do not push a field into `updateMask` based on an un-normalized comparison.",
+    "category": "correctness",
+    "trigger": "updateMask\\.push.*team_name|updateMask.*push.*===.*undefined",
+    "rationale": "Comparing un-normalized form value against initial value causes spurious `updateMask` entries when the effective value is unchanged (e.g. initial `undefined` vs form `\"\"`).",
+    "evidence": [
+      {
+        "pr": 63994,
+        "url": "https://github.com/apache/airflow/pull/63994#discussion_r3066476826",
+        "excerpt": "Normalize first, then decide whether to push into `updateMask`"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/queries/"
+    ]
+  },
+  {
+    "rule": "When the UI must clear an existing server-side field, send `null` (not `undefined`) in the request body so the field is included in `model_fields_set` on the backend.",
+    "category": "correctness",
+    "trigger": "=== \"\" \\? undefined : |teamName.*undefined.*updateMask",
+    "rationale": "Empty-string→`undefined` omits the field from JSON; the backend only applies fields in `model_fields_set`, so the existing value is never cleared.",
+    "evidence": [
+      {
+        "pr": 63994,
+        "url": "https://github.com/apache/airflow/pull/63994#discussion_r3025588529",
+        "excerpt": "makes it impossible to clear an existing team assignment from the UI"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/queries/"
+    ]
+  },
+  {
+    "rule": "Use the OpenAPI-generated react-query hooks for all API calls; do not make raw `fetch` calls with manually encoded query strings.",
+    "category": "api-design",
+    "trigger": "fetch\\(`\\$\\{OpenAPI\\.BASE\\}|encodeURIComponent.*join\\(\"&\"\\)",
+    "rationale": "Reviewer stated manual fetch + query-string encoding is inconsistent with the rest of the codebase which uses generated hooks throughout.",
+    "evidence": [
+      {
+        "pr": 62369,
+        "url": "https://github.com/apache/airflow/pull/62369#discussion_r2925075784",
+        "excerpt": "Manual encoding of parameters and fetch is inconsistent with rest of codebase"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/queries/"
+    ]
+  },
+  {
+    "rule": "Do not prop-drill URL search-param values (e.g. `tryNumber`) through multiple component levels; read them directly from `useSearchParams` in the consuming component.",
+    "category": "api-design",
+    "trigger": "tryNumber.*props|prop.*tryNumber.*ExtraLinks",
+    "rationale": "Reviewer required reading `tryNumber` from `useSearchParams` inside `ExtraLinks` instead of threading it down from a parent.",
+    "evidence": [
+      {
+        "pr": 65661,
+        "url": "https://github.com/apache/airflow/pull/65661#discussion_r3131009305",
+        "excerpt": "don't drill tryNumber prop — use `useSearchParams` and undefined if absent"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/TaskInstance/"
+    ]
+  },
+  {
+    "rule": "Use Chakra semantic color tokens in `.tsx` component files; do not reference hardcoded Tailwind/color-scale strings outside a designated theme/utils file.",
+    "category": "docs",
+    "trigger": "color.*blue\\.[0-9]+|color.*green\\.[0-9]+|color.*red\\.[0-9]+",
+    "rationale": "Reviewer questioned static component listings of hardcoded colours; semantic tokens should be used everywhere so the analysis file is unnecessary.",
+    "evidence": [
+      {
+        "pr": 53981,
+        "url": "https://github.com/apache/airflow/pull/53981#discussion_r2283226502",
+        "excerpt": "check for semantic colors in every .tsx file"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/"
+    ]
+  }
+]

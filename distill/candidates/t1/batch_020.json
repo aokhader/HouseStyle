@@ -1,0 +1,277 @@
+[
+  {
+    "rule": "Provider secrets-backend classes must only implement methods declared in BaseSecretsBackend; do not add extra public methods (e.g. get_config) that are absent from the base class interface.",
+    "category": "api-design",
+    "trigger": "A class extending BaseSecretsBackend defines a public method not present in airflow/secrets/base_secrets.py",
+    "rationale": "Airflow discovers secrets backends by interface; methods outside the declared contract are invisible to the framework and mislead users who expect a standard backend API.",
+    "evidence": [
+      {
+        "pr": 61527,
+        "url": "https://github.com/apache/airflow/pull/61527#discussion_r2786860078",
+        "excerpt": "I do not see a method for get_config in here"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/secrets/"
+    ]
+  },
+  {
+    "rule": "Remove manual ImportError guards for airflow-core symbols that are already handled by airflow.providers.common.compat; the compat layer itself provides the AF2/AF3 fallback.",
+    "category": "providers",
+    "trigger": "A provider module contains try/except ImportError around an import that airflow.providers.common.compat already redirects",
+    "rationale": "The common-compat package was introduced precisely to centralise version-fallback logic; leaving redundant guards in provider code implies the compat layer is not trusted and creates dead code that confuses future readers.",
+    "evidence": [
+      {
+        "pr": 64143,
+        "url": "https://github.com/apache/airflow/pull/64143#discussion_r2992738955",
+        "excerpt": "probably can be removed as the provider handles the import error"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/"
+    ]
+  },
+  {
+    "rule": "In Kubernetes-provider tests, mock V1Pod status with V1PodStatus(...) objects, not plain dicts, so that serialization via to_dict() matches real API behaviour.",
+    "category": "testing",
+    "trigger": "Test code assigns pod.status = {\"key\": value} instead of pod.status = V1PodStatus(...)",
+    "rationale": "The Kubernetes Python client's V1Pod.to_dict() serializes V1PodStatus objects; a plain dict skips that path and can make tests pass for the wrong reason when the operator later reads typed attributes.",
+    "evidence": [
+      {
+        "pr": 59097,
+        "url": "https://github.com/apache/airflow/pull/59097#discussion_r2615172805",
+        "excerpt": "use V1PodStatus(start_time=None) to accurately represent actual API behaviour"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/tests/unit/cncf/kubernetes/"
+    ]
+  },
+  {
+    "rule": "Use time_machine to freeze time in tests that compare timestamps or durations; do not compute expected values relative to datetime.datetime.now().",
+    "category": "testing",
+    "trigger": "A test calls datetime.datetime.now() or datetime.utcnow() to derive an expected duration or timestamp rather than freezing time with @time_machine.travel",
+    "rationale": "datetime.now()-based assertions are non-deterministic and can produce floating inequalities (>= 30) instead of exact equalities (== 30); time_machine gives full control and makes CI reliable.",
+    "evidence": [
+      {
+        "pr": 65232,
+        "url": "https://github.com/apache/airflow/pull/65232#discussion_r3084278884",
+        "excerpt": "use time_machine instead of datetime.datetime.now to have determinism"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/tests/unit/cncf/kubernetes/"
+    ]
+  },
+  {
+    "rule": "When writing pod-selection tests for SparkKubernetesOperator, keep metadata.name identical across all test pods and set deletion_timestamp explicitly so the selection criteria are each independently exercised.",
+    "category": "testing",
+    "trigger": "A test for find_spark_job / get_or_create_pod constructs multiple mock pods with differing metadata.name values or omits deletion_timestamp",
+    "rationale": "Pod name is the tie-breaker in the selection algorithm; differing names make selection order depend on string sort rather than the status criterion under test. deletion_timestamp is the primary filter for terminating pods and must be set to prove phase-based selection is working.",
+    "evidence": [
+      {
+        "pr": 61110,
+        "url": "https://github.com/apache/airflow/pull/61110#discussion_r2755931293",
+        "excerpt": "Ensure metadata.name is the same for all pods as it's tie-breaker criterion"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/tests/unit/cncf/kubernetes/operators/"
+    ]
+  },
+  {
+    "rule": "Provider documentation that exposes only a subset of an upstream library's capabilities must link to the upstream capability list and note which features are not yet supported.",
+    "category": "docs",
+    "trigger": "A provider .rst doc lists supported backends/integrations without mentioning the upstream library's fuller list or noting gaps",
+    "rationale": "Listing only implemented items (e.g. S3 and Local) without noting that the underlying library supports more storage types confuses users who expect parity and may file bugs for missing features that were simply not documented as out-of-scope.",
+    "evidence": [
+      {
+        "pr": 62232,
+        "url": "https://github.com/apache/airflow/pull/62232#discussion_r2838857217",
+        "excerpt": "add note for users that we haven't supported some object stores datafusion supports"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/docs/"
+    ]
+  },
+  {
+    "rule": "Full runnable DAGs in provider documentation must be included via '.. exampleinclude::' referencing a tested file under example_dags/; inline '.. code-block:: python' is reserved for code fragments only.",
+    "category": "docs",
+    "trigger": "A provider .rst file contains a '.. code-block:: python' block that is a complete, runnable DAG rather than a fragment",
+    "rationale": "Inline code blocks are not covered by the example-import CI check, so they silently rot when decorator signatures or airflow.sdk surfaces change; exampleinclude-d files are executed by 'airflow dags test' and kept in sync automatically.",
+    "evidence": [
+      {
+        "pr": 69552,
+        "url": "https://github.com/apache/airflow/pull/69552#discussion_r3542711087",
+        "excerpt": "every other full DAG in provider docs uses exampleinclude from a tested example_dags file"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/docs/"
+    ]
+  },
+  {
+    "rule": "Example DAGs must set schedule=None explicitly; do not omit the schedule parameter in provider example_dags files.",
+    "category": "providers",
+    "trigger": "A new example_dags/*.py file omits the schedule parameter on its @dag or DAG() definition",
+    "rationale": "Sibling example DAGs all set schedule=None; omitting it inherits the default (which changes between Airflow versions) and can cause unexpected scheduling behaviour when users copy the example.",
+    "evidence": [
+      {
+        "pr": 69552,
+        "url": "https://github.com/apache/airflow/pull/69552#discussion_r3542711087",
+        "excerpt": "add schedule=None (siblings set it)"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/example_dags/"
+    ]
+  },
+  {
+    "rule": "Provider factory classes whose keys are enum members must type-annotate the mapping as dict[EnumType, ...] and accept both str and the enum in public entry points, normalising strings to enum values with an informative ValueError.",
+    "category": "api-design",
+    "trigger": "A provider _providers dict is annotated dict[str, type] but keyed with enum instances, or a factory method accepts only the enum type when callers may pass strings from connection config or YAML",
+    "rationale": "Airflow connection extras and YAML config supply plain strings; a factory that rejects strings crashes at runtime on valid configuration; consistent enum-keyed dicts with string normalisation allows config-driven use without silent mismatches.",
+    "evidence": [
+      {
+        "pr": 62232,
+        "url": "https://github.com/apache/airflow/pull/62232#discussion_r2849613173",
+        "excerpt": "callers/tests may reasonably pass strings from config/YAML"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/"
+    ]
+  },
+  {
+    "rule": "Do not explicitly set trigger_rule='all_success' on @task or Operator; it is the default and its presence implies non-standard behaviour to readers.",
+    "category": "providers",
+    "trigger": "A task or Operator definition sets trigger_rule=\"all_success\" explicitly",
+    "rationale": "all_success is Airflow's default trigger rule; writing it out is noise that misleads reviewers and users into thinking the task has exceptional dependency logic.",
+    "evidence": [
+      {
+        "pr": 65172,
+        "url": "https://github.com/apache/airflow/pull/65172#discussion_r3081613967",
+        "excerpt": "all_success is the default trigger rule, this parameter doesn't add anything"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/example_dags/",
+      "providers/common/ai/src/airflow/providers/common/ai/operators/"
+    ]
+  },
+  {
+    "rule": "Provider hook methods that map Airflow connection extras to a third-party library's kwargs must use truthiness filtering (if extra.get(k)) not identity checks (is not None), so that empty-string UI values fall through to environment-based auth.",
+    "category": "providers",
+    "trigger": "A provider hook builds kwargs from connection extras using {k: extra[k] for k in keys if extra.get(k) is not None}",
+    "rationale": "Users who clear a connection field in the Airflow UI leave an empty string; passing that empty string to the upstream SDK causes confusing auth failures instead of silently falling back to environment/IAM-based credentials.",
+    "evidence": [
+      {
+        "pr": 62816,
+        "url": "https://github.com/apache/airflow/pull/62816#discussion_r2908398829",
+        "excerpt": "use truthiness to match the base class; empty strings pass through to confusing auth failures"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/hooks/"
+    ]
+  },
+  {
+    "rule": "Provider hook connection-extra field names must match the exact parameter names accepted by the target library; document the mapping if names differ and convert or load the value before passing it.",
+    "category": "providers",
+    "trigger": "A provider hook passes a connection extra key directly to a third-party constructor without verifying the parameter name matches the library's API (e.g. project_id vs project, service_account_file vs credentials object)",
+    "rationale": "Mismatched parameter names cause silent failures: if the constructor is wrapped in try/except TypeError, credentials are silently discarded and the provider falls back to unauthenticated/ADC access without any user-visible error.",
+    "evidence": [
+      {
+        "pr": 62816,
+        "url": "https://github.com/apache/airflow/pull/62816#discussion_r2892283097",
+        "excerpt": "project_id needs to be mapped to project; these mismatches fail silently"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/hooks/"
+    ]
+  },
+  {
+    "rule": "Reuse shared exception types from providers/standard/exceptions.py (e.g. HITLRejectException) rather than defining per-provider duplicates for the same semantic error.",
+    "category": "api-design",
+    "trigger": "A provider defines a new exception class whose docstring or purpose duplicates an existing exception in providers/standard/exceptions.py",
+    "rationale": "Duplicate exception types fragment user catch clauses; a caller handling HITL rejections must import from two packages instead of one. Shared exceptions in the standard provider give users a stable, single type to catch.",
+    "evidence": [
+      {
+        "pr": 62898,
+        "url": "https://github.com/apache/airflow/pull/62898#discussion_r2892123297",
+        "excerpt": "standard provider already has HITLRejectException for the same purpose"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/mixins/",
+      "providers/standard/src/airflow/providers/standard/exceptions.py"
+    ]
+  },
+  {
+    "rule": "Do not expose operator or mixin parameters in __init__ and docstrings unless they are fully implemented; stub parameters that have no effect must be removed or replaced with a NotImplementedError/warning until the feature ships.",
+    "category": "correctness",
+    "trigger": "An operator stores a parameter via self.param = param in __init__ but the parameter is never read by any method in the same class or its mixins",
+    "rationale": "Parameters advertised in the docstring but never acted on produce silent failures for users who configure them expecting the documented behaviour (e.g. webhook_url promising notifications, max_hitl_iterations promising a loop cap).",
+    "evidence": [
+      {
+        "pr": 63081,
+        "url": "https://github.com/apache/airflow/pull/63081#discussion_r2901183999",
+        "excerpt": "webhook_url is stored but nothing ever reads or posts to it"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/operators/",
+      "providers/common/ai/src/airflow/providers/common/ai/mixins/"
+    ]
+  },
+  {
+    "rule": "bytes fields must not be included in template_fields; Jinja renders bytes as their repr string (b'...'), causing AttributeError on .decode() and passing literal repr text to binary parsers.",
+    "category": "correctness",
+    "trigger": "An Operator subclass lists a parameter of type bytes in its template_fields sequence",
+    "rationale": "Airflow's template engine calls str() on non-string values before rendering; bytes becomes the literal string b'...' which breaks any subsequent .decode() call and passes garbage to binary format parsers. The XCom-pull workflow documented for source_bytes crashes on every run.",
+    "evidence": [
+      {
+        "pr": 67120,
+        "url": "https://github.com/apache/airflow/pull/67120#discussion_r3260907210",
+        "excerpt": "Jinja stringifies bytes to repr; source_bytes XCom workflow crashes on every run"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/operators/"
+    ]
+  },
+  {
+    "rule": "Operators that build prompts or strings incrementally must not embed the accumulator variable in its own f-string; construct the string linearly from separate parts to avoid duplication.",
+    "category": "correctness",
+    "trigger": "A method contains a pattern like prompt = prompt + (... + f\"{prompt}\") where the variable being built is also interpolated inside the expression being appended",
+    "rationale": "Self-referencing assignment doubles the content already in the variable; in multi-step prompt construction this sends duplicate instructions to the LLM, producing incorrect or unpredictable outputs.",
+    "evidence": [
+      {
+        "pr": 62793,
+        "url": "https://github.com/apache/airflow/pull/62793#discussion_r2880130384",
+        "excerpt": "f\"{prompt}\" embeds the current value of prompt into itself"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/operators/"
+    ]
+  },
+  {
+    "rule": "Provider operator methods that iterate over connection IDs must use a cached hook property (e.g. self._db_hooks[conn_id]) rather than constructing a new hook on every call to avoid redundant connections.",
+    "category": "performance",
+    "trigger": "A method loops over connection IDs and calls a factory function like self._get_db_hook(conn_id) inside the loop when a cached property (_db_hooks) already exists on the class",
+    "rationale": "Creating a DbApiHook per call opens a new database connection each time; if the same conn_id is used in multiple code paths this multiplies connections unnecessarily and negates the purpose of the cached property.",
+    "evidence": [
+      {
+        "pr": 62793,
+        "url": "https://github.com/apache/airflow/pull/62793#discussion_r2880130392",
+        "excerpt": "_db_hooks cached property exists to avoid this, but it's not being used"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/operators/"
+    ]
+  }
+]

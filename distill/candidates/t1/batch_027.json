@@ -1,0 +1,226 @@
+[
+  {
+    "rule": "When inspecting mock call arguments with `call_args`, first assert the mock was called exactly once with `assert_called_once()` or `assert call_count == 1`.",
+    "category": "testing",
+    "trigger": "diff adds `mock_*.call_args` access without a preceding `assert_called_once()` or `call_count` check",
+    "rationale": "Without an explicit call-count assertion, a test silently passes even when the mocked constructor/function is never called or called multiple times, hiding real regressions.",
+    "evidence": [
+      {
+        "pr": 61866,
+        "url": "https://github.com/apache/airflow/pull/61866#discussion_r3066481721",
+        "excerpt": "Add explicit `mock_redis.assert_called_once()` before inspecting `call_args`"
+      }
+    ],
+    "scope_paths": ["providers/redis/tests/unit/redis/hooks/"]
+  },
+  {
+    "rule": "Do not place type-stub packages (e.g. `types-*`) in provider runtime `dependencies`; put them in the dev/type-check dependency group only.",
+    "category": "providers",
+    "trigger": "diff adds a `types-*` package to the `[project] dependencies` list in a provider `pyproject.toml`",
+    "rationale": "Type stubs are only useful at type-check time; shipping them in runtime dependencies forces every `pip install` of the provider to pull down stubs users never need.",
+    "evidence": [
+      {
+        "pr": 64465,
+        "url": "https://github.com/apache/airflow/pull/64465#discussion_r3155896370",
+        "excerpt": "Type stubs should not be installed at runtime — only useful at type-check time"
+      }
+    ],
+    "scope_paths": ["providers/sftp/"]
+  },
+  {
+    "rule": "Behaviour changes to public provider hook methods (e.g. return-value shape, filtering of entries) must be documented in the provider's `docs/changelog.rst` under the next release version.",
+    "category": "providers",
+    "trigger": "diff alters the return value or filtering logic of an existing public provider hook method without adding an entry to `docs/changelog.rst`",
+    "rationale": "Users relying on the old behaviour (e.g. iterating `list_directory` results including `.`/`..`) will see silent breakage; a changelog entry gives them a chance to adapt.",
+    "evidence": [
+      {
+        "pr": 64465,
+        "url": "https://github.com/apache/airflow/pull/64465#discussion_r3155863292",
+        "excerpt": "Add entry to `providers/sftp/docs/changelog.rst` explaining the behaviour change"
+      }
+    ],
+    "scope_paths": ["providers/sftp/docs/", "providers/"]
+  },
+  {
+    "rule": "Do not silently change the API contract of an existing async hook method; if new behaviour (e.g. recursive walk, full-path return) is desired, add an explicit flag parameter or a separate method.",
+    "category": "api-design",
+    "trigger": "diff modifies an existing async hook method so that it returns a different structure or traverses more than the previous implementation, without a new parameter to opt in",
+    "rationale": "The async and sync variants of a hook method are expected to share the same API contract; silently changing one breaks callers and breaks parity with the sync counterpart.",
+    "evidence": [
+      {
+        "pr": 64465,
+        "url": "https://github.com/apache/airflow/pull/64465#discussion_r3025335272",
+        "excerpt": "Consider adding an explicit `recursive` flag or a separate method"
+      }
+    ],
+    "scope_paths": ["providers/sftp/src/airflow/providers/sftp/hooks/"]
+  },
+  {
+    "rule": "Process-wide singleton pools must not implement `__aenter__`/`__aexit__` context-manager protocol unless they own a truly scoped lifecycle; use an explicit lifecycle hook instead.",
+    "category": "async",
+    "trigger": "diff adds `__aenter__` / `__aexit__` to a class that stores itself in a module-level `_instances` dict (singleton pattern)",
+    "rationale": "Mixing global-singleton state with deceptive local `async with` syntax means one caller's exit can close the pool for all concurrent callers in the same process.",
+    "evidence": [
+      {
+        "pr": 64465,
+        "url": "https://github.com/apache/airflow/pull/64465#discussion_r3155863292",
+        "excerpt": "Global state with deceptively local syntax — drop __aenter__/__aexit__ or drop singleton"
+      }
+    ],
+    "scope_paths": ["providers/sftp/src/airflow/providers/sftp/pools/"]
+  },
+  {
+    "rule": "When a provider notifier adds version-gated behaviour via `AIRFLOW_V_x_y_PLUS`, evaluate whether the guard belongs in `BaseNotifier` rather than duplicated in every concrete notifier.",
+    "category": "providers",
+    "trigger": "diff adds `if AIRFLOW_V_x_y_PLUS:` version guard inside a concrete `Notifier.__init__` or `notify()` method",
+    "rationale": "Centralising version guards in `BaseNotifier` avoids copy-paste across all notification providers and keeps the compatibility surface in one place.",
+    "evidence": [
+      {
+        "pr": 55308,
+        "url": "https://github.com/apache/airflow/pull/55308#discussion_r2331604445",
+        "excerpt": "Should we add a check in the BaseNotifier instead?"
+      }
+    ],
+    "scope_paths": ["providers/slack/src/airflow/providers/slack/notifications/", "airflow-core/src/airflow/notifications/"]
+  },
+  {
+    "rule": "Before calling `response.raise_for_status()` against a provider API, log the error response body so that upstream error messages are preserved for debugging.",
+    "category": "providers",
+    "trigger": "diff adds `response.raise_for_status()` without a preceding log statement that captures the response body on 4xx/5xx",
+    "rationale": "Provider APIs (e.g. Snowflake) return structured error messages; raising immediately discards that context, making failures harder to diagnose.",
+    "evidence": [
+      {
+        "pr": 68942,
+        "url": "https://github.com/apache/airflow/pull/68942#discussion_r3501962373",
+        "excerpt": "Log the error with the response before raising"
+      }
+    ],
+    "scope_paths": ["providers/snowflake/src/airflow/providers/snowflake/hooks/"]
+  },
+  {
+    "rule": "Hard-coded timeouts for long-running provider API calls (e.g. agent or ML model requests) must be exposed as a configurable operator/hook parameter rather than a module-level constant.",
+    "category": "providers",
+    "trigger": "diff introduces a module-level `*_TIMEOUT` constant that gates an HTTP request to a long-running provider API (ML/agent/query workloads) without a corresponding constructor parameter",
+    "rationale": "Snowflake Cortex Agents can legitimately run for up to 15 minutes; a fixed 60-second default silently aborts valid workloads for users with longer-running jobs.",
+    "evidence": [
+      {
+        "pr": 68942,
+        "url": "https://github.com/apache/airflow/pull/68942#discussion_r3501963563",
+        "excerpt": "Make this a parameter that the user can configure"
+      }
+    ],
+    "scope_paths": ["providers/snowflake/src/airflow/providers/snowflake/hooks/"]
+  },
+  {
+    "rule": "Push deferrable-operator query/job identifiers to XCom immediately after they are obtained, before entering the poll loop, so they survive task failure.",
+    "category": "correctness",
+    "trigger": "diff moves an `xcom_push` call for query/job IDs to after a polling loop in a deferrable operator's `execute` or equivalent method",
+    "rationale": "If a polled statement errors mid-loop the handles are lost; pushing IDs before polling lets users look up failed statements in the provider's console.",
+    "evidence": [
+      {
+        "pr": 69477,
+        "url": "https://github.com/apache/airflow/pull/69477#discussion_r3537522750",
+        "excerpt": "Pushing query_ids after the loop — a failure now loses them"
+      }
+    ],
+    "scope_paths": ["providers/snowflake/src/airflow/providers/snowflake/operators/"]
+  },
+  {
+    "rule": "Use `try/except ImportError` instead of `if AIRFLOW_V_x_y_PLUS` guards when importing symbols that moved between `airflow.sdk` and `airflow.providers` or `airflow.sensors`.",
+    "category": "providers",
+    "trigger": "diff adds `if AIRFLOW_V_x_y_PLUS: from airflow.sdk... else: from airflow.sensors...` or similar SDK/provider import split",
+    "rationale": "`AIRFLOW_V_x_y_PLUS` checks core version semantics which is not correct for SDK/provider compatibility boundaries; `try/except ImportError` is more robust and avoids introducing new version-guarded import branches.",
+    "evidence": [
+      {
+        "pr": 53791,
+        "url": "https://github.com/apache/airflow/pull/53791#discussion_r2244514589",
+        "excerpt": "Better to have try/except — more robust, not introduce new `AIRFLOW_V_x_y_PLUS` checks"
+      }
+    ],
+    "scope_paths": ["providers/standard/tests/unit/standard/", "providers/"]
+  },
+  {
+    "rule": "Use `@cached_property` for expensive connection initialisation in provider hooks rather than eagerly constructing clients in `__init__`.",
+    "category": "providers",
+    "trigger": "diff constructs a provider client (e.g. `zenpy_client`, `_hook`, API sessions) in `Hook.__init__` instead of a `@cached_property`",
+    "rationale": "Lazy initialisation via `@cached_property` avoids network calls at import/instantiation time and aligns with the Airflow hook convention of deferring connection until first use.",
+    "evidence": [
+      {
+        "pr": 64591,
+        "url": "https://github.com/apache/airflow/pull/64591#discussion_r3146195857",
+        "excerpt": "`@cached_property` for zenpy_client"
+      }
+    ],
+    "scope_paths": ["providers/zendesk/src/airflow/providers/zendesk/hooks/"]
+  },
+  {
+    "rule": "Document all supported connection extra keys and their precedence order in the hook's `_init_conn` (or equivalent) docstring.",
+    "category": "docs",
+    "trigger": "diff adds multiple `extra.get(...)` branches to a hook's connection-init method without a docstring describing the supported keys and precedence",
+    "rationale": "Users configure Airflow connections through the UI; without documentation of accepted extra fields and their priority, the authentication options are effectively undiscoverable.",
+    "evidence": [
+      {
+        "pr": 64591,
+        "url": "https://github.com/apache/airflow/pull/64591#discussion_r3025323112",
+        "excerpt": "Document supported extra keys and precedence in the `_init_conn` docstring"
+      }
+    ],
+    "scope_paths": ["providers/zendesk/src/airflow/providers/zendesk/hooks/"]
+  },
+  {
+    "rule": "Provider logo assets must live under the `providers/` directory tree, not under a parallel top-level `registry/` folder.",
+    "category": "providers",
+    "trigger": "diff adds image or logo files under `registry/` rather than under `providers/<name>/`",
+    "rationale": "Keeping logos co-located with their provider avoids a parallel inventory and keeps provider assets self-contained.",
+    "evidence": [
+      {
+        "pr": 62261,
+        "url": "https://github.com/apache/airflow/pull/62261#discussion_r2836571641",
+        "excerpt": "Move logos to providers folder; avoid another parallel inventory"
+      }
+    ],
+    "scope_paths": ["registry/", "providers/"]
+  },
+  {
+    "rule": "When checking whether a sentinel value is `NOTSET`, use the `is_arg_set()` helper from `airflow.serialization.definitions.notset` rather than inline `is NOTSET` comparisons, and annotate the parameter with `ArgNotSet` in its type signature.",
+    "category": "correctness",
+    "trigger": "diff adds `if value is NOTSET` / `if param is NOTSET` checks without using `is_arg_set()` and without `ArgNotSet` in the parameter type annotation",
+    "rationale": "Using `is_arg_set()` is the idiomatic Airflow pattern for `NOTSET` sentinel checks and also lets mypy narrow the type correctly without extra `# type: ignore` comments.",
+    "evidence": [
+      {
+        "pr": 62259,
+        "url": "https://github.com/apache/airflow/pull/62259#discussion_r3001090228",
+        "excerpt": "`is_arg_set` helper might be more appropriate to distinguish the `NOTSET`"
+      }
+    ],
+    "scope_paths": ["providers/standard/src/airflow/providers/standard/operators/", "airflow-core/src/airflow/"]
+  },
+  {
+    "rule": "Shared type-dispatch logic for `str | datetime | None` parameters should be extracted into a common utility rather than repeated across multiple methods or operators.",
+    "category": "api-design",
+    "trigger": "diff duplicates `isinstance(value, (str, datetime.datetime))` dispatch blocks for the same logical parameter in more than one method",
+    "rationale": "Parameters like `logical_date` and `run_after` follow the same `None | datetime | str` coercion pattern; a shared util prevents divergence between the two paths.",
+    "evidence": [
+      {
+        "pr": 62259,
+        "url": "https://github.com/apache/airflow/pull/62259#discussion_r2894743039",
+        "excerpt": "Worthwhile to have common utils to handle the type across `None | datetime | str`"
+      }
+    ],
+    "scope_paths": ["providers/standard/src/airflow/providers/standard/operators/"]
+  },
+  {
+    "rule": "When generating Alembic migration revision messages from shell scripts, pass the message as a single quoted string, not via `\"${@}\"`, to avoid multi-word arguments being split into multiple Alembic args.",
+    "category": "correctness",
+    "trigger": "diff passes `\"${@}\"` as the `-m` argument to `alembic revision --autogenerate`",
+    "rationale": "Shell word-splitting on `${@}` passes extra tokens as unexpected Alembic positional arguments when the script is invoked with a multi-word message.",
+    "evidence": [
+      {
+        "pr": 62234,
+        "url": "https://github.com/apache/airflow/pull/62234#discussion_r2938514650",
+        "excerpt": "`-m \"${@}\"` splits into multiple args; Alembic treats extra tokens as unexpected arguments"
+      }
+    ],
+    "scope_paths": ["scripts/in_container/"]
+  }
+]

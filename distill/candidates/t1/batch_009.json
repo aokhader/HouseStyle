@@ -1,0 +1,296 @@
+[
+  {
+    "rule": "Partition-mapper methods that format upstream/downstream keys must use timezone-aware datetimes anchored to the mapper's configured timezone, not naive datetimes, so the scheduler waits on the correct keys.",
+    "category": "correctness",
+    "trigger": "diff adds or modifies a `to_upstream()` or `to_downstream()` method in a partition mapper that calls `datetime.strptime` or `timedelta` arithmetic without attaching `self._timezone`",
+    "rationale": "Naive datetime arithmetic in partition mappers produces wrong upstream keys when the mapper timezone is not UTC or when `input_format` includes `%z`, causing the scheduler to wait on keys that never arrive.",
+    "evidence": [
+      {
+        "pr": 64571,
+        "url": "https://github.com/apache/airflow/pull/64571#discussion_r3025334944",
+        "excerpt": "generated upstream keys can be wrong when mapper timezone is not UTC"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/partition_mappers/"
+    ]
+  },
+  {
+    "rule": "When a method is decorated with `@provider_info_cache`, update its docstring to reflect the cached semantics; do not carry over \"use this to avoid triggering caching\" language written for the former uncached inner method.",
+    "category": "docs",
+    "trigger": "diff moves a docstring from an uncached helper onto a `@provider_info_cache`-decorated method, or adds a `@provider_info_cache` decorator without revising the docstring",
+    "rationale": "The 'do not want to trigger caching' language becomes misleading after the method itself is decorated with the cache; reviewers flag this as a stale docstring.",
+    "evidence": [
+      {
+        "pr": 62696,
+        "url": "https://github.com/apache/airflow/pull/62696#discussion_r2953601017",
+        "excerpt": "\"do not want to trigger caching\" language no longer makes sense here"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/providers_manager.py"
+    ]
+  },
+  {
+    "rule": "New task-clearing behaviour flags (e.g. only_failed, only_running, new fields of the same kind) must be implemented inside `clear_task_instances`, not scattered across other call sites.",
+    "category": "correctness",
+    "trigger": "diff adds a new boolean filter field to a task-clearing code path and handles it outside of `clear_task_instances`",
+    "rationale": "Consistency with existing fields (only_failed, only_running) is required; the reviewer explicitly asks for the logic to live in `clear_task_instances` so all clearing semantics are in one place.",
+    "evidence": [
+      {
+        "pr": 59764,
+        "url": "https://github.com/apache/airflow/pull/59764#discussion_r2727670897",
+        "excerpt": "new field should behave like other fields, handled in clear_task_instances"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/",
+      "airflow-core/src/airflow/serialization/definitions/dag.py"
+    ]
+  },
+  {
+    "rule": "In `create_dagrun()`, resolve the requested bundle version first and then validate partition key against the resolved DAG version, not against `self` (which is always the latest DAG).",
+    "category": "correctness",
+    "trigger": "diff adds or modifies `create_dagrun()` and calls `self.validate_partition_key(partition_key)` before resolving `bundle_version` to a `DagVersion`",
+    "rationale": "Validating against `self` (latest version) causes false failures for partitioned older bundle versions when the latest version is not partitioned.",
+    "evidence": [
+      {
+        "pr": 61550,
+        "url": "https://github.com/apache/airflow/pull/61550#discussion_r3501075273",
+        "excerpt": "`bundle_version=\"v1\"` can still fail for a partitioned v1 if latest v2 is not partitioned"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/serialization/definitions/dag.py"
+    ]
+  },
+  {
+    "rule": "Custom sentinel / non-JSON-serializable types used in template fields must implement a `serialize()` method matching the pattern established by `SetDuringExecution`, so `serialize_template_field` does not fall back to `str()`.",
+    "category": "correctness",
+    "trigger": "diff introduces a new sentinel class (e.g. `ArgNotSet`, `NOTSET`-style) in airflow-core without a `serialize()` method",
+    "rationale": "`serialize_template_field` in `helpers.py` falls back to `str()` when an object has no `serialize()` method; adding `serialize()` fixes the template-field serialization path without changing `__repr__`.",
+    "evidence": [
+      {
+        "pr": 65222,
+        "url": "https://github.com/apache/airflow/pull/65222#discussion_r3083393324",
+        "excerpt": "`SetDuringExecution` already handles this by defining a `serialize()` method"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/serialization/definitions/",
+      "airflow-core/src/airflow/serialization/helpers.py"
+    ]
+  },
+  {
+    "rule": "TaskGroup `topological_sort()` must not rebuild the full DAG-level group mapping on every recursive call; build the mapping once and pass it through to nested calls to avoid O(G²) traversal cost.",
+    "category": "performance",
+    "trigger": "diff modifies `topological_sort()` in `taskgroup.py` (core or Task SDK) and constructs a group-lookup dict inside the function body without accepting it as a parameter",
+    "rationale": "Grid/Graph serializers call `topological_sort()` recursively for every nested TaskGroup; rebuilding the full mapping each time changes cost from O(G) to O(G²).",
+    "evidence": [
+      {
+        "pr": 69933,
+        "url": "https://github.com/apache/airflow/pull/69933#discussion_r3595167652",
+        "excerpt": "G non-empty groups performs approximately G full traversals of the same G-group tree"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/serialization/definitions/taskgroup.py",
+      "task-sdk/src/airflow/sdk/"
+    ]
+  },
+  {
+    "rule": "Do not open a new `create_session` block inside a method when an equivalent query can be routed through an existing model method (e.g. `XComModel.get_many`) that accepts the session.",
+    "category": "database",
+    "trigger": "diff adds a `with create_session()` block inside a method that already has access to a session parameter or can delegate to an existing model query method",
+    "rationale": "Re-using the model's `get_many` path avoids a redundant session block and keeps session management consistent with the rest of the ORM layer.",
+    "evidence": [
+      {
+        "pr": 52325,
+        "url": "https://github.com/apache/airflow/pull/52325#discussion_r2280279474",
+        "excerpt": "call `session.execute` in `get_many` method; don't need `create_session` block here"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/serialization/serialized_objects.py"
+    ]
+  },
+  {
+    "rule": "Compatibility shims for deprecated `settings.*` attributes (e.g. `SQL_ALCHEMY_CONN_ASYNC`) must be guarded by `block_orm_access` the same way as their `SQL_ALCHEMY_CONN` counterpart, so task code cannot bypass the metadatabase access block.",
+    "category": "security",
+    "trigger": "diff adds or modifies a `__getattr__` branch in `settings.py` for a `*_ASYNC` or secondary connection attribute without a `block_orm_access` guard",
+    "rationale": "`block_orm_access()` is meaningless if task/DAG code can still read the real async connection string via the unguarded shim.",
+    "evidence": [
+      {
+        "pr": 61917,
+        "url": "https://github.com/apache/airflow/pull/61917#discussion_r3066844273",
+        "excerpt": "task/DAG code could still retrieve real async connection string, undermining `block_orm_access()`"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/settings.py"
+    ]
+  },
+  {
+    "rule": "SQLite in-memory detection in engine-configuration code must use SQLAlchemy URL parsing (check dialect and database target), not string equality against `\"sqlite://\"` or `\"sqlite:///:memory:\"`.",
+    "category": "database",
+    "trigger": "diff checks for in-memory SQLite using `==` or `in` with string literals `\"sqlite://\"` or `\"sqlite:///:memory:\"`",
+    "rationale": "Connection URLs may include driver prefixes (`+pysqlite`), query params (`?cache=shared`), or alternative in-memory forms (`file::memory:`); equality checks miss these and incorrectly apply `pool_size`/`max_overflow` to `SingletonThreadPool`.",
+    "evidence": [
+      {
+        "pr": 64888,
+        "url": "https://github.com/apache/airflow/pull/64888#discussion_r3051311176",
+        "excerpt": "only matches exact strings; connection URLs can include driver prefix or query params"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/settings.py"
+    ]
+  },
+  {
+    "rule": "When `map_index == -1` is used as a sentinel in `TaskScope`, its semantics (\"match all\" vs \"match only the non-mapped row\") must be identical across all methods that filter on it; inconsistent sentinel semantics must be replaced with an explicit boolean flag.",
+    "category": "correctness",
+    "trigger": "diff adds or modifies methods in a `TaskScope`-accepting state class where some methods skip the `map_index` filter for `-1` and others apply an exact-match filter for `-1`",
+    "rationale": "Opposite semantics for the same sentinel value across sibling methods (delete vs clear) is a foot-gun; an explicit `clear_all_map_indices: bool = False` flag removes the ambiguity.",
+    "evidence": [
+      {
+        "pr": 65759,
+        "url": "https://github.com/apache/airflow/pull/65759#discussion_r3161053289",
+        "excerpt": "same `TaskScope(map_index=-1)`, opposite semantics: delete only touches non-mapped row, clear wipes every map index"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/state/metastore.py"
+    ]
+  },
+  {
+    "rule": "State-store write methods that check for an existing row then insert must use a single database-level UPSERT (`INSERT … ON CONFLICT DO UPDATE`) instead of SELECT-then-INSERT to prevent race-condition `IntegrityError`.",
+    "category": "database",
+    "trigger": "diff adds a state-write method that does `session.get(...)` or a SELECT followed by `session.add(row)` for the same primary/unique key",
+    "rationale": "Two concurrent calls can both see `None` and both attempt INSERT; one gets an `IntegrityError`. A DB-level UPSERT is atomic and cheaper (single round-trip).",
+    "evidence": [
+      {
+        "pr": 65759,
+        "url": "https://github.com/apache/airflow/pull/65759#discussion_r3138912488",
+        "excerpt": "Two concurrent calls for the same (scope, key) can both INSERT; one gets IntegrityError"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/state/metastore.py"
+    ]
+  },
+  {
+    "rule": "Asset-store upsert calls must omit writer-attribution columns from the update set when `kind is None`, so that an attribution-less write does not silently overwrite existing attribution data with NULL.",
+    "category": "correctness",
+    "trigger": "diff modifies `_set_asset_store` or a `_build_upsert_stmt` call for `AssetStoreModel` and unconditionally includes `last_updated_by_*` columns in the update dict",
+    "rationale": "A plain `set()` (kind=None) reaches the upsert with no writer info; listing those columns in the update set overwrites previously recorded attribution with NULL on conflict.",
+    "evidence": [
+      {
+        "pr": 67902,
+        "url": "https://github.com/apache/airflow/pull/67902#discussion_r3348112142",
+        "excerpt": "a plain `set()` on an AssetScope overwrites previously recorded writer info back to NULL"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/state/metastore.py"
+    ]
+  },
+  {
+    "rule": "State-set constants in `dependencies_states.py` must be named to reflect their semantic role (ACTIVE_STATES for anything-still-in-flight, EXECUTION_STATES for actively-executing tasks), not after the implementation detail that defines them.",
+    "category": "naming",
+    "trigger": "diff introduces a new `frozenset` or `set` of `TaskInstanceState` values in `ti_deps/dependencies_states.py` with a name ending in `_EXECUTION_STATES` when the set includes `DEFERRED` or other non-executing in-flight states",
+    "rationale": "EXECUTION_STATES already exists for tasks in execution; a superset that includes DEFERRED should be ACTIVE_STATES to distinguish 'logically in-flight' from 'actively executing'.",
+    "evidence": [
+      {
+        "pr": 61769,
+        "url": "https://github.com/apache/airflow/pull/61769#discussion_r2859911644",
+        "excerpt": "call this ACTIVE_STATES to clarify these states are used when checking if a task is active"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ti_deps/dependencies_states.py"
+    ]
+  },
+  {
+    "rule": "All public `Timetable` method overrides must include an explicit return-type annotation.",
+    "category": "api-design",
+    "trigger": "diff adds or overrides a public method on a class that inherits from `Timetable` without a `-> ReturnType` annotation",
+    "rationale": "Reviewer suggested the return type annotation in a code suggestion; timetable public API is part of the Airflow provider contract and must be fully typed.",
+    "evidence": [
+      {
+        "pr": 59115,
+        "url": "https://github.com/apache/airflow/pull/59115#discussion_r2697738829",
+        "excerpt": "suggestion adds `-> DagRunInfo | None` return annotation to `next_dagrun_info_v2`"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/timetables/base.py",
+      "airflow-core/src/airflow/timetables/"
+    ]
+  },
+  {
+    "rule": "Do not add `__all__` when a symbol is already re-exported via the `import X as X` pattern; the `as Name` form is the single authoritative re-export mechanism in airflow-core.",
+    "category": "api-design",
+    "trigger": "diff adds both `from module import Foo as Foo` and also lists `Foo` inside `__all__` in the same file",
+    "rationale": "In airflow-core, `import X as X` is the designated public-re-export idiom; duplicating it in `__all__` is redundant and was explicitly rejected by a reviewer.",
+    "evidence": [
+      {
+        "pr": 53071,
+        "url": "https://github.com/apache/airflow/pull/53071#discussion_r2195028008",
+        "excerpt": "I don't think we want `StartTriggerArgs as StartTriggerArgs` and `__all__`, just the former is enough"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/triggers/base.py"
+    ]
+  },
+  {
+    "rule": "When `RunTrigger` or any callback trigger resolves a DAG module by hashed path, the absence of a run-version pin and cross-host path skew must be explicitly documented as a known limitation in the code if not addressed.",
+    "category": "correctness",
+    "trigger": "diff adds a trigger or callback that resolves a DAG file via `get_unique_dag_module_name` (sha1 of absolute path) without a `bundle_version` or run-version identifier on the trigger payload",
+    "rationale": "`get_all_dag_bundles()` returns current-version bundles; a triggerer host with a different bundle path won't hash-match the minted name, causing the callback to end FAILED silently.",
+    "evidence": [
+      {
+        "pr": 66608,
+        "url": "https://github.com/apache/airflow/pull/66608#discussion_r3376647561",
+        "excerpt": "cross-version / cross-host path skew: worth a code comment"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/triggers/callback.py"
+    ]
+  },
+  {
+    "rule": "New `SharedStreamManager` stream types added for provider upstreams that require an ack/commit side-effect (e.g. Kafka offset commit) must not use the unidirectional `filter_shared_stream` API; scope such PRs to read-only/idempotent upstreams or extend the API with an ack path first.",
+    "category": "providers",
+    "trigger": "diff adds a `open_shared_stream` implementation that commits, acks, or advances a cursor after a filter accept, routed through the existing one-way `filter_shared_stream` channel",
+    "rationale": "`filter_shared_stream` is one-way; there is no path for a subscriber to signal 'accepted' back to the producer, so commit/ack side-effects cannot be triggered after filter acceptance.",
+    "evidence": [
+      {
+        "pr": 66584,
+        "url": "https://github.com/apache/airflow/pull/66584#discussion_r3249348552",
+        "excerpt": "filter_shared_stream is a one-way channel; no path back for upstreams needing ack/commit"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/triggers/shared_stream.py",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "Do not expose a new public property on `CronMixin` (core timetables) solely to serve SDK-side consumers; SDK timetables already expose their own API surface and the core mixin's public API must have at least one in-core consumer.",
+    "category": "api-design",
+    "trigger": "diff adds a `@property` to `CronMixin` or another core timetable base class with no reference site in airflow-core code",
+    "rationale": "A `timezone` property was added to `CronMixin` to serve `dag_clear`, but after the refactor `dag_clear` no longer reads it; SDK timetables expose their own `timezone`. Dead public API on a core mixin should be removed.",
+    "evidence": [
+      {
+        "pr": 67717,
+        "url": "https://github.com/apache/airflow/pull/67717#discussion_r3366361035",
+        "excerpt": "public `timezone` property has no consumers in core; PR-description bullet justifying it is stale"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/timetables/_cron.py",
+      "airflow-core/src/airflow/timetables/"
+    ]
+  }
+]

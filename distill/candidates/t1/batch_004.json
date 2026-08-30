@@ -1,0 +1,324 @@
+[
+  {
+    "rule": "Cursor-paginated endpoints must fetch limit+1 rows to detect whether a next page exists, and must return next_cursor as null when no further rows exist.",
+    "category": "api-design",
+    "trigger": "A paginated endpoint returns next_cursor/previous_cursor computed from the current page slice without fetching an extra probe row.",
+    "rationale": "Without the +1 probe, next_cursor is non-null even on the last page, breaking UI 'Next' button disabling and misleading API consumers.",
+    "evidence": [
+      {
+        "pr": 64845,
+        "url": "https://github.com/apache/airflow/pull/64845#discussion_r3066478533",
+        "excerpt": "fetch one extra row to decide whether to return next_cursor"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/task_instances.py"
+    ]
+  },
+  {
+    "rule": "Cursor-paginated endpoints must return previous_cursor as null on the first page (no cursor supplied) and next_cursor as null on the last page; tests must assert both boundary conditions.",
+    "category": "testing",
+    "trigger": "New cursor-pagination route added without tests asserting previous_cursor=null on page 1 and next_cursor=null on the final page.",
+    "rationale": "Reviewers require boundary-condition tests to prevent regressions in pagination UX and correctness.",
+    "evidence": [
+      {
+        "pr": 64963,
+        "url": "https://github.com/apache/airflow/pull/64963#discussion_r3066506005",
+        "excerpt": "previous_cursor is null on the first page, next_cursor null on last"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/task_instances.py"
+    ]
+  },
+  {
+    "rule": "PATCH routes that honour update_mask must raise HTTP 422 when a field is included in update_mask but its value is null/None in the request body.",
+    "category": "api-design",
+    "trigger": "A PATCH handler checks fields_to_update/update_mask but does not validate that each included field has a non-null value before passing data downstream.",
+    "rationale": "Allowing null through update_mask causes downstream state-setting calls to receive state=None and fail unpredictably.",
+    "evidence": [
+      {
+        "pr": 62812,
+        "url": "https://github.com/apache/airflow/pull/62812#discussion_r3066481722",
+        "excerpt": "data can include new_state: None if client sends null; raise 422"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/task_instances.py"
+    ]
+  },
+  {
+    "rule": "New validation branches in bulk-operation endpoints must be covered by tests asserting the new HTTP 400 response.",
+    "category": "testing",
+    "trigger": "A bulk endpoint gains a new validation guard (e.g., multi_team check) without corresponding test cases for the 400 path.",
+    "rationale": "Without regression tests the new guard can be silently removed, reintroducing 500 errors or wrong behavior.",
+    "evidence": [
+      {
+        "pr": 63994,
+        "url": "https://github.com/apache/airflow/pull/63994#discussion_r3040828173",
+        "excerpt": "bulk variables tests don't assert new 400 behavior; add regression test"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/variables.py"
+    ]
+  },
+  {
+    "rule": "Do not introduce CASE-based NULL ordering in query ORDER BY clauses; rely on database-default NULL ordering to keep indexes usable.",
+    "category": "performance",
+    "trigger": "A SQLAlchemy query adds a CASE expression in its ORDER BY to place NULLs last/first.",
+    "rationale": "CASE in ORDER BY prevents index usage; Airflow previously removed identical code from parameters.py for this reason.",
+    "evidence": [
+      {
+        "pr": 69940,
+        "url": "https://github.com/apache/airflow/pull/69940#discussion_r3646645068",
+        "excerpt": "CASE prevents index leverage; we removed similar code from parameters.py"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/assets.py"
+    ]
+  },
+  {
+    "rule": "Grid-endpoint queries must select columns explicitly rather than using select(Model); never select the whole ORM model.",
+    "category": "performance",
+    "trigger": "A query on the grid endpoint uses select(TaskInstance) or select(DagRun) instead of enumerating required columns.",
+    "rationale": "Grid endpoints are performance-sensitive; selecting the whole model loads unexpected columns when new fields are added to the model.",
+    "evidence": [
+      {
+        "pr": 53216,
+        "url": "https://github.com/apache/airflow/pull/53216#discussion_r2248281167",
+        "excerpt": "Keep explicit naming of fields; grid endpoints are subject to performance issues"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/grid.py"
+    ]
+  },
+  {
+    "rule": "Parallel subquery predicates (e.g., has_note, has_missed_deadline) must use the same filter conditions across DagRun and TaskInstance counterparts.",
+    "category": "correctness",
+    "trigger": "A subquery EXISTS predicate on DagRunNote or TaskInstanceNote differs in filtering conditions (e.g., .isnot(None)) between the DagRun and TI versions.",
+    "rationale": "Inconsistent predicates produce different semantic results for what should be identical 'has a note' checks.",
+    "evidence": [
+      {
+        "pr": 69121,
+        "url": "https://github.com/apache/airflow/pull/69121#discussion_r3552499675",
+        "excerpt": "remove both or add both; it needs to remain consistent"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/grid.py"
+    ]
+  },
+  {
+    "rule": "Every new endpoint registered in the execution API's authenticated_router must have a matching endpoint(...).didnt_exist entry in the unreleased Cadwyn version file.",
+    "category": "api-design",
+    "trigger": "A new router is added to authenticated_router.include_router() in airflow-core/src/airflow/api_fastapi/execution_api/routes/__init__.py without a corresponding didnt_exist entry in versions/v*.py.",
+    "rationale": "Without the Cadwyn version entry, a newer SDK calling these routes against an older API server won't fail cleanly through version negotiation.",
+    "evidence": [
+      {
+        "pr": 66073,
+        "url": "https://github.com/apache/airflow/pull/66073#discussion_r3170621788",
+        "excerpt": "8 new endpoints without didnt_exist entry in unreleased version file"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/__init__.py",
+      "airflow-core/src/airflow/api_fastapi/execution_api/versions/"
+    ]
+  },
+  {
+    "rule": "Query-string regex parameters must reject empty-string values with HTTP 400; do not silently execute regexp_match(\"\").",
+    "category": "correctness",
+    "trigger": "A query parameter intended as a regex pattern (e.g., partition_key_pattern) is validated only against None, not against the empty string \"\".",
+    "rationale": "FastAPI passes ?param= as \"\" not None; regexp_match(\"\") can unintentionally match most rows and must be rejected.",
+    "evidence": [
+      {
+        "pr": 64610,
+        "url": "https://github.com/apache/airflow/pull/64610#discussion_r3070054573",
+        "excerpt": "empty string accepted; regexp_match(\"\") matches most non-null partition keys"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/asset_events.py"
+    ]
+  },
+  {
+    "rule": "When AssetActive rows are removed during GC, decide and implement a strategy to handle orphaned asset_state rows; do not leave them to accumulate forever.",
+    "category": "database",
+    "trigger": "A new asset_state table/model is introduced without a cascade-delete from AssetActive removal or a GC policy.",
+    "rationale": "Airflow GC removes AssetActive rows, not asset rows; asset_state's CASCADE is on the asset row, so inactive-asset state rows accumulate silently in long-lived deployments.",
+    "evidence": [
+      {
+        "pr": 66073,
+        "url": "https://github.com/apache/airflow/pull/66073#discussion_r3175794462",
+        "excerpt": "orphan state rows accumulate forever for assets that went inactive"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/asset_state.py"
+    ]
+  },
+  {
+    "rule": "Do not add two fields with singular/plural variants of the same name to a Pydantic response model unless they have clearly distinct semantics documented on the model.",
+    "category": "api-design",
+    "trigger": "A Pydantic model gains a new field whose name is the plural (or singular) form of an existing field (e.g., partition_key and partition_keys).",
+    "rationale": "Near-identical names cause silent mistakes for callers and are confusing in generated API docs.",
+    "evidence": [
+      {
+        "pr": 65447,
+        "url": "https://github.com/apache/airflow/pull/65447#discussion_r3216803392",
+        "excerpt": "names would be very awkward and too easy to make mistakes on"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/datamodels/asset_event.py"
+    ]
+  },
+  {
+    "rule": "Fields added to the execution-API worker context model (DagRun in taskinstance.py) must be verified as actually consumed by the worker before merging.",
+    "category": "correctness",
+    "trigger": "A nullable field is added to the DagRun StrictBaseModel in execution_api/datamodels/taskinstance.py without evidence that the worker reads it.",
+    "rationale": "Unused fields on the hot worker context model add serialisation overhead and dead payload weight on every task start.",
+    "evidence": [
+      {
+        "pr": 61550,
+        "url": "https://github.com/apache/airflow/pull/61550#discussion_r3375946447",
+        "excerpt": "if nothing reads it on the worker this is a field on a hot context for no reason"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/datamodels/taskinstance.py"
+    ]
+  },
+  {
+    "rule": "Shared helpers used by both bulk-update and bulk-delete handlers must accept the HTTP method as a parameter rather than hardcoding 'PUT', to ensure correct auth-manager decisions for DELETE actions.",
+    "category": "security",
+    "trigger": "A shared authorization helper (e.g., _categorize_entities) contains a hardcoded method=\"PUT\" but is also called from a bulk-delete code path.",
+    "rationale": "Auth managers that differentiate PUT from DELETE will incorrectly allow or deny bulk deletes when the method is hardcoded to PUT.",
+    "evidence": [
+      {
+        "pr": 64288,
+        "url": "https://github.com/apache/airflow/pull/64288#discussion_r3025348528",
+        "excerpt": "delete actions authorized using PUT semantics: incorrect allow/deny decisions"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/services/public/task_instances.py"
+    ]
+  },
+  {
+    "rule": "Do not reuse the bulk-service interface for single-item state operations; use the single-item service code path instead.",
+    "category": "api-design",
+    "trigger": "A non-bulk route (e.g., PATCH task group state) instantiates a BulkService with a dummy empty BulkBody to drive a single-item update.",
+    "rationale": "The bulk interface was not designed for single-item use; it forces awkward workarounds and obscures intent.",
+    "evidence": [
+      {
+        "pr": 62812,
+        "url": "https://github.com/apache/airflow/pull/62812#discussion_r2907088878",
+        "excerpt": "interface wasn't meant for this; single TI code is more reusable"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/services/public/task_instances.py"
+    ]
+  },
+  {
+    "rule": "When a new code path is introduced in a service method, verify that the serialisation layer (_serialize_response or equivalent) is also updated to include it; do not merge dead-code branches.",
+    "category": "correctness",
+    "trigger": "A new conditional query branch is added in a service method but the response-serialisation helper still gates on the old condition, leaving the new branch unreachable.",
+    "rationale": "Dead branches produce misleading PR descriptions and mask bugs that will only surface after further refactoring.",
+    "evidence": [
+      {
+        "pr": 64577,
+        "url": "https://github.com/apache/airflow/pull/64577#discussion_r3025322059",
+        "excerpt": "new default branch never returned to clients; effectively dead code"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/services/public/dag_run.py"
+    ]
+  },
+  {
+    "rule": "The handle_bulk_delete handler must apply the same state guards as the corresponding single-delete endpoint unless the relaxed behavior is explicitly documented and intentional.",
+    "category": "correctness",
+    "trigger": "handle_bulk_delete is added or modified without a guard matching the single-delete state check (e.g., refusing RUNNING DagRuns).",
+    "rationale": "Diverging guards between single and bulk delete produce inconsistent API semantics that surprise users and contradict PR descriptions.",
+    "evidence": [
+      {
+        "pr": 67095,
+        "url": "https://github.com/apache/airflow/pull/67095#discussion_r3274644683",
+        "excerpt": "PR says RUNNING returns 409 but handle_bulk_delete skips state check"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/services/public/dag_run.py"
+    ]
+  },
+  {
+    "rule": "When constructing a large dict to pass to Model.model_validate(), assign the dict to a named variable first, then call model_validate() on the next line.",
+    "category": "docs",
+    "trigger": "Model.model_validate({...}) is called with a multi-key inline dict literal containing computed or conditional expressions.",
+    "rationale": "Reviewers require the two-statement form for readability when the dict is large or contains non-trivial logic.",
+    "evidence": [
+      {
+        "pr": 67725,
+        "url": "https://github.com/apache/airflow/pull/67725#discussion_r3478875908",
+        "excerpt": "readability suffers with larger dict and complex logic inside"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/partitioned_dag_runs.py",
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/assets.py"
+    ]
+  },
+  {
+    "rule": "Do not use getattr(Model, 'field') in SQLAlchemy column-selection expressions; resolve optional or dynamically-named columns inside the model definition instead.",
+    "category": "correctness",
+    "trigger": "A SQLAlchemy select() call uses getattr(SomeModel, 'column_name') to reference a column.",
+    "rationale": "No similar pattern exists elsewhere in Airflow queries; dynamic attribute access should be encapsulated in the model, not scattered through query code.",
+    "evidence": [
+      {
+        "pr": 58352,
+        "url": "https://github.com/apache/airflow/pull/58352#discussion_r2532306079",
+        "excerpt": "no similar approach of using getattr in queries; handle it in the model"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/dags.py"
+    ]
+  },
+  {
+    "rule": "conf.getboolean() calls for feature-flag config keys must not supply fallback=False when the config default is True; doing so silently overrides the configured value and breaks the UI toggle.",
+    "category": "correctness",
+    "trigger": "conf.getboolean(section, key, fallback=False) is used in a UI config endpoint for a key whose intended default is True.",
+    "rationale": "A hardcoded fallback=False forces the UI to always read False regardless of airflow.cfg, making the config toggle ineffective.",
+    "evidence": [
+      {
+        "pr": 63884,
+        "url": "https://github.com/apache/airflow/pull/63884#discussion_r3162778628",
+        "excerpt": "forcing the value to false here so backfills never default to True in UI"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/config.py"
+    ]
+  },
+  {
+    "rule": "New default behavior changes to public endpoints (e.g., /dagRuns/{run_id}/wait) must be covered by tests asserting the new default, results-absent, and authorization scenarios.",
+    "category": "testing",
+    "trigger": "A service method changes what an endpoint returns by default (e.g., now includes dag_result XComs when result param is omitted) without updating existing tests.",
+    "rationale": "Existing tests asserted the old default; without updates they no longer reflect the real contract and cannot catch regressions.",
+    "evidence": [
+      {
+        "pr": 64577,
+        "url": "https://github.com/apache/airflow/pull/64577#discussion_r3025322089",
+        "excerpt": "existing tests assert omitting result returns only state; add/update tests"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/services/public/dag_run.py"
+    ]
+  }
+]

@@ -1,0 +1,249 @@
+[
+  {
+    "rule": "Docs code examples must use the correct Airflow API method name; use `.partition_key_pattern()` for regex filtering, not `.partition_key()` (exact-match).",
+    "category": "docs",
+    "trigger": "diff adds a docs example calling `.partition_key(` with a regex string argument",
+    "rationale": "The two methods have different semantics; using the wrong one in docs teaches users incorrect API usage and causes silent bugs.",
+    "evidence": [
+      {
+        "pr": 64610,
+        "url": "https://github.com/apache/airflow/pull/64610#discussion_r3070030881",
+        "excerpt": "Switch the example to `.partition_key_pattern(...)` so the docs match the actual API."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/authoring-and-scheduling/"
+    ]
+  },
+  {
+    "rule": "When documenting a new Airflow feature that was introduced in a specific version, give it a dedicated `.. note::` block or subheader rather than nesting it under an existing section that covers a different feature.",
+    "category": "docs",
+    "trigger": "diff adds documentation for a new feature (e.g. Resumable Tasks) inside an existing section that already documents a distinct feature (e.g. Deferred Operators)",
+    "rationale": "Users scanning docs may assume the nested feature was introduced at the same time as the parent section; a separate block makes the version scope unambiguous.",
+    "evidence": [
+      {
+        "pr": 68136,
+        "url": "https://github.com/apache/airflow/pull/68136#discussion_r3370892737",
+        "excerpt": "Add another `..note` section or subheader for `concepts-resumable-tasks`."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/"
+    ]
+  },
+  {
+    "rule": "Derive `TASK_SDK_VERSION` from `PACKAGE_VERSION` using `packaging.version.parse_version()` (accessing `.minor` and `.micro`), never by splitting the version string on `.`.",
+    "category": "correctness",
+    "trigger": "diff introduces `PACKAGE_VERSION.split('.')` to derive TASK_SDK_VERSION or any component version",
+    "rationale": "String splitting breaks for pre-release and local-version suffixes (e.g. `3.2.0.dev0`, `3.2.0+local`); `packaging.version` is already imported and handles all PEP 440 forms correctly.",
+    "evidence": [
+      {
+        "pr": 64133,
+        "url": "https://github.com/apache/airflow/pull/64133#discussion_r3066474983",
+        "excerpt": "Prefer `Version(parse_version(...))` and `.major/.minor/.micro` for a stable `TASK_SDK_VERSION`."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/conf.py"
+    ]
+  },
+  {
+    "rule": "Auth manager docs must reference `get_url_refresh()` for the token-refresh endpoint path, not a hardcoded literal path such as `POST /auth/token/refresh`.",
+    "category": "api-design",
+    "trigger": "diff hardcodes an auth token refresh URL path in documentation instead of referencing the `get_url_refresh` method",
+    "rationale": "Each auth manager may define its own refresh path; Airflow retrieves it via `get_url_refresh()`, so hardcoding a specific path is inaccurate and misleads implementors.",
+    "evidence": [
+      {
+        "pr": 54196,
+        "url": "https://github.com/apache/airflow/pull/54196#discussion_r2262941156",
+        "excerpt": "Airflow can get this path with `get_url_refresh`; mention that method in the doc."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/core-concepts/auth-manager/"
+    ]
+  },
+  {
+    "rule": "Airflow docs must describe the current state of a feature without comparing to a previous version; do not use phrases like \"no longer\", \"previously\", or \"as of version X\".",
+    "category": "docs",
+    "trigger": "diff adds text containing \"no longer\", \"previously\", \"used to\", or \"as of Airflow X.Y\" in documentation prose",
+    "rationale": "Version-comparative language becomes stale and confusing; Airflow docs convention is to describe only the current behaviour.",
+    "evidence": [
+      {
+        "pr": 54196,
+        "url": "https://github.com/apache/airflow/pull/54196#discussion_r2611853752",
+        "excerpt": "We always try to avoid comparing versions in docs, just mention how the state is."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/"
+    ]
+  },
+  {
+    "rule": "Document task-state-store and asset-state-store values as `JsonValue` (JSON-serialisable types), not as plain strings.",
+    "category": "docs",
+    "trigger": "diff documents task store or asset store value types as \"string\" or \"str\" rather than `JsonValue` or JSON",
+    "rationale": "Values are typed `JsonValue`; calling them plain strings will cause user confusion when they attempt to store dicts or integers.",
+    "evidence": [
+      {
+        "pr": 67299,
+        "url": "https://github.com/apache/airflow/pull/67299#discussion_r3309616194",
+        "excerpt": "Values are `JsonValue` now; calling them strings will confuse users who try to store a dict or int."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/core-concepts/"
+    ]
+  },
+  {
+    "rule": "Public consumers of `XCOM_RETURN_KEY` (and other XCom constants) must import from the Task SDK's `BaseXCom`, not from `airflow.models.xcom`.",
+    "category": "providers",
+    "trigger": "diff imports `XCOM_RETURN_KEY` or other XCom constants from `airflow.models.xcom` in user-facing code or docs",
+    "rationale": "The constant was moved into `BaseXCom` in the Task SDK; `airflow.models.xcom` retains it only for internal `XComModel` usage and must not be promoted as the public import path.",
+    "evidence": [
+      {
+        "pr": 58356,
+        "url": "https://github.com/apache/airflow/pull/58356#discussion_r2532972364",
+        "excerpt": "We should not recommend usage from `airflow.models.xcom`; it moved inside `BaseXcom` in task sdk."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/core-concepts/xcoms.rst",
+      "task-sdk/"
+    ]
+  },
+  {
+    "rule": "Docs about authentication must not present the FAB Auth Manager as the default; the default auth manager in Airflow 3 is the Simple Auth Manager.",
+    "category": "docs",
+    "trigger": "diff adds documentation or configuration examples that imply FAB Auth Manager is used by default",
+    "rationale": "FAB is no longer the default auth manager; presenting it as such leads operators to install unnecessary packages and misconfigure deployments.",
+    "evidence": [
+      {
+        "pr": 55281,
+        "url": "https://github.com/apache/airflow/pull/55281#discussion_r2330267735",
+        "excerpt": "FAB Auth Manager is no longer the default; otherwise it uses the Simple Auth Manager."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/security/"
+    ]
+  },
+  {
+    "rule": "Getting-started / quickstart docs must document both the `uv`-based install path and the standard `pip` + `venv` path, not only one.",
+    "category": "docs",
+    "trigger": "diff adds or rewrites the Airflow install quickstart section covering only a single tool (`uv` only or `pip` only)",
+    "rationale": "Users may not have or want `uv`; the install guide should explain that `uv` is a faster alternative but also show the classic `venv + pip` approach.",
+    "evidence": [
+      {
+        "pr": 57027,
+        "url": "https://github.com/apache/airflow/pull/57027#discussion_r2506991002",
+        "excerpt": "Both options — with `uv` and without (just with venv + pip) — should be explained there."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/start.rst"
+    ]
+  },
+  {
+    "rule": "Use a `bugfix.rst` newsfragment (not `significant.rst`) for non-user-facing internal fixes; omit the fragment entirely if the fix has no observable user impact.",
+    "category": "commit-hygiene",
+    "trigger": "diff adds a `significant.rst` newsfragment for an internal race-condition fix or scheduler-internal improvement with no API/behaviour change",
+    "rationale": "Newsfragments are reserved for important and breaking changes; internal improvements bloat the changelog and dilute signal for operators.",
+    "evidence": [
+      {
+        "pr": 62501,
+        "url": "https://github.com/apache/airflow/pull/62501#discussion_r3512131105",
+        "excerpt": "This is not user-facing but internal improvement; a bug newsfragment should be enough."
+      },
+      {
+        "pr": 65239,
+        "url": "https://github.com/apache/airflow/pull/65239#discussion_r3088683803",
+        "excerpt": "Newsfragments are for important and breaking changes only; please revert this."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/newsfragments/"
+    ]
+  },
+  {
+    "rule": "In newsfragments and release notes, capitalise \"Dags\" (title-case), not \"DAGs\" (all-caps).",
+    "category": "commit-hygiene",
+    "trigger": "diff in a newsfragment file contains the word \"DAGs\" (all-caps)",
+    "rationale": "Consistent capitalisation across the changelog; the repo uses \"Dags\" as the standard form in release-note prose.",
+    "evidence": [
+      {
+        "pr": 64322,
+        "url": "https://github.com/apache/airflow/pull/64322#discussion_r3014691143",
+        "excerpt": "Fix premature asset-triggered DagRuns … the scheduler now skips those Dags."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/newsfragments/"
+    ]
+  },
+  {
+    "rule": "Significant newsfragments about permission or endpoint changes must explicitly name the surface (e.g. \"FastAPI UI `/dags` endpoint\") to distinguish it from other endpoints with the same path.",
+    "category": "commit-hygiene",
+    "trigger": "diff adds a `significant.rst` newsfragment mentioning a `/dags` or other ambiguous endpoint without specifying whether it is the FastAPI UI route or a public REST API endpoint",
+    "rationale": "Airflow exposes multiple `/dags` surfaces (UI vs public API); an ambiguous note misleads operators updating roles and may cause them to miss or over-apply permission changes.",
+    "evidence": [
+      {
+        "pr": 64822,
+        "url": "https://github.com/apache/airflow/pull/64822#discussion_r3066473761",
+        "excerpt": "This change is specifically in the FastAPI UI route; clarify to reduce confusion for operators."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/newsfragments/"
+    ]
+  },
+  {
+    "rule": "Do not enable asyncio debug logging in production code paths or default configuration; it can expose credentials in task logs.",
+    "category": "security",
+    "trigger": "diff enables `PYTHONASYNCIODEBUG`, `loop.set_debug(True)`, or asyncio debug logging in non-test production code",
+    "rationale": "Airflow operators discovered that asyncio debug logging exposes credentials in task logs; the issue has been confirmed in production and remains in the backlog.",
+    "evidence": [
+      {
+        "pr": 66412,
+        "url": "https://github.com/apache/airflow/pull/66412#discussion_r3191425108",
+        "excerpt": "We turned on asyncio debug logging and credentials were exposed in debug task logs."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/",
+      "airflow-core/src/airflow/jobs/"
+    ]
+  },
+  {
+    "rule": "Do not add native/binary C-extension libraries as mandatory dependencies of `airflow-core`; they must be optional extras or provider-level dependencies.",
+    "category": "correctness",
+    "trigger": "diff adds a native library (e.g. one distributed as a compiled wheel with no pure-Python fallback) to the `dependencies` list in `airflow-core/pyproject.toml`",
+    "rationale": "Native libraries are large and may fail to install on some OS/Python version combinations; making them required breaks `airflow-core` installation in those environments.",
+    "evidence": [
+      {
+        "pr": 56821,
+        "url": "https://github.com/apache/airflow/pull/56821#discussion_r2442474389",
+        "excerpt": "It's a 2.4 MB native library; we do not want to make it a core requirement."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/pyproject.toml"
+    ]
+  },
+  {
+    "rule": "In `BaseAuthManager` and its subclasses, `is_authorized_*` methods must accept `user: T` (the generic auth-user type-var) and represent multiple user IDs as `set[str]`; they must not accept concrete Airflow model types (e.g. `HITLUser`) as parameters.",
+    "category": "api-design",
+    "trigger": "diff adds or modifies an `is_authorized_*` method on an auth manager class that takes a concrete Airflow model type (e.g. `HITLUser`, `DagModel`) instead of `user: T` or primitive types",
+    "rationale": "The base auth manager is generic and must not import or depend on concrete Airflow ORM models; doing so creates a circular or layering violation across the auth boundary.",
+    "evidence": [
+      {
+        "pr": 59399,
+        "url": "https://github.com/apache/airflow/pull/59399#discussion_r2620030786",
+        "excerpt": "Not a big fan of having `HITLUser` as dependency of the base auth manager; only need the user ID."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/auth/managers/"
+    ]
+  }
+]

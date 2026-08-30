@@ -1,0 +1,293 @@
+[
+  {
+    "rule": "In test setup, consolidate multiple session.flush() calls into a single flush at the end unless earlier flushes are required by subsequent setup queries.",
+    "category": "testing",
+    "trigger": "Two or more `session.flush()` calls appear in the setup section of a single test function or fixture.",
+    "rationale": "Reviewers flag redundant flush calls in test setup as unnecessary DB round-trips; a single flush at the end is sufficient unless intermediate reads depend on flushed state.",
+    "evidence": [
+      {
+        "pr": 61372,
+        "url": "https://github.com/apache/airflow/pull/61372#discussion_r2776303528",
+        "excerpt": "This is the third flush call so far for the setup."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/models/"
+    ]
+  },
+  {
+    "rule": "Use assert_queries_count() to guard performance-critical ORM changes such as replacing session.merge() with session.add() so that regressions are caught by CI.",
+    "category": "testing",
+    "trigger": "A diff replaces `session.merge(` with `session.add(` (or vice-versa) inside a code path that touches `task_instance` or `dag_run` tables without an accompanying `assert_queries_count` assertion in the tests.",
+    "rationale": "The merge()→add() speedup is not pinned without a query-count assertion; reverting the change leaves query-count tests green because they only count dag_run SELECTs, not task_instance per-index SELECTs.",
+    "evidence": [
+      {
+        "pr": 69565,
+        "url": "https://github.com/apache/airflow/pull/69565#discussion_r3540321625",
+        "excerpt": "Wrapping the expand_mapped_task call in assert_queries_count would guard it."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/models/"
+    ]
+  },
+  {
+    "rule": "Tests for @operator_defaults must include a case where the operator explicitly overrides the decorator's default (e.g. retries=0 beats @operator_defaults(retries=3)).",
+    "category": "testing",
+    "trigger": "A test file adds cases for `@operator_defaults` but only tests the decorator applying its value, with no test for an operator-level explicit override of that same field.",
+    "rationale": "Reviewer asks whether explicitly-set operator arguments correctly override the decorator's defaults; this edge case must be covered to prevent silent regressions in the operator_defaults feature.",
+    "evidence": [
+      {
+        "pr": 57853,
+        "url": "https://github.com/apache/airflow/pull/57853#discussion_r2493792209",
+        "excerpt": "Is it worth adding a test with @operator_defaults but using retries=0?"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/serialization/"
+    ]
+  },
+  {
+    "rule": "DAG serialization test fixtures that include fields unconditionally emitted on the wire (because defaults come from airflow.cfg at parse time, not the schema) must carry an inline comment explaining this so future readers do not remove them as redundant.",
+    "category": "docs",
+    "trigger": "A diff adds or modifies a serialization test fixture dict/JSON that includes fields like `catchup`, `max_active_runs`, or `max_active_tasks` without an explanatory comment.",
+    "rationale": "After a schema change, these fields are always emitted because their real defaults come from airflow.cfg at parse time; without a comment a future reader may remove them as redundant defaults, causing a regression.",
+    "evidence": [
+      {
+        "pr": 65310,
+        "url": "https://github.com/apache/airflow/pull/65310#discussion_r3225771582",
+        "excerpt": "their real defaults come from airflow.cfg at parse time."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/serialization/"
+    ]
+  },
+  {
+    "rule": "Sentinel objects such as NOTSET and SET_DURING_EXECUTION must have repr() and str() return the same stable string produced by their serialize() method, not just the class name.",
+    "category": "correctness",
+    "trigger": "A diff modifies `__repr__` or `__str__` on a sentinel class (`NOTSET`, `SET_DURING_EXECUTION`, or similar) to return the class name rather than the serialized sentinel string.",
+    "rationale": "repr()/str() must match serialize() output so that the sentinel can be round-tripped reliably; returning just the class name breaks the regression described in the originating issue.",
+    "evidence": [
+      {
+        "pr": 65222,
+        "url": "https://github.com/apache/airflow/pull/65222#discussion_r3100662350",
+        "excerpt": "str(SET_DURING_EXECUTION) differ from its serialize() output."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/serialization/",
+      "airflow-core/src/airflow/serialization/"
+    ]
+  },
+  {
+    "rule": "When a caplog fixture is injected into a @pytest.mark.db_test, the test must assert on the expected log output; otherwise remove caplog and its setup entirely.",
+    "category": "testing",
+    "trigger": "A `@pytest.mark.db_test` function accepts `caplog` as a parameter but contains no `assert … in caplog` (or `caplog.records`) assertion.",
+    "rationale": "Capturing logs without asserting on them adds noise and misleads readers into thinking retry-log output is verified when it is not.",
+    "evidence": [
+      {
+        "pr": 64503,
+        "url": "https://github.com/apache/airflow/pull/64503#discussion_r3025330806",
+        "excerpt": "caplog is configured/cleared but no log output is asserted."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/utils/"
+    ]
+  },
+  {
+    "rule": "Do not bundle unrelated test-mock tightening (e.g. adding spec= to an existing MagicMock) in a PR whose title describes a distinct bug fix; either drop the hunk or call it out explicitly in the PR body.",
+    "category": "commit-hygiene",
+    "trigger": "A diff modifies an existing `mock.MagicMock()` call to add `spec=` in a file that is otherwise changed only for an unrelated fix.",
+    "rationale": "Mixing test cleanup into a targeted fix makes the PR harder to review, leaves the codebase inconsistently specced (new test has no spec= while the old one now does), and obscures the fix's intent.",
+    "evidence": [
+      {
+        "pr": 64503,
+        "url": "https://github.com/apache/airflow/pull/64503#discussion_r3215318242",
+        "excerpt": "This spec= change is unrelated to the StaleDataError fix."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/utils/"
+    ]
+  },
+  {
+    "rule": "In the Scheduler's topological_sort or any O(n²) path inside task-group ordering, use a dict[task_id, index] instead of a list with .index() lookups.",
+    "category": "performance",
+    "trigger": "A diff introduces or retains a `.index(` call on a list inside a `topological_sort` or task-group ordering function.",
+    "rationale": "O(n) .index() inside a loop becomes O(n²) for large task groups; a dict lookup is O(1) and the reviewer flagged this explicitly.",
+    "evidence": [
+      {
+        "pr": 69933,
+        "url": "https://github.com/apache/airflow/pull/69933#discussion_r3664259734",
+        "excerpt": "Construct as dict[task_id, index] to avoid O(n) .index call."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/utils/",
+      "airflow-core/src/airflow/utils/"
+    ]
+  },
+  {
+    "rule": "Docker Compose fixtures under airflow-e2e-tests must not set a fixed container_name; intra-compose services must communicate via service-name hostnames, and host ports must not be published unless there is a demonstrated external requirement.",
+    "category": "testing",
+    "trigger": "A diff adds `container_name:` or a host-port mapping (e.g. `- \"9092:9092\"`) to a service in a docker-compose file under `airflow-e2e-tests/`.",
+    "rationale": "Fixed container names conflict when multiple compose projects run on the same Docker host (parallel local dev or parallel CI); Airflow's intra-compose communication uses service-name hostnames, so published ports are unnecessary and cause port-collision failures.",
+    "evidence": [
+      {
+        "pr": 64833,
+        "url": "https://github.com/apache/airflow/pull/64833#discussion_r3066503678",
+        "excerpt": "Fixed container_name can cause conflicts if multiple compose projects run."
+      }
+    ],
+    "scope_paths": [
+      "airflow-e2e-tests/docker/"
+    ]
+  },
+  {
+    "rule": "In chart/RELEASE_NOTES.rst, all Helm values key references must be wrapped in double RST backticks (e.g. ``workers.celery.nodeSelector``).",
+    "category": "docs",
+    "trigger": "A diff adds a line to `chart/RELEASE_NOTES.rst` that contains a dotted Helm values path (e.g. `workers.celery.*`) without surrounding double backticks.",
+    "rationale": "The reviewer provided a suggestion block converting bare values references to RST inline-code markup; the existing release notes consistently use double-backtick markup for values.",
+    "evidence": [
+      {
+        "pr": 63759,
+        "url": "https://github.com/apache/airflow/pull/63759#discussion_r2948323848",
+        "excerpt": "Suggestion converting bare values references to double-backtick RST."
+      }
+    ],
+    "scope_paths": [
+      "chart/RELEASE_NOTES.rst"
+    ]
+  },
+  {
+    "rule": "Bugfix entries in chart/RELEASE_NOTES.rst must use a concise title that fits on one line; detailed explanation belongs in the PR, not the release note.",
+    "category": "docs",
+    "trigger": "A diff adds a multi-sentence bugfix entry to `chart/RELEASE_NOTES.rst` (more than ~15 words in the release note line).",
+    "rationale": "Reviewer suggested a short title ('Fix wrong broker URL secret ref') with the note that exact details can be found in the linked PR, consistent with the chart's existing terse release-note style.",
+    "evidence": [
+      {
+        "pr": 65569,
+        "url": "https://github.com/apache/airflow/pull/65569#discussion_r3119860701",
+        "excerpt": "exact details of the bugfix could be found in the PR directly."
+      }
+    ],
+    "scope_paths": [
+      "chart/RELEASE_NOTES.rst"
+    ]
+  },
+  {
+    "rule": "When a Helm chart value is deprecated in favour of executor-specific keys (e.g. workers.labels → workers.celery.labels / workers.kubernetes.labels), the chart docs must show examples for each new key and must not describe the change as a rename.",
+    "category": "docs",
+    "trigger": "A diff removes a worker labels (or similar executor-shared) example from chart docs or adds a deprecation warning that says 'renamed' for a value being split into executor-specific keys.",
+    "rationale": "Users need to know whether to set one or both new keys depending on their executor; calling it a 'rename' is inaccurate and the old docs example must be replaced, not just removed.",
+    "evidence": [
+      {
+        "pr": 65030,
+        "url": "https://github.com/apache/airflow/pull/65030#discussion_r3066476947",
+        "excerpt": "docs do not show the new recommended configuration workers.celery.labels."
+      }
+    ],
+    "scope_paths": [
+      "chart/docs/"
+    ]
+  },
+  {
+    "rule": "chart/newsfragments/*.significant.rst files for breaking changes must enumerate every removed Helm value and its replacement with a migration mapping, not just a prose summary.",
+    "category": "docs",
+    "trigger": "A diff adds a `.significant.rst` newsfragment that mentions removed values or executor support without listing specific old→new key mappings.",
+    "rationale": "Without an explicit migration map, users get unhelpful 'additional property not allowed' schema errors at deploy time; reviewers require the fragment to list every removed values path and its replacement.",
+    "evidence": [
+      {
+        "pr": 65866,
+        "url": "https://github.com/apache/airflow/pull/65866#discussion_r3143696869",
+        "excerpt": "enumerate the removed values and their replacements so users get a usable migration map."
+      }
+    ],
+    "scope_paths": [
+      "chart/newsfragments/"
+    ]
+  },
+  {
+    "rule": "Helm chart NOTES.txt deprecation warnings for split values must say 'deprecated; use X or Y depending on executor' rather than 'renamed to X'.",
+    "category": "docs",
+    "trigger": "A diff adds a `DEPRECATION WARNING` block in a Helm `NOTES.txt` or `_helpers.yaml` that uses the word 'renamed' for a value being split into executor-specific keys.",
+    "rationale": "Saying 'renamed' is inaccurate when the value is being replaced by two executor-specific keys; users may set the wrong one depending on their executor if the message is misleading.",
+    "evidence": [
+      {
+        "pr": 65030,
+        "url": "https://github.com/apache/airflow/pull/65030#discussion_r3066465285",
+        "excerpt": "Rewording to 'deprecated; use …' clarifying users may need to set one or both."
+      }
+    ],
+    "scope_paths": [
+      "chart/templates/"
+    ]
+  },
+  {
+    "rule": "Helm chart kustomize overlay CI must not pull arbitrary images from DockerHub without an image-allowlist validation step to prevent credential leakage via untrusted images.",
+    "category": "security",
+    "trigger": "A diff adds an `image:` field referencing a third-party DockerHub image in a kustomize overlay under `chart/kustomize-overlays/` without a corresponding allowlist or validation check.",
+    "rationale": "Reviewer raised concern that autodiscovery and pulling of unvetted images in Airflow CI could expose CI-sensitive credentials via a malicious image.",
+    "evidence": [
+      {
+        "pr": 67012,
+        "url": "https://github.com/apache/airflow/pull/67012#discussion_r3307270420",
+        "excerpt": "What is the risk of untrustworthy image access to CI-sensitive credentials?"
+      }
+    ],
+    "scope_paths": [
+      "chart/kustomize-overlays/"
+    ]
+  },
+  {
+    "rule": "The Helm OTel collector ConfigMap template must expose a values key that allows users to supply their own complete OTel Collector config.yml instead of only the Airflow-generated one.",
+    "category": "api-design",
+    "trigger": "A diff adds a new `chart/templates/configmaps/otel-collector-configmap.yaml` or similar OTel ConfigMap template without a `.Values` override key for the entire config body.",
+    "rationale": "Reviewer requires users to be able to supply custom OTel Collector configuration for advanced export scenarios not covered by the Airflow-generated defaults.",
+    "evidence": [
+      {
+        "pr": 64902,
+        "url": "https://github.com/apache/airflow/pull/64902#discussion_r3059744494",
+        "excerpt": "possible for users to create their own configuration used by otelCollector."
+      }
+    ],
+    "scope_paths": [
+      "chart/templates/configmaps/"
+    ]
+  },
+  {
+    "rule": "In the Helm OTel collector ConfigMap, traces and metrics pipelines and their exporters must be conditional on separate feature-flag values (e.g. .Values.otelCollector.tracesEnabled / .Values.otelCollector.metricsEnabled).",
+    "category": "correctness",
+    "trigger": "A diff adds or modifies `chart/templates/configmaps/otel-collector-configmap.yaml` such that both `traces:` and `metrics:` pipelines are unconditionally included regardless of which backends are enabled.",
+    "rationale": "Always enabling both pipelines causes persistent export failures and noisy logs when, e.g., Jaeger is not deployed; each pipeline/exporter must be gated on its corresponding values flag.",
+    "evidence": [
+      {
+        "pr": 64902,
+        "url": "https://github.com/apache/airflow/pull/64902#discussion_r3066503228",
+        "excerpt": "This can cause persistent export failures/retries and noisy logs."
+      }
+    ],
+    "scope_paths": [
+      "chart/templates/configmaps/",
+      "chart/templates/otel-collector/"
+    ]
+  },
+  {
+    "rule": "Helm Service templates must name the user-supplied annotations key .Values.<component>.service.annotations (not extraAnnotations) when no Airflow-generated annotations already exist on the resource.",
+    "category": "api-design",
+    "trigger": "A diff introduces a `.Values.<component>.service.extraAnnotations` key in a Helm Service template where no other Airflow-generated annotations are applied.",
+    "rationale": "Using 'extra' implies there are pre-existing annotations to supplement; when there are none, 'annotations' is the correct key name consistent with the rest of the chart.",
+    "evidence": [
+      {
+        "pr": 64902,
+        "url": "https://github.com/apache/airflow/pull/64902#discussion_r3059826405",
+        "excerpt": "There are no other annotations on the service, so extra is misleading."
+      }
+    ],
+    "scope_paths": [
+      "chart/templates/otel-collector/"
+    ]
+  }
+]

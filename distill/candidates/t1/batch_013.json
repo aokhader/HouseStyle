@@ -1,0 +1,260 @@
+[
+  {
+    "rule": "When adding a provider module path to the project-structure test allowlist, the corresponding test file must already exist in that PR.",
+    "category": "testing",
+    "trigger": "diff adds a path string to the allowlist in `test_providers_modules_should_have_tests` but the referenced test file is not present in the same PR",
+    "rationale": "Allowlist entries without matching test files cause `test_providers_modules_should_have_tests` to fail in CI immediately.",
+    "evidence": [
+      {
+        "pr": 62232,
+        "url": "https://github.com/apache/airflow/pull/62232#discussion_r2849613190",
+        "excerpt": "those test files are not present in this PR"
+      }
+    ],
+    "scope_paths": ["airflow-core/tests/unit/always/test_project_structure.py"]
+  },
+  {
+    "rule": "Test method names that reference SQLAlchemy/database exception types must spell multi-word names as separate words separated by underscores (e.g., `data_error` not `dataerror`).",
+    "category": "naming",
+    "trigger": "diff introduces a test function whose name concatenates a known multi-word SQLAlchemy exception (e.g., `dataerror`, `operationalerror`, `integrityerror`) without underscores",
+    "rationale": "The project convention treats database exception class name components as discrete words; reviewers enforce consistent casing across the entire test suite.",
+    "evidence": [
+      {
+        "pr": 66888,
+        "url": "https://github.com/apache/airflow/pull/66888#discussion_r3280402178",
+        "excerpt": "Everywhere, DataError are two separate words."
+      }
+    ],
+    "scope_paths": ["airflow-core/tests/unit/api_fastapi/"]
+  },
+  {
+    "rule": "Paginated bulk-action API endpoints must have tests that verify the action is applied across multiple pages (limit=1 scenario).",
+    "category": "testing",
+    "trigger": "diff adds tests for a paginated PATCH/POST bulk endpoint but no test covers `limit=1` to verify multi-page traversal",
+    "rationale": "Without a limit=1 test, multi-page behaviour is untested; bugs where only the first page is acted upon go undetected.",
+    "evidence": [
+      {
+        "pr": 63665,
+        "url": "https://github.com/apache/airflow/pull/63665#discussion_r3022247454",
+        "excerpt": "verify that dags are paused even across multiple pages"
+      }
+    ],
+    "scope_paths": ["airflow-core/tests/unit/api_fastapi/core_api/routes/public/"]
+  },
+  {
+    "rule": "New task-group or task-instance state-change API handlers must include unmocked integration tests that verify upstream/downstream propagation, past/future run coverage, and deadlock/conflict (409) paths.",
+    "category": "testing",
+    "trigger": "diff adds a `TestPatch*TaskGroup` or `TestPatch*TaskInstance` class whose tests uniformly mock the underlying state-transition method, leaving the real DB logic untested",
+    "rationale": "Mocking the state method only validates route/service glue; the bulk-state logic (upstream, downstream, past, future, clear) must be exercised against a real DB to catch regressions versus Airflow 2.x behaviour.",
+    "evidence": [
+      {
+        "pr": 62812,
+        "url": "https://github.com/apache/airflow/pull/62812#discussion_r3111265603",
+        "excerpt": "real v2.x-equivalent logic isn't exercised … add unmocked tests"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/api_fastapi/core_api/routes/public/",
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/"
+    ]
+  },
+  {
+    "rule": "Tests covering endpoint parameters that accept multiple values (e.g., filter flags with True/False/None) must be parametrized rather than combined into a single assertion block.",
+    "category": "testing",
+    "trigger": "diff adds a test function that asserts multiple filter-param combinations sequentially in one block instead of using `@pytest.mark.parametrize`",
+    "rationale": "Parametrization produces distinct test IDs, making CI failures easier to localise and debug.",
+    "evidence": [
+      {
+        "pr": 55041,
+        "url": "https://github.com/apache/airflow/pull/55041#discussion_r2316192053",
+        "excerpt": "parametrize the test … harder to debug when lots of assertions"
+      }
+    ],
+    "scope_paths": ["airflow-core/tests/unit/api_fastapi/"]
+  },
+  {
+    "rule": "OTel context-manager generator tests in the execution API must cover the `athrow` path (route-error injection) and assert whether `detach` is called on that path.",
+    "category": "async",
+    "trigger": "diff adds or modifies tests for `_extract_w3c_trace_context` or similar async generator middleware without a test that `athrow`s into the generator",
+    "rationale": "Closing a generator from the same task doesn't reproduce the cross-task GeneratorExit error; route-error coverage requires `athrow` to ensure detach is invoked on the error path.",
+    "evidence": [
+      {
+        "pr": 68039,
+        "url": "https://github.com/apache/airflow/pull/68039#discussion_r3359357864",
+        "excerpt": "Worth a test that `athrow`s into the generator and asserts detach"
+      }
+    ],
+    "scope_paths": ["airflow-core/tests/unit/api_fastapi/execution_api/"]
+  },
+  {
+    "rule": "When a new execution-API feature claims multi-backend support via SQLAlchemy (e.g., `regexp_match`), tests must cover all claimed backends, not only Postgres.",
+    "category": "database",
+    "trigger": "diff adds tests marked only `@pytest.mark.backend(\"postgres\")` for a feature that uses `regexp_match` or other backend-portable SQLAlchemy constructs",
+    "rationale": "Regex semantics and operator support differ between Postgres and MySQL; a Postgres-only test suite does not validate MySQL compatibility that the implementation claims.",
+    "evidence": [
+      {
+        "pr": 64610,
+        "url": "https://github.com/apache/airflow/pull/64610#discussion_r3025330405",
+        "excerpt": "claims MySQL support … tests are Postgres-only"
+      }
+    ],
+    "scope_paths": ["airflow-core/tests/unit/api_fastapi/execution_api/"]
+  },
+  {
+    "rule": "Version-compat guards in `airflow-core` tests must use the lowest Airflow version at which the relevant change actually landed (e.g., `AIRFLOW_V_3_0_PLUS` when the SDK move happened in 3.0, not 3.1).",
+    "category": "correctness",
+    "trigger": "diff uses `AIRFLOW_V_3_1_PLUS` (or higher) in a version-compat import guard for a symbol that was moved/introduced in an earlier 3.x release",
+    "rationale": "Using a guard version higher than the actual change version silently imports the wrong symbol on intermediate releases, causing incorrect test behaviour.",
+    "evidence": [
+      {
+        "pr": 53791,
+        "url": "https://github.com/apache/airflow/pull/53791#discussion_r2238537197",
+        "excerpt": "move for BaseOperator to sdk was done in 3.0, not 3.1"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "Do not add try/except ImportError version-compat shims in airflow-core tests for symbols that exist in the current core codebase.",
+    "category": "correctness",
+    "trigger": "diff introduces a `try: from airflow.X import Y / except ImportError: from airflow.X import Z as Y` pattern inside an `airflow-core` test file",
+    "rationale": "airflow-core tests always run against the current core; the symbol is always available, so the compat shim is dead code and misleads readers about the import path.",
+    "evidence": [
+      {
+        "pr": 54383,
+        "url": "https://github.com/apache/airflow/pull/54383#discussion_r2299840242",
+        "excerpt": "core test — just do the import always"
+      }
+    ],
+    "scope_paths": ["airflow-core/tests/"]
+  },
+  {
+    "rule": "Import statements inside test method bodies are only permitted for circular-import avoidance, lazy loading for worker isolation, or `TYPE_CHECKING` blocks; all other imports must be at module level.",
+    "category": "correctness",
+    "trigger": "diff adds `import` or `from … import` statements inside a test function body where none of the listed exceptions apply",
+    "rationale": "The Airflow codebase coding guidelines prohibit inline imports except for the named exceptions; violations cause inconsistent import order and hide dependencies.",
+    "evidence": [
+      {
+        "pr": 61077,
+        "url": "https://github.com/apache/airflow/pull/61077#discussion_r2895879084",
+        "excerpt": "imports inside test body … valid exceptions do not apply here"
+      },
+      {
+        "pr": 68118,
+        "url": "https://github.com/apache/airflow/pull/68118#discussion_r3367146276",
+        "excerpt": "imports expected to be at module level"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "Use `session.scalar(select(Model).where(…))` (or `session.scalars(…).one()`) instead of the legacy `session.query(Model).filter(…).one()` ORM style.",
+    "category": "database",
+    "trigger": "diff contains `session.query(…).filter(…)` in test or source code",
+    "rationale": "The project has migrated to the SQLAlchemy 2.x `select()` / `session.scalar()` / `session.scalars()` API; legacy `session.query` calls are being systematically removed.",
+    "evidence": [
+      {
+        "pr": 59823,
+        "url": "https://github.com/apache/airflow/pull/59823#discussion_r2648884752",
+        "excerpt": "could also use `scalar()` here"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/jobs/",
+      "airflow-core/src/airflow/"
+    ]
+  },
+  {
+    "rule": "airflow-core tests must not import from `airflow.sdk._shared` or other task-sdk internal paths directly; doing so makes airflow-core tests unrunnable without task-sdk installed.",
+    "category": "correctness",
+    "trigger": "diff changes an import in an `airflow-core` test from `airflow.X` to `airflow.sdk._shared.X` or any other `airflow.sdk` internal namespace",
+    "rationale": "The key architectural guardrail is that airflow-core tests must be runnable without task-sdk; importing from task-sdk internals breaks that isolation.",
+    "evidence": [
+      {
+        "pr": 59883,
+        "url": "https://github.com/apache/airflow/pull/59883#discussion_r2668019399",
+        "excerpt": "never able to run airflow-core tests without task-sdk … main guardrail"
+      }
+    ],
+    "scope_paths": ["airflow-core/tests/"]
+  },
+  {
+    "rule": "Alembic stairway migration tests must include the failing revision ID in the error message so CI logs immediately identify the broken migration.",
+    "category": "testing",
+    "trigger": "diff adds a loop over migration revisions that calls `command.upgrade` / `command.downgrade` without re-raising or `pytest.fail`-ing with the `revision_id` in the message",
+    "rationale": "Without the revision ID in the failure message, CI logs cannot directly pinpoint which migration step failed, significantly slowing triage.",
+    "evidence": [
+      {
+        "pr": 64905,
+        "url": "https://github.com/apache/airflow/pull/64905#discussion_r3056860609",
+        "excerpt": "re-raise/pytest.fail with current revision_id … broken migration immediately obvious"
+      }
+    ],
+    "scope_paths": ["airflow-core/tests/unit/migrations/"]
+  },
+  {
+    "rule": "When catching exceptions from `airflow.sdk` in airflow-core tests, assert against the exception class from the SDK package, not from `airflow.exceptions`, to avoid an always-false assertion after the class was moved.",
+    "category": "correctness",
+    "trigger": "diff imports an exception (e.g., `FailFastDagInvalidTriggerRule`) from `airflow.exceptions` in an airflow-core test that exercises code whose raise site now lives in `airflow.sdk`",
+    "rationale": "After exceptions are migrated to `airflow.sdk`, asserting against the `airflow.exceptions` alias will never match because the raised class is the SDK one; the test passes vacuously or fails for the wrong reason.",
+    "evidence": [
+      {
+        "pr": 53389,
+        "url": "https://github.com/apache/airflow/pull/53389#discussion_r2266555299",
+        "excerpt": "raises FailFastDagInvalidTriggerRule from sdk … asserting from airflow.exceptions"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/models/",
+      "airflow-core/src/airflow/"
+    ]
+  },
+  {
+    "rule": "In docstrings and test names, spell 'Dag' with a capital D and lowercase 'ag' (i.e., `Dag`, not `DAG`) when referring to the Python class in prose.",
+    "category": "naming",
+    "trigger": "diff adds or modifies a docstring or test name that uses `DAG` (all-caps) when referring to the Python DAG class in a prose sentence",
+    "rationale": "Reviewer suggestion reflects the project convention of using `Dag` (title-case) in prose contexts within this codebase.",
+    "evidence": [
+      {
+        "pr": 61702,
+        "url": "https://github.com/apache/airflow/pull/61702#discussion_r2786095205",
+        "excerpt": "Test that a Dag with multiple deadlines …"
+      }
+    ],
+    "scope_paths": ["airflow-core/tests/unit/models/"]
+  },
+  {
+    "rule": "Tests that assert on complete tag/stats dictionaries must not be split into per-key assertions that allow unknown keys to pass silently; assert the full dict equality unless explicitly testing a subset.",
+    "category": "testing",
+    "trigger": "diff changes `assert tags == {\"key\": \"value\", …}` to individual `assert tags[\"key\"] == \"value\"` assertions on a dict that should be fully specified",
+    "rationale": "Per-key assertions allow unexpected extra keys to go undetected; whole-dict equality catches accidental additions to stats/tag payloads.",
+    "evidence": [
+      {
+        "pr": 68568,
+        "url": "https://github.com/apache/airflow/pull/68568#discussion_r3435555554",
+        "excerpt": "Why aren't we testing the complete set of tags?"
+      }
+    ],
+    "scope_paths": ["airflow-core/tests/unit/models/test_dagrun.py"]
+  },
+  {
+    "rule": "Prefer top-level test functions over needlessly small test classes; do not create a new class for every narrow scenario when the surrounding file uses top-level functions as the primary pattern.",
+    "category": "testing",
+    "trigger": "diff adds a new small test class (e.g., `class TestDagRunSomeSpecificBehavior`) in a file where the dominant pattern is top-level `def test_*` functions",
+    "rationale": "The project prefers top-level test functions for most tests; proliferating small classes (especially LLM-generated ones) fragments related tests and makes the file harder to read.",
+    "evidence": [
+      {
+        "pr": 68568,
+        "url": "https://github.com/apache/airflow/pull/68568#discussion_r3435555554",
+        "excerpt": "delete extra test classes that LLM agents love to add"
+      }
+    ],
+    "scope_paths": ["airflow-core/tests/unit/models/test_dagrun.py"]
+  }
+]

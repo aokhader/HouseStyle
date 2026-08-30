@@ -1,0 +1,201 @@
+[
+  {
+    "rule": "After queuing a workload with an executor, set the workload state to QUEUED, not RUNNING, because executor acceptance is not guaranteed.",
+    "category": "correctness",
+    "trigger": "diff sets `callback.state` or similar workload state to `RUNNING` immediately after `executor.queue_workload()`",
+    "rationale": "There is no guarantee that the executor is able to get the workload running; QUEUED is the correct intermediate state until the executor confirms execution.",
+    "evidence": [
+      {
+        "pr": 61153,
+        "url": "https://github.com/apache/airflow/pull/61153#discussion_r2830111655",
+        "excerpt": "no guarantee that the executor is able to get the workload running"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/jobs/scheduler_job_runner.py"]
+  },
+  {
+    "rule": "In the scheduler critical section, avoid adding separate queries for individual task states; fold new state conditions into the existing query.",
+    "category": "performance",
+    "trigger": "diff adds a new `session.execute(select(...).where(TI.state == TaskInstanceState.<STATE>))` inside `_critical_section_*` or adjacent scheduler methods",
+    "rationale": "An additional query is expensive and the separation does not improve clarity; the condition should be merged into the existing query at the appropriate line.",
+    "evidence": [
+      {
+        "pr": 61769,
+        "url": "https://github.com/apache/airflow/pull/61769#discussion_r2821164333",
+        "excerpt": "additional query would be expensive and separation does not make it better"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/jobs/scheduler_job_runner.py"]
+  },
+  {
+    "rule": "Every new scheduler workload type must check available executor slots before submitting workloads, following the pattern in `_enqueue_executor_callbacks` and `_critical_section_enqueue_task_instances`.",
+    "category": "correctness",
+    "trigger": "diff introduces a new method that calls `executor.queue_workload()` or `session.scalar(select(func.count(...)))` for a new workload type without reading available executor slots first",
+    "rationale": "The scheduler is responsible for not over-subscribing all executors across all teams; every workload submission path must assess available slots and cap submission count accordingly.",
+    "evidence": [
+      {
+        "pr": 62343,
+        "url": "https://github.com/apache/airflow/pull/62343#discussion_r2891434017",
+        "excerpt": "responsibility of the scheduler to ensure we don't over subscribe all executors"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/jobs/scheduler_job_runner.py"]
+  },
+  {
+    "rule": "Use `with_row_locks(..., skip_locked=True)` when selecting scheduler-owned rows that multiple scheduler workers could process concurrently.",
+    "category": "correctness",
+    "trigger": "diff adds `session.scalars(select(<Model>).where(...))` inside the scheduler loop without a `with_row_locks` wrapper on rows that are then mutated or dispatched",
+    "rationale": "Without skip-locked row-level locking, two scheduler workers can race on the same rows; the existing `_dispatch_connection_tests` pattern demonstrates the required guard.",
+    "evidence": [
+      {
+        "pr": 62343,
+        "url": "https://github.com/apache/airflow/pull/62343#discussion_r2876480956",
+        "excerpt": "Should we add row-level skip lock like `_dispatch_connection_tests`?"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/jobs/scheduler_job_runner.py"]
+  },
+  {
+    "rule": "Prefer `~exists(select(...).where(...))` anti-join over `<col>.not_in(select(...))` in ORM queries to avoid null-semantics bugs and enable index use.",
+    "category": "database",
+    "trigger": "diff contains `.not_in(select(...))` or `NOT IN (SELECT ...)` in a SQLAlchemy ORM query",
+    "rationale": "NOT IN with a subquery has tricky null semantics and can prevent the planner from using indexes; NOT EXISTS anti-join is both correct and more efficiently planned on larger tables.",
+    "evidence": [
+      {
+        "pr": 62501,
+        "url": "https://github.com/apache/airflow/pull/62501#discussion_r3301687788",
+        "excerpt": "`NOT IN` also has tricky null-semantics… Consider switching to `NOT EXISTS`"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/jobs/scheduler_job_runner.py"]
+  },
+  {
+    "rule": "SQLAlchemy `Mapped` type annotations must match the column's `nullable` setting; `Mapped[str | None]` on a `nullable=False` column is a type inconsistency that must be corrected.",
+    "category": "correctness",
+    "trigger": "diff adds or modifies a `Mapped[<type> | None]` annotation on a column declared with `nullable=False`, or vice versa",
+    "rationale": "A mismatch between Mapped type and column nullability masks correctness bugs: defensive `or \"\"` workarounds become necessary, collapsing real NULLs with empty strings and making upstream bugs invisible.",
+    "evidence": [
+      {
+        "pr": 64571,
+        "url": "https://github.com/apache/airflow/pull/64571#discussion_r3268775508",
+        "excerpt": "`Mapped[str | None]` but the column is `nullable=False`… pre-existing inconsistency"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/jobs/scheduler_job_runner.py",
+      "airflow-core/src/airflow/models/"
+    ]
+  },
+  {
+    "rule": "Foreign-key columns used as subquery filter predicates in scheduler queries must have an explicit `Index(...)` declaration; rely on existing indexes only when confirmed to cover the FK column.",
+    "category": "database",
+    "trigger": "diff adds a subquery filter on an FK column (e.g. `.where(<Model>.trigger_id == ...)`) without a corresponding `Index(\"idx_<table>_<column>\", ...)` in the model definition",
+    "rationale": "Without an index, the subquery requires a sequential scan; the scheduler's trigger-cleanup query showed this for `callback.trigger_id` which lacked `idx_callback_trigger_id`.",
+    "evidence": [
+      {
+        "pr": 66210,
+        "url": "https://github.com/apache/airflow/pull/66210#discussion_r3174876966",
+        "excerpt": "`callback.trigger_id` has only an FK, no `Index(...)` … seq-scan `callback`"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/jobs/scheduler_job_runner.py"]
+  },
+  {
+    "rule": "In the triggerer, to call `get_template_context` you must construct a `RuntimeTaskInstance` via `RuntimeTaskInstance.model_construct(...)`, not use a plain `TaskInstance`.",
+    "category": "api-design",
+    "trigger": "diff calls `.get_template_context()` on a `TaskInstance` (airflow.executors.workloads) object inside the triggerer job runner",
+    "rationale": "`get_template_context` was removed from plain `TaskInstance` and now only exists on `RuntimeTaskInstance`; callers in the triggerer must reconstruct the model.",
+    "evidence": [
+      {
+        "pr": 55068,
+        "url": "https://github.com/apache/airflow/pull/55068#discussion_r2671276733",
+        "excerpt": "`get_template_context` … only exists in RuntimeTaskInstance"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/jobs/triggerer_job_runner.py"]
+  },
+  {
+    "rule": "Significant triggerer feature changes must be accompanied by a newsfragment changelog entry.",
+    "category": "docs",
+    "trigger": "diff modifies triggerer behaviour (new capability, protocol change, or significant fix) but no file is added under `newsfragments/` or `changelog.d/`",
+    "rationale": "Significant changes deserve entry at the top of the changelog so operators are aware of them; a newsfragment is the project's mechanism for this.",
+    "evidence": [
+      {
+        "pr": 60268,
+        "url": "https://github.com/apache/airflow/pull/60268#discussion_r2677563185",
+        "excerpt": "worth adding a newsfragment for significant changes… deserves entry at top of changelog"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/jobs/triggerer_job_runner.py"]
+  },
+  {
+    "rule": "In triggerer cleanup paths, replace bare `with suppress(Exception)` with a try/except that logs the exception via `self.log.exception(...)` so errors remain visible.",
+    "category": "async",
+    "trigger": "diff introduces `with suppress(Exception):` around an `await` call in `triggerer_job_runner.py`",
+    "rationale": "A bare suppress makes bugs like `asyncio.CancelledError` propagation or programming errors in cleanup helpers completely invisible; best-effort cleanup should still log failures.",
+    "evidence": [
+      {
+        "pr": 66584,
+        "url": "https://github.com/apache/airflow/pull/66584#discussion_r3249347901",
+        "excerpt": "bare suppress with no log makes those bugs invisible"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/jobs/triggerer_job_runner.py"]
+  },
+  {
+    "rule": "The triggerer and executor paths must fail (raise / exit) consistently when required context (e.g. DagRun) cannot be fetched, so the workload retries instead of running with `None` context.",
+    "category": "correctness",
+    "trigger": "diff returns `None` from a triggerer context-fetch helper while the corresponding executor path calls `sys.exit(1)` or raises on the same failure",
+    "rationale": "Returning None causes downstream templating variables like `{{ dag_run }}` to render empty while the deadline is marked handled; both code paths must behave consistently so the trigger retries.",
+    "evidence": [
+      {
+        "pr": 66608,
+        "url": "https://github.com/apache/airflow/pull/66608#discussion_r3350852732",
+        "excerpt": "executor path now fails with `sys.exit(1)`… triggerer path still returns None"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/jobs/triggerer_job_runner.py"]
+  },
+  {
+    "rule": "Database schema-fix migrations that are independent of a feature change must be submitted as a separate, standalone PR.",
+    "category": "database",
+    "trigger": "diff bundles an Alembic migration that fixes a pre-existing schema issue alongside an unrelated feature migration in the same PR",
+    "rationale": "Independent schema fixes can and should be reviewed and merged on their own; bundling them makes backporting and bisecting harder.",
+    "evidence": [
+      {
+        "pr": 55954,
+        "url": "https://github.com/apache/airflow/pull/55954#discussion_r2380281165",
+        "excerpt": "isn't this a problem today… should be pulled out into its own PR?"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/migrations/versions/"]
+  },
+  {
+    "rule": "Alembic `upgrade()` functions must not DELETE or truncate existing rows before a data-preserving migration step has been implemented; a bare `DELETE FROM <table>` with a `TODO` comment is not acceptable.",
+    "category": "database",
+    "trigger": "diff adds `op.execute(\"DELETE FROM ...\")` in an `upgrade()` function alongside a `# TODO: Implement data-preserving migration` comment",
+    "rationale": "Existing data must not be destroyed during a migration until after it has been migrated to the new schema; otherwise upgrading production instances causes irreversible data loss.",
+    "evidence": [
+      {
+        "pr": 57215,
+        "url": "https://github.com/apache/airflow/pull/57215#discussion_r2471361592",
+        "excerpt": "existing data shouldn't be wiped until after it is migrated over"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/migrations/versions/"]
+  },
+  {
+    "rule": "In Airflow state/retention tables, an `expires_at` column with NULL must semantically mean 'never expires'; GC logic must use a simple `WHERE expires_at < now()` predicate rather than a two-path check mixing `updated_at` and a default retention config.",
+    "category": "database",
+    "trigger": "diff adds an `expires_at` column whose NULL value is documented as 'use default retention' and whose GC query involves both `expires_at` and `updated_at + config` conditions",
+    "rationale": "Pre-computing `expires_at` at write time (reading default_retention config then) yields simpler GC queries, removes the need for an index on `updated_at`, and makes the semantics of NULL unambiguous.",
+    "evidence": [
+      {
+        "pr": 66463,
+        "url": "https://github.com/apache/airflow/pull/66463#discussion_r3201662393",
+        "excerpt": "`expires_at` of None should mean it never expires… cleanup becomes simpler `WHERE expires_at < Now()`"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/migrations/versions/"]
+  }
+]

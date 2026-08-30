@@ -1,0 +1,212 @@
+[
+  {
+    "rule": "Set `team_name` on every Edge3 job row inserted into the database so the fetch endpoint can route jobs and callbacks correctly in multi-team setups",
+    "category": "correctness",
+    "trigger": "EdgeJobModel or equivalent job-row insert that omits a `team_name` field inside edge3 executor or callback-handling code",
+    "rationale": "The fetch endpoint filters on `team_name`; omitting it strands callback jobs or routes them to default-team workers, silently breaking multi-team isolation",
+    "evidence": [
+      {
+        "pr": 67679,
+        "url": "https://github.com/apache/airflow/pull/67679#discussion_r3323352551",
+        "excerpt": "fetch endpoint filters on team_name; callback jobs without it get stranded"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/executors/edge_executor.py"
+    ]
+  },
+  {
+    "rule": "Do not commit compiled UI `dist/` build artefacts for provider UIs; they must be built by Breeze or at provider-package build time and listed in `.gitignore`",
+    "category": "commit-hygiene",
+    "trigger": "Addition of `dist/` directory files (e.g. `main.d.ts`, `*.js`, `*.js.map`) under `providers/*/plugins/www/dist/`",
+    "rationale": "All other Airflow UI build outputs are gitignored and regenerated during Breeze or provider-package builds; committing dist artefacts pollutes the repo and causes merge conflicts",
+    "evidence": [
+      {
+        "pr": 53563,
+        "url": "https://github.com/apache/airflow/pull/53563#discussion_r2316535172",
+        "excerpt": "dist build folder should be gitignored, built by Breeze or provider package"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/plugins/www/dist/"
+    ]
+  },
+  {
+    "rule": "Place Pydantic request/response datamodels for Edge3 worker UI routes in `datamodels_ui.py`, not inline in the route file",
+    "category": "api-design",
+    "trigger": "New Pydantic `BaseModel` class defined inside `providers/edge3/.../worker_api/routes/ui.py` instead of in `datamodels_ui.py`",
+    "rationale": "Consolidating UI datamodels in `datamodels_ui.py` is the established Edge3 provider convention for consistency and discoverability",
+    "evidence": [
+      {
+        "pr": 55301,
+        "url": "https://github.com/apache/airflow/pull/55301#discussion_r2325987777",
+        "excerpt": "move this class to datamodels_ui.py for consistency"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/worker_api/routes/ui.py",
+      "providers/edge3/src/airflow/providers/edge3/worker_api/datamodels_ui.py"
+    ]
+  },
+  {
+    "rule": "Use proper HTTP methods for Edge3 UI queue routes: `PUT /worker/{name}/queues` to replace the queue list, not `POST /worker/{name}/queues/add`",
+    "category": "api-design",
+    "trigger": "`@ui_router.post` decorator with an action-suffix path like `/queues/add` or `/queues/remove` in edge3 UI routes",
+    "rationale": "Reviewer asked to leverage REST semantics; `PUT` on the resource URL replaces the queue list, matching how other Airflow REST endpoints are structured",
+    "evidence": [
+      {
+        "pr": 55625,
+        "url": "https://github.com/apache/airflow/pull/55625#discussion_r2346502428",
+        "excerpt": "leverage REST call options; use PUT /worker/{name}/queues"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/worker_api/routes/ui.py"
+    ]
+  },
+  {
+    "rule": "Add `testcontainers` as a shared dependency in `devel-common` rather than in individual provider `pyproject.toml` dev-dependency sections",
+    "category": "providers",
+    "trigger": "`testcontainers` added to a `[project.optional-dependencies]` dev block in any provider's `pyproject.toml`",
+    "rationale": "Multiple providers use testcontainers; centralising it in devel-common avoids version skew and duplication across provider packages",
+    "evidence": [
+      {
+        "pr": 53821,
+        "url": "https://github.com/apache/airflow/pull/53821#discussion_r2260733157",
+        "excerpt": "move testcontainers to devel-common; second provider using it now"
+      }
+    ],
+    "scope_paths": [
+      "providers/elasticsearch/pyproject.toml",
+      "providers/mongo/pyproject.toml"
+    ]
+  },
+  {
+    "rule": "Guard Airflow-2 log-upload code paths in providers with `if not AIRFLOW_V_3_0_PLUS` rather than deleting them, so the provider continues to work against Airflow 2",
+    "category": "providers",
+    "trigger": "Deletion of a log-upload or logging-handler code path in a provider that previously supported Airflow 2, without an `AIRFLOW_V_3_0_PLUS` guard",
+    "rationale": "Providers must remain compatible with both Airflow 2 and 3; removing Airflow-2 paths without version guards silently breaks users on Airflow 2",
+    "evidence": [
+      {
+        "pr": 53821,
+        "url": "https://github.com/apache/airflow/pull/53821#discussion_r2271903582",
+        "excerpt": "need AIRFLOW_V_3_0_PLUS guard; Airflow 2 still needs log upload path"
+      }
+    ],
+    "scope_paths": [
+      "providers/elasticsearch/src/airflow/providers/elasticsearch/log/es_task_handler.py"
+    ]
+  },
+  {
+    "rule": "Use the existing `_build_es_search_response()` test helper to construct Elasticsearch response fixtures instead of hand-rolling response dicts",
+    "category": "testing",
+    "trigger": "Hand-rolled ES response dict (e.g. `{\"hits\": {\"total\": ..., \"hits\": []}}`) used as a mock return value in elasticsearch provider tests",
+    "rationale": "Hand-rolled dicts drift from the schema `ElasticSearchResponse` expects; the shared helper produces a fully-shaped, consistent fixture that guards against regressions",
+    "evidence": [
+      {
+        "pr": 64372,
+        "url": "https://github.com/apache/airflow/pull/64372#discussion_r3025325937",
+        "excerpt": "use _build_es_search_response() helper for fully-shaped, resilient fixture"
+      }
+    ],
+    "scope_paths": [
+      "providers/elasticsearch/tests/unit/elasticsearch/log/test_es_task_handler.py"
+    ]
+  },
+  {
+    "rule": "Name FastAPI request/response datamodel classes `*Body` and `*Response`, not `*In` and `*Out`, to match the Airflow Core API naming convention",
+    "category": "naming",
+    "trigger": "Pydantic model class name ending in `In` or `Out` (e.g. `RoleIn`, `RoleOut`) in any Airflow FastAPI datamodels file",
+    "rationale": "The Airflow Core API uses `*Body`/`*Response` convention; FAB and other providers must follow the same pattern for consistency across the codebase",
+    "evidence": [
+      {
+        "pr": 57199,
+        "url": "https://github.com/apache/airflow/pull/57199#discussion_r2460980435",
+        "excerpt": "use Body and Response not In and Out; that's the convention in other APIs"
+      }
+    ],
+    "scope_paths": [
+      "providers/fab/src/airflow/providers/fab/auth_manager/api_fastapi/datamodels/roles.py"
+    ]
+  },
+  {
+    "rule": "Import FastAPI utilities from `fastapi`, not directly from `starlette`, in provider route files",
+    "category": "api-design",
+    "trigger": "`from starlette.exceptions import HTTPException` or `from starlette import status` in a provider FastAPI route or dependency file",
+    "rationale": "Repo-wide convention is to use `fastapi` imports; direct `starlette` imports are being replaced across the codebase via follow-up PRs",
+    "evidence": [
+      {
+        "pr": 57199,
+        "url": "https://github.com/apache/airflow/pull/57199#discussion_r2463178216",
+        "excerpt": "replace from-starlette imports; follow-up PRs aligning across codebase"
+      }
+    ],
+    "scope_paths": [
+      "providers/fab/src/airflow/providers/fab/auth_manager/api_fastapi/routes/roles.py"
+    ]
+  },
+  {
+    "rule": "Place FAB authorization helper functions (e.g. `requires_fab_custom_view`) in the service module, not in the route module, to mirror Airflow Core API conventions",
+    "category": "api-design",
+    "trigger": "Authorization dependency function defined inside a `routes/*.py` file rather than the corresponding `services/*.py` file in the FAB provider",
+    "rationale": "Airflow Core API keeps authorization helpers in service modules; FAB provider routes must follow the same layering convention",
+    "evidence": [
+      {
+        "pr": 57199,
+        "url": "https://github.com/apache/airflow/pull/57199#discussion_r2462737163",
+        "excerpt": "move requires_fab_custom_view to service module; Airflow Core follows this"
+      }
+    ],
+    "scope_paths": [
+      "providers/fab/src/airflow/providers/fab/auth_manager/api_fastapi/routes/roles.py"
+    ]
+  },
+  {
+    "rule": "Do not describe `order_by` parameters as accepting comma-separated fields if the underlying `build_ordering()` helper only supports a single field",
+    "category": "docs",
+    "trigger": "`order_by` query-parameter description containing \"comma\" or \"separated by comma\" in a route that calls `build_ordering()` with a single field",
+    "rationale": "`build_ordering()` only handles one field; claiming multi-field support misleads callers and causes silent 400 errors for valid-looking requests",
+    "evidence": [
+      {
+        "pr": 63418,
+        "url": "https://github.com/apache/airflow/pull/63418#discussion_r2923138501",
+        "excerpt": "build_ordering() supports only one field; comma-separated description misleads callers"
+      }
+    ],
+    "scope_paths": [
+      "providers/fab/src/airflow/providers/fab/auth_manager/api_fastapi/routes/roles.py"
+    ]
+  },
+  {
+    "rule": "Use `get_fab_auth_manager()` (or an `isinstance` check) instead of `cast(FabAuthManager, get_auth_manager())` to retrieve the FAB auth manager, and raise a clear exception when it is not configured",
+    "category": "correctness",
+    "trigger": "`cast(\"FabAuthManager\", get_auth_manager())` or `cast(FabAuthManager, get_auth_manager())` in FAB provider route or helper code",
+    "rationale": "A bare `cast` masks misconfiguration; when OpenAPI generation runs with a different auth manager configured it produces a silent `AttributeError` instead of an actionable error",
+    "evidence": [
+      {
+        "pr": 64418,
+        "url": "https://github.com/apache/airflow/pull/64418#discussion_r3025335259",
+        "excerpt": "cast masks misconfiguration; use get_fab_auth_manager() or isinstance check"
+      }
+    ],
+    "scope_paths": [
+      "providers/fab/src/airflow/providers/fab/auth_manager/api_fastapi/routes/login.py"
+    ]
+  },
+  {
+    "rule": "When dropping Edge3 ORM tables programmatically, pass `Model.__tablename__` (the string table name) rather than `Model.__table__` (the Table object) to the drop call",
+    "category": "database",
+    "trigger": "Reference to `EdgeWorkerModel.__table__`, `EdgeJobModel.__table__`, or `EdgeLogsModel.__table__` in a drop-table list or `Base.metadata.remove()` call",
+    "rationale": "SQLAlchemy drop APIs expect the string table name; using `.__table__` passes the mapped Table object and is the wrong type for the intended operation",
+    "evidence": [
+      {
+        "pr": 61155,
+        "url": "https://github.com/apache/airflow/pull/61155#discussion_r2807883352",
+        "excerpt": "use __tablename__ not __table__ for the drop list"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/models/db.py"
+    ]
+  }
+]

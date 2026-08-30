@@ -1,0 +1,232 @@
+[
+  {
+    "rule": "Provider changelog entries must not mention Dependabot or other internal tooling; rephrase dependency bumps to state the concrete version constraint (e.g., 'Bump aiohttp>=3.14.0').",
+    "category": "docs",
+    "trigger": "changelog entry containing the word 'dependabot'",
+    "rationale": "Users reading provider changelogs don't know or care about Dependabot; the entry should tell them what changed (the new minimum version), not why it was triggered internally.",
+    "evidence": [
+      {
+        "pr": 68642,
+        "url": "https://github.com/apache/airflow/pull/68642#discussion_r3426446809",
+        "excerpt": "Users don't know nor care about dependabot. Rephrase to 'Bump aiohttp>=3.14.0'"
+      }
+    ],
+    "scope_paths": ["providers/apache/livy/docs/changelog.rst"]
+  },
+  {
+    "rule": "Changelog entries must strip commit-prefix tags (e.g., 'feat(...):'); use plain imperative sentences, and ensure the version increment matches the entry type (feature → minor bump).",
+    "category": "docs",
+    "trigger": "changelog entry whose text starts with a conventional-commit prefix such as 'feat(', 'fix(', 'chore('",
+    "rationale": "Conventional-commit prefixes in changelog entries are noise for end users; a feature entry also signals that the provider version must be incremented as a feature release, not a patch.",
+    "evidence": [
+      {
+        "pr": 64864,
+        "url": "https://github.com/apache/airflow/pull/64864#discussion_r3047726662",
+        "excerpt": "Is this now a feature and provider needs a feature increment?"
+      }
+    ],
+    "scope_paths": ["providers/apache/spark/docs/changelog.rst"]
+  },
+  {
+    "rule": "When a new parameter is added to a Hook, the corresponding Operator must expose and wire through that parameter; hook-only parameters are inaccessible to DAG authors.",
+    "category": "api-design",
+    "trigger": "new __init__ parameter added to a *Hook class whose corresponding *Operator._get_hook() does not pass that parameter",
+    "rationale": "DAG authors interact with operators, not hooks directly; a hook parameter that is not forwarded through the operator is dead API surface that cannot be configured by users.",
+    "evidence": [
+      {
+        "pr": 64391,
+        "url": "https://github.com/apache/airflow/pull/64391#discussion_r3025334240",
+        "excerpt": "SparkSubmitOperator._get_hook() doesn't pass or expose this parameter, so DAG authors can't configure it"
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py",
+      "providers/apache/spark/src/airflow/providers/apache/spark/operators/spark_submit.py"
+    ]
+  },
+  {
+    "rule": "subprocess.run() calls inside polling loops in provider hooks must include a timeout argument to prevent blocking an Airflow worker indefinitely.",
+    "category": "correctness",
+    "trigger": "subprocess.run(...) call without a timeout= argument inside a while/polling loop in a Hook",
+    "rationale": "A hung external CLI call (e.g., 'yarn application -status') with no timeout blocks the task process forever on the Airflow worker, stalling the executor slot.",
+    "evidence": [
+      {
+        "pr": 65991,
+        "url": "https://github.com/apache/airflow/pull/65991#discussion_r3213029810",
+        "excerpt": "subprocess.run() has no timeout; a hung yarn call can block the task indefinitely"
+      }
+    ],
+    "scope_paths": ["providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"]
+  },
+  {
+    "rule": "SparkSubmitHook docstrings must use correct Spark configuration terminology: 'master' and 'deploy_mode' are distinct parameters; never conflate them into a phrase like 'YARN cluster'.",
+    "category": "docs",
+    "trigger": "docstring in SparkSubmitHook that refers to 'YARN cluster' or otherwise merges the master and deploy_mode concepts into one term",
+    "rationale": "Airflow's Spark connection models 'master' (e.g., yarn) and 'deploy_mode' (e.g., cluster) as separate fields; conflating them misleads users about how to configure the connection.",
+    "evidence": [
+      {
+        "pr": 65991,
+        "url": "https://github.com/apache/airflow/pull/65991#discussion_r3213029819",
+        "excerpt": "deploy_mode is not 'YARN cluster'; YARN is the master and deploy_mode is cluster"
+      }
+    ],
+    "scope_paths": ["providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"]
+  },
+  {
+    "rule": "Configuration required by a hook (e.g., yarn_resourcemanager_webapp_address) must be validated eagerly in a dedicated validation method before the job is submitted, not lazily on first poll.",
+    "category": "correctness",
+    "trigger": "configuration value that is read or validated only inside a polling loop rather than in an upfront _validate_*_config() method",
+    "rationale": "Lazy validation after job submission creates orphaned YARN/Spark applications: the job runs on the cluster but the task fails with a ValueError and on_kill cannot cancel the app because it also needs the missing config.",
+    "evidence": [
+      {
+        "pr": 65991,
+        "url": "https://github.com/apache/airflow/pull/65991#discussion_r3322423890",
+        "excerpt": "task fails with ValueError but the YARN app is still running as an orphaned application"
+      }
+    ],
+    "scope_paths": ["providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"]
+  },
+  {
+    "rule": "New polling parameters in SparkSubmitHook that apply to multiple cluster managers (YARN, K8s) must be named generically rather than tied to a single manager; cluster-manager-specific names can be narrowed in follow-up PRs.",
+    "category": "api-design",
+    "trigger": "new SparkSubmitHook parameter name that includes a specific cluster manager (e.g., 'yarn_') when the concept also applies to other managers",
+    "rationale": "YARN-specific parameter names prevent reuse for K8s or standalone without a naming redesign; a generic name allows the same code path to be extended later without a breaking rename.",
+    "evidence": [
+      {
+        "pr": 65991,
+        "url": "https://github.com/apache/airflow/pull/65991#discussion_r3237144573",
+        "excerpt": "Why make it yarn specific? It can support both yarn and k8s if done correctly"
+      }
+    ],
+    "scope_paths": ["providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"]
+  },
+  {
+    "rule": "New long-running polling patterns added to provider hooks should be evaluated for implementation as deferrable operators so the triggerer can own the wait and free executor slots.",
+    "category": "async",
+    "trigger": "new while-loop polling pattern added to a Hook that waits for a long-running remote job without using a Trigger/deferrable path",
+    "rationale": "Airflow's triggerer exists to hold long-running wait cycles without consuming an executor worker slot; polling loops inside synchronous execute() block a full slot for the duration of the job.",
+    "evidence": [
+      {
+        "pr": 65991,
+        "url": "https://github.com/apache/airflow/pull/65991#discussion_r3237153083",
+        "excerpt": "This looks a lot like deferred operators; allowing deferral saves resources on the executor"
+      }
+    ],
+    "scope_paths": ["providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"]
+  },
+  {
+    "rule": "Class-level attributes (e.g., external_id_key) in Operators must be placed alongside template_fields at the top of the class body, not between __init__ and execute.",
+    "category": "api-design",
+    "trigger": "class-level attribute defined between __init__ and execute in an Operator class body rather than at the top near template_fields",
+    "rationale": "Subclass authors look for overridable class-level attributes next to template_fields; placing them mid-class makes them hard to discover and override.",
+    "evidence": [
+      {
+        "pr": 67118,
+        "url": "https://github.com/apache/airflow/pull/67118#discussion_r3307489715",
+        "excerpt": "Class-level attributes are conventionally placed alongside template_fields, not between __init__ and execute"
+      }
+    ],
+    "scope_paths": ["providers/apache/spark/src/airflow/providers/apache/spark/operators/spark_submit.py"]
+  },
+  {
+    "rule": "When resolving a Spark Standalone HA master string (e.g., 'spark://m1:7077,m2:7077'), operators must iterate all comma-separated masters rather than extracting only the first host.",
+    "category": "correctness",
+    "trigger": "code that calls .split(':')[0] or .replace('spark://', '').split(':')[0] on a Spark master string without iterating comma-separated masters",
+    "rationale": "HA Spark Standalone clusters list multiple masters; extracting only the first host fails exactly during HA failover when that master is unreachable, defeating the HA guarantee.",
+    "evidence": [
+      {
+        "pr": 67118,
+        "url": "https://github.com/apache/airflow/pull/67118#discussion_r3270206019",
+        "excerpt": "After replace/split this becomes m1 — the host most likely unreachable during HA failover"
+      }
+    ],
+    "scope_paths": ["providers/apache/spark/src/airflow/providers/apache/spark/operators/spark_submit.py"]
+  },
+  {
+    "rule": "In HA Spark Standalone status queries, a RuntimeError from one master (success:false) must fall through to the next master in the list rather than re-raising immediately.",
+    "category": "correctness",
+    "trigger": "except RuntimeError: raise inside an HA master iteration loop in SparkSubmitOperator",
+    "rationale": "A stale master during HA recovery answers success:false (RuntimeError), not a connection error; re-raising immediately skips remaining masters and wastes a retry slot.",
+    "evidence": [
+      {
+        "pr": 67118,
+        "url": "https://github.com/apache/airflow/pull/67118#discussion_r3307489699",
+        "excerpt": "A stale master gives success:false during HA recovery; re-raise skips m2 and m3"
+      }
+    ],
+    "scope_paths": ["providers/apache/spark/src/airflow/providers/apache/spark/operators/spark_submit.py"]
+  },
+  {
+    "rule": "post_submit_commands (sidecar cleanup commands) must run unconditionally via try/finally regardless of whether the Spark job succeeded, failed, or was killed.",
+    "category": "correctness",
+    "trigger": "_run_post_submit_commands() call that is not inside a finally block, or is placed after a raise that can be reached on failure/kill paths",
+    "rationale": "Sidecar cleanup (e.g., Istio quitquitquit) must fire on every exit path; placement after a raise or only on the success branch leaves sidecars running when the job fails or is cancelled.",
+    "evidence": [
+      {
+        "pr": 67118,
+        "url": "https://github.com/apache/airflow/pull/67118#discussion_r3270205715",
+        "excerpt": "post_submit_commands must fire on kill/fail paths; docstring says 'on both success and on_kill'"
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py",
+      "providers/apache/spark/src/airflow/providers/apache/spark/operators/spark_submit.py"
+    ]
+  },
+  {
+    "rule": "Long-running polling loops in provider hooks must tolerate transient API errors using an error-budget counter (matching the existing missed_job_status_reports pattern in SparkSubmitHook) rather than failing immediately on any exception.",
+    "category": "correctness",
+    "trigger": "bare API call (e.g., client.read_namespaced_pod) inside a while True loop in a Hook without an error-budget/retry counter",
+    "rationale": "Transient network blips or brief 404s (e.g., right after pod creation) would crash an otherwise healthy long-running task; the repo's existing _start_driver_status_tracking pattern uses a missed_job_status_reports budget for exactly this reason.",
+    "evidence": [
+      {
+        "pr": 67715,
+        "url": "https://github.com/apache/airflow/pull/67715#discussion_r3325823698",
+        "excerpt": "A transient ApiException crashes the loop while the Spark job is still healthy; use missed_job_status_reports budget"
+      }
+    ],
+    "scope_paths": ["providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"]
+  },
+  {
+    "rule": "On SIGTERM/on_kill, post_submit_commands and pod deletion must each execute exactly once; the polling loop's finally block and on_kill must share a run-once guard to prevent duplicate sidecar cleanup or double-delete.",
+    "category": "correctness",
+    "trigger": "_run_post_submit_commands() or pod-delete calls that can be reached from both a finally block in a polling loop and from on_kill without a shared idempotency guard",
+    "rationale": "on_kill runs on the same thread and returns before the poll loop resumes; without a run-once guard, sidecar cleanup (Istio quitquitquit) fires twice and the second delete receives a misleading 404 ApiException.",
+    "evidence": [
+      {
+        "pr": 67715,
+        "url": "https://github.com/apache/airflow/pull/67715#discussion_r3344204633",
+        "excerpt": "on_kill deletes the pod and runs post_submit_commands; loop's finally runs them again — need run-once guard"
+      }
+    ],
+    "scope_paths": ["providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"]
+  },
+  {
+    "rule": "Early-exit guards at the start of a K8s poll method must be placed inside the try/finally block so that post_submit_commands always run even when the driver pod name was never parsed.",
+    "category": "correctness",
+    "trigger": "raise ValueError or raise RuntimeError that appears before the try/finally wrapping _run_post_submit_commands() in a K8s or YARN poll method",
+    "rationale": "If log-format drift prevents parsing the driver pod name, an early raise outside the try bypasses the finally, leaving Istio sidecars and other sidecar processes running indefinitely.",
+    "evidence": [
+      {
+        "pr": 67715,
+        "url": "https://github.com/apache/airflow/pull/67715#discussion_r3344205081",
+        "excerpt": "Early raise before try/finally bypasses post-submit commands; sidecars leak when pod name not parsed"
+      }
+    ],
+    "scope_paths": ["providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"]
+  },
+  {
+    "rule": "Pod deletion inside SparkSubmitHook must reuse the existing _delete_driver_pod() helper rather than duplicating inline bare delete_namespaced_pod calls.",
+    "category": "correctness",
+    "trigger": "inline client.delete_namespaced_pod() call in SparkSubmitHook outside of _delete_driver_pod()",
+    "rationale": "Two separate delete code paths with different V1DeleteOptions and error handling diverge over time; _delete_driver_pod() already encapsulates the correct options and logging.",
+    "evidence": [
+      {
+        "pr": 67715,
+        "url": "https://github.com/apache/airflow/pull/67715#discussion_r3344204817",
+        "excerpt": "_delete_driver_pod() already deletes the pod correctly; inline duplicate does it a different way"
+      }
+    ],
+    "scope_paths": ["providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"]
+  }
+]

@@ -1,0 +1,247 @@
+[
+  {
+    "rule": "System test files in providers must not use the prefix '_system'; follow the naming conventions shown in existing system test files within the same folder.",
+    "category": "testing",
+    "trigger": "new file created under providers/*/tests/system/ whose filename starts with 'test_' followed by a service name and ends with '_system.py'",
+    "rationale": "Airflow's system-test discovery relies on file-name conventions; the '_system' suffix pattern does not exist in the codebase and would cause the file to be ignored or misclassified.",
+    "evidence": [
+      {
+        "pr": 56324,
+        "url": "https://github.com/apache/airflow/pull/56324#discussion_r2454758479",
+        "excerpt": "there are no files with prefix '_system' for system tests"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/tests/system/"
+    ]
+  },
+  {
+    "rule": "When a provider hook supports Application Default Credentials (ADC) as a keyless fallback, the parameter docstring for the key-file arguments must explicitly state when ADC is used and when an explicit key is still required.",
+    "category": "docs",
+    "trigger": "diff adds or modifies an auth method that conditionally skips key-file loading (e.g. 'if not gcp_key_path and not gcp_keyfile_dict') without updating the ':param gcp_key_path:' or ':param gcp_keyfile_dict:' docstring lines",
+    "rationale": "Users configure provider hooks from the connection UI; if the docstring still describes the key file as mandatory, operators enabling ADC-based keyless auth have no documentation telling them it is now optional.",
+    "evidence": [
+      {
+        "pr": 53801,
+        "url": "https://github.com/apache/airflow/pull/53801#discussion_r3176107126",
+        "excerpt": "update this parameter doc to explicitly mention the ADC fallback"
+      }
+    ],
+    "scope_paths": [
+      "providers/hashicorp/src/airflow/providers/hashicorp/_internal_client/",
+      "providers/google/src/airflow/providers/google/common/hooks/"
+    ]
+  },
+  {
+    "rule": "When a hook docstring adds or removes supported auth types, the corresponding RST connection-docs file (connections/<provider>.rst) must be updated in the same PR.",
+    "category": "docs",
+    "trigger": "diff modifies the ':param auth_type:' docstring list in a hook but does not touch the matching providers/*/docs/connections/*.rst file",
+    "rationale": "Users configuring connections via the UI consult the rendered RST docs, not the hook source; leaving the RST stale means the new auth options are invisible to operators.",
+    "evidence": [
+      {
+        "pr": 53801,
+        "url": "https://github.com/apache/airflow/pull/53801#discussion_r3176107126",
+        "excerpt": "rendered Vault connection docs stale; users configuring the connection UI won't see the new ADC flow"
+      }
+    ],
+    "scope_paths": [
+      "providers/hashicorp/src/airflow/providers/hashicorp/hooks/",
+      "providers/hashicorp/docs/connections/"
+    ]
+  },
+  {
+    "rule": "Boolean Airflow configuration values must be read with conf.getboolean() rather than conf.get(), to prevent string literals such as 'False' from being evaluated as truthy.",
+    "category": "correctness",
+    "trigger": "diff introduces conf.get(\"<section>\", \"<key>\", fallback=...) where the config key is documented or used as a boolean elsewhere in the codebase",
+    "rationale": "conf.get() always returns a string; the string 'False' is truthy in Python, so boolean config flags read with conf.get() silently enable features the operator intended to disable.",
+    "evidence": [
+      {
+        "pr": 65493,
+        "url": "https://github.com/apache/airflow/pull/65493#discussion_r3115567462",
+        "excerpt": "string 'False' will still be truthy and incorrectly enable team/global lookup"
+      }
+    ],
+    "scope_paths": [
+      "providers/hashicorp/src/airflow/providers/hashicorp/secrets/"
+    ]
+  },
+  {
+    "rule": "Use the same fallback value consistently for every conf.getboolean() call that reads the same configuration key within a single module.",
+    "category": "correctness",
+    "trigger": "diff adds two or more conf.get*() calls for the same (section, key) pair with different fallback= values in the same file",
+    "rationale": "Mismatched fallbacks mean the feature behaves differently depending on which code path is exercised first, making behavior unpredictable when the key is absent from airflow.cfg.",
+    "evidence": [
+      {
+        "pr": 65493,
+        "url": "https://github.com/apache/airflow/pull/65493#discussion_r3115567500",
+        "excerpt": "avoid mixing different fallbacks in different places"
+      }
+    ],
+    "scope_paths": [
+      "providers/hashicorp/src/airflow/providers/hashicorp/secrets/"
+    ]
+  },
+  {
+    "rule": "MagicMock objects standing in for credential or authentication objects in unit tests must specify spec= or use autospec=True; bare MagicMock() fabricates arbitrary attributes and allows tests to pass even when the code reads a nonexistent field.",
+    "category": "testing",
+    "trigger": "diff introduces MagicMock() (without spec or autospec) assigned to a variable whose name contains 'credential', 'cred', 'token', or 'auth'",
+    "rationale": "Bare mocks invent any attribute access as a new Mock, so a test can stay green while production code silently reads the wrong field from a real credential object.",
+    "evidence": [
+      {
+        "pr": 53801,
+        "url": "https://github.com/apache/airflow/pull/53801#discussion_r3176107143",
+        "excerpt": "bare MagicMock fabricates arbitrary attributes; test can still pass even if wrong field"
+      }
+    ],
+    "scope_paths": [
+      "providers/hashicorp/tests/unit/hashicorp/hooks/"
+    ]
+  },
+  {
+    "rule": "Provider package documentation links must use the canonical URL scheme https://airflow.apache.org/docs/apache-airflow-providers-<name>/; omitting '-providers-' produces broken links after publication.",
+    "category": "docs",
+    "trigger": "diff adds an RST hyperlink to https://airflow.apache.org/docs/apache-airflow-<name>/ (missing '-providers-' segment)",
+    "rationale": "The published docs site uses the providers-prefixed path; links without it resolve to 404 once the package is live.",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r3066482793",
+        "excerpt": "points to apache-airflow-ibm-mq rather than apache-airflow-providers-ibm-mq"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/"
+    ]
+  },
+  {
+    "rule": "Each release version heading in a provider's changelog.rst must appear exactly once; duplicate version headings produce malformed rendered changelogs.",
+    "category": "docs",
+    "trigger": "diff adds a version heading (e.g. '0.1.0' followed by a RST underline) that already exists earlier in the same changelog.rst file",
+    "rationale": "Sphinx renders each top-level heading as a separate section; a duplicate creates two identically-named sections which confuse readers and may break cross-references.",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r2984869027",
+        "excerpt": "0.1.0 appears twice; will render confusing/duplicated sections in published changelog"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/docs/"
+    ]
+  },
+  {
+    "rule": "A new provider package-name in provider.yaml must use the top-level vendor namespace (apache-airflow-providers-<vendor>) rather than a service-level sub-name, matching how the Amazon and Google providers consolidate all services under one package.",
+    "category": "providers",
+    "trigger": "diff adds a provider.yaml with package-name: apache-airflow-providers-<vendor>-<service> where <vendor> could host multiple services",
+    "rationale": "Service-specific package names prevent future hooks for the same vendor from joining the package without a rename; the Amazon and Google precedents show all services sharing one vendor package.",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r2886146942",
+        "excerpt": "in future folks might want to add more IBM hooks that are not just message queues"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/provider.yaml"
+    ]
+  },
+  {
+    "rule": "A hook's conn_type must be vendor-namespaced (e.g. 'ibm_mq'), not a generic protocol category (e.g. 'mq'), to avoid collision with other providers in the same protocol family.",
+    "category": "api-design",
+    "trigger": "diff adds conn_type = \"<generic_category>\" in a hook class where the category name (mq, queue, stream, etc.) could apply to multiple vendors",
+    "rationale": "Airflow's connection registry is global; a generic conn_type blocks future providers in the same category from using a natural name without collision.",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r3118814360",
+        "excerpt": "if a future Rabbit/ActiveMQ/Solace provider lands, they can't take a natural conn_type"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/src/airflow/providers/ibm/mq/hooks/"
+    ]
+  },
+  {
+    "rule": "MessageQueueTrigger must be instantiated with the queue= keyword argument (full URI), not scheme=; passing a full URI to the scheme= parameter raises ValueError before the DAG parses.",
+    "category": "correctness",
+    "trigger": "diff instantiates MessageQueueTrigger(scheme=\"<uri>://...\") instead of MessageQueueTrigger(queue=\"<uri>://...\")",
+    "rationale": "MessageQueueTrigger matches providers by comparing self.scheme == scheme; a full URI is never equal to the short scheme string, so the constructor raises ValueError immediately.",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r3118814322",
+        "excerpt": "raises ValueError('scheme is not recognized') before the DAG ever parses"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/tests/system/ibm/mq/",
+      "providers/common/messaging/"
+    ]
+  },
+  {
+    "rule": "When iterating triggering_asset_events in a DAG task, items are AssetEvent ORM objects; access their payload via .extra, not by dict-key subscription ([\"payload\"]), which raises TypeError.",
+    "category": "correctness",
+    "trigger": "diff accesses triggering_asset_events[...] items via square-bracket key lookup such as event[\"payload\"] or event[\"key\"]",
+    "rationale": "triggering_asset_events yields AssetEvent ORM instances; dict-style access raises TypeError at runtime on every triggered run, breaking every DAG that copies the pattern.",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r3171505656",
+        "excerpt": "AssetEvent object is not subscriptable; raises TypeError before print runs"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/tests/system/ibm/mq/",
+      "providers/common/messaging/"
+    ]
+  },
+  {
+    "rule": "@patch decorators in provider hook unit tests must target the fully-qualified symbol as actually imported inside the module under test; patching a symbol the module never imports creates a no-op and leaves the real dependency unpatched.",
+    "category": "testing",
+    "trigger": "diff adds @patch(\"airflow.providers.<pkg>.hooks.<module>.<function>\") where <function> does not appear in the import list or module body of the hook being tested",
+    "rationale": "Python's patch resolves names at the point of use; if the hook never imports the patched name, the decorator silently does nothing and the test exercises the real external call.",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r2956603898",
+        "excerpt": "patch decorators are no-ops; tests aren't exercising the real connection/consume path"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/tests/unit/ibm/mq/hooks/"
+    ]
+  },
+  {
+    "rule": "Unit tests for async provider hooks must include at least one test that exercises the real loop body with only I/O primitives patched; fully patching the method under test (e.g. consume()) makes the test blind to control-flow bugs inside that method.",
+    "category": "testing",
+    "trigger": "diff adds an async hook test that patches the top-level method under test (e.g. patch.object(hook, 'consume', side_effect=[...])) rather than patching lower-level I/O (e.g. ibmmq.Queue.get)",
+    "rationale": "Patching the method wholesale bypasses the retry loop and stop_event logic; bugs in that loop are invisible to the test suite.",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r3118814370",
+        "excerpt": "stop_event reuse bug is invisible; real consume() body never runs"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/tests/unit/ibm/mq/hooks/"
+    ]
+  },
+  {
+    "rule": "New input-validation errors raised inside provider hooks must use native Python exceptions (ValueError, TypeError) rather than AirflowException, per the dev-list decision to decouple providers from core exception types.",
+    "category": "providers",
+    "trigger": "diff adds 'raise AirflowException(...)' inside a provider hook method that is performing argument or state validation (e.g. checking a parameter range or type)",
+    "rationale": "A dev-list decision directs providers to use Python/provider-native exceptions so that providers remain independent of airflow-core's exception hierarchy.",
+    "evidence": [
+      {
+        "pr": 60963,
+        "url": "https://github.com/apache/airflow/pull/60963#discussion_r2725622949",
+        "excerpt": "directive is not to use AirflowException but instead use native Python/Provider-native exceptions"
+      }
+    ],
+    "scope_paths": [
+      "providers/imap/src/airflow/providers/imap/hooks/",
+      "providers/"
+    ]
+  }
+]

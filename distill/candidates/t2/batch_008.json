@@ -1,0 +1,187 @@
+[
+  {
+    "rule": "Emit Stats.gauge() calls after releasing any cache lock, not while holding it, to minimise lock contention",
+    "category": "performance",
+    "trigger": "Stats.gauge(...) or Stats.incr(...) call appears inside a `with self._lock:` block in dagbag or similar cache classes",
+    "rationale": "Stats emission can be slow or internally synchronised; holding the cache lock during the call reduces throughput on the hot dag-bag path",
+    "evidence": [
+      {
+        "pr": 60804,
+        "url": "https://github.com/apache/airflow/pull/60804#discussion_r3066474485",
+        "excerpt": "Prefer emitting Stats.gauge() after releasing the lock"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/models/dagbag.py"]
+  },
+  {
+    "rule": "Use a callable (e.g. `timezone.utcnow`) for SQLAlchemy column `default=` and `onupdate=`, never an evaluated expression like `pendulum.now(tz='UTC')`",
+    "category": "database",
+    "trigger": "mapped_column(..., default=<evaluated-call>, ...) where the default is not a callable reference",
+    "rationale": "An evaluated expression is frozen at module-import time; all rows share the same timestamp. A callable is invoked per-insert as intended",
+    "evidence": [
+      {
+        "pr": 58025,
+        "url": "https://github.com/apache/airflow/pull/58025#discussion_r2512880556",
+        "excerpt": "Original uses callable, called lazily when object is inserted"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/models/dagrun.py"]
+  },
+  {
+    "rule": "Emit Stats.incr() for task-instance creation only after a successful session.flush(), not before, to avoid counting rolled-back records",
+    "category": "correctness",
+    "trigger": "DualStatsManager.incr('task_instance_created', ...) or Stats.incr(...) called before session.flush() inside a try/except IntegrityError or StaleDataError block",
+    "rationale": "If flush() raises and the transaction rolls back, stats counters are incremented for TIs that were never persisted",
+    "evidence": [
+      {
+        "pr": 64503,
+        "url": "https://github.com/apache/airflow/pull/64503#discussion_r3025330794",
+        "excerpt": "Counters incremented even though TIs were not persisted on rollback"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/models/dagrun.py"]
+  },
+  {
+    "rule": "Use `StringID()` from `airflow.models.base` for `task_id`, `dag_id`, and `run_id` ORM columns instead of the raw `String(ID_LEN, **COLLATION_ARGS)` form",
+    "category": "database",
+    "trigger": "mapped_column(String(ID_LEN, **COLLATION_ARGS), ...) for a column named task_id, dag_id, or run_id in any model file",
+    "rationale": "StringID() centralises collation settings in one place and matches the convention used by recent models (backfill, deadline, taskinstance)",
+    "evidence": [
+      {
+        "pr": 65759,
+        "url": "https://github.com/apache/airflow/pull/65759#discussion_r3153690857",
+        "excerpt": "Every recent model uses StringID() helper — keeps collation in one place"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/task_state.py",
+      "airflow-core/src/airflow/models/asset_state.py"
+    ]
+  },
+  {
+    "rule": "Internal helper functions in `airflow.models.taskinstance` must be prefixed with `_` to avoid unintentionally expanding the module's public import surface",
+    "category": "api-design",
+    "trigger": "New top-level function added to airflow/models/taskinstance.py without a leading underscore, called only from within the same module",
+    "rationale": "The module already follows the convention (_get_relevant_map_indexes, _find_common_ancestor_mapped_group); unprefixed helpers silently become importable public API",
+    "evidence": [
+      {
+        "pr": 59691,
+        "url": "https://github.com/apache/airflow/pull/59691#discussion_r3066488039",
+        "excerpt": "Avoid unintentionally expanding public import surface of airflow.models.taskinstance"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/models/taskinstance.py"]
+  },
+  {
+    "rule": "Pass bare column expressions to `LazySelectSequence.from_select(order_by=[...])`, not pre-ordered expressions (`.asc()`/`.desc()`), because the helper applies ordering internally",
+    "category": "correctness",
+    "trigger": "LazySelectSequence.from_select(..., order_by=[SomeColumn.map_index.asc()]) or similar pre-ordered expression in the order_by list",
+    "rationale": "LazySelectSequence.from_select() already applies .asc()/.desc() to each element; passing an already-ordered expression produces redundant or invalid ORDER BY SQL",
+    "evidence": [
+      {
+        "pr": 59104,
+        "url": "https://github.com/apache/airflow/pull/59104#discussion_r2880077985",
+        "excerpt": "LazySelectSequence.from_select() already applies asc/desc; passing pre-ordered expression is redundant"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/models/taskinstance.py"]
+  },
+  {
+    "rule": "Do not set `encrypted_kwargs` manually when constructing a `Trigger` ORM object; the `Trigger.__init__` handles encryption automatically from `kwargs`",
+    "category": "correctness",
+    "trigger": "Trigger(..., encrypted_kwargs=...) construction where the caller is not handling raw serialised kwargs from an Execution-API patch payload",
+    "rationale": "Trigger.__init__ sets encrypted_kwargs from kwargs; manual assignment is redundant except on the Execution API path where kwargs arrive as str|JsonValue",
+    "evidence": [
+      {
+        "pr": 55068,
+        "url": "https://github.com/apache/airflow/pull/55068#discussion_r2667048521",
+        "excerpt": "encrypted_kwargs set when constructing Trigger, no need to set it manually"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/models/taskinstance.py"]
+  },
+  {
+    "rule": "Apply the same BaseSerialization normalisation to both `trigger_kwargs` and `next_kwargs` from `start_trigger_args` before persisting them to JSON columns",
+    "category": "correctness",
+    "trigger": "start_trigger_args.trigger_kwargs is normalised via _normalize() but start_trigger_args.next_kwargs is written directly to a JSON column without the same treatment",
+    "rationale": "Both fields arrive in BaseSerialization-encoded form with Encoding enum keys; writing un-normalised next_kwargs causes key mangling in JSON and deserialization failures on Python 3.10",
+    "evidence": [
+      {
+        "pr": 66002,
+        "url": "https://github.com/apache/airflow/pull/66002#discussion_r3173100034",
+        "excerpt": "next_kwargs also in raw BaseSerialization-encoded form; only trigger_kwargs gets normalised"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/models/taskinstance.py"]
+  },
+  {
+    "rule": "Access `bundle_version` for a task instance via `task_instance.dag_version.bundle_version`, not `task_instance.dag_run.bundle_version`, as the two can diverge",
+    "category": "correctness",
+    "trigger": "task_instance.dag_run.bundle_version used in trigger or callback code where task_instance.dag_version.bundle_version is the canonical source",
+    "rationale": "A DAG run's bundle_version and the task instance's dag_version.bundle_version can diverge; callback/trigger code must use the dag_version path for correctness",
+    "evidence": [
+      {
+        "pr": 69185,
+        "url": "https://github.com/apache/airflow/pull/69185#discussion_r3516447503",
+        "excerpt": "Other callback code uses task_instance.dag_version.bundle_version — can these two diverge?"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/models/trigger.py"]
+  },
+  {
+    "rule": "When deserialising partition-mapper data, provide a default for optional keys (e.g. `wait_policy`) to remain compatible with data serialised before the key existed",
+    "category": "correctness",
+    "trigger": "data[\"wait_policy\"] or similar dict key access in a partition-mapper `from_dict`/`decode` method without a `.get()` or `in data` guard",
+    "rationale": "Serialised partition mapper data stored before a new field was added will not contain the key; an unguarded access raises KeyError on deserialisation",
+    "evidence": [
+      {
+        "pr": 66848,
+        "url": "https://github.com/apache/airflow/pull/66848#discussion_r3385697319",
+        "excerpt": "Suggestion: decode_wait_policy(data['wait_policy']) if 'wait_policy' in data else WaitForAll()"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/partition_mappers/base.py"]
+  },
+  {
+    "rule": "In `__repr__` for models that embed a `Callback` object, delegate to `self.callback` directly rather than manually formatting `callback.path` and `callback.kwargs`",
+    "category": "api-design",
+    "trigger": "f-string in __repr__ that expands self.callback.path and self.callback.kwargs manually instead of using str(self.callback) or {self.callback}",
+    "rationale": "The Callback class owns its own __repr__; duplicating expansion in callers breaks when Callback's repr changes and creates inconsistency",
+    "evidence": [
+      {
+        "pr": 58248,
+        "url": "https://github.com/apache/airflow/pull/58248#discussion_r2520735518",
+        "excerpt": "Callback has its own __repr__; revert to `or run: {self.callback}`"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/models/deadline.py"]
+  },
+  {
+    "rule": "Emit datetime attributes in OpenTelemetry span attribute dicts as RFC3339/ISO8601 strings, not raw Python datetime reprs or UNIX integer timestamps",
+    "category": "docs",
+    "trigger": "attributes[\"airflow.*date*\"] = str(some_datetime) where str() of a datetime does not produce ISO8601 format, or a raw timestamp integer is used",
+    "rationale": "RFC3339 strings are portable across observability backends (e.g. Honeycomb UNIX_TIMESTAMP) and turn cleanly into timestamps in downstream tooling",
+    "evidence": [
+      {
+        "pr": 63568,
+        "url": "https://github.com/apache/airflow/pull/63568#discussion_r2974585355",
+        "excerpt": "Suggest RFC3339/ISO8601 strings — most backends can handle turning those into timestamps"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/models/dagrun.py"]
+  },
+  {
+    "rule": "When the `run_schema_defaults_check.py` script serialises operator field defaults, convert `timedelta` values to `total_seconds()` before writing to schema.json",
+    "category": "correctness",
+    "trigger": "isinstance(default_value, timedelta) check absent in scripts/in_container/run_schema_defaults_check.py when collecting server-side operator defaults",
+    "rationale": "timedelta is not JSON-serialisable; schema.json is pure JSON, so timedelta defaults must be converted to a numeric seconds representation",
+    "evidence": [
+      {
+        "pr": 56202,
+        "url": "https://github.com/apache/airflow/pull/56202#discussion_r2388466953",
+        "excerpt": "elif isinstance(default_value, timedelta): default_value = default_value.total_seconds()"
+      }
+    ],
+    "scope_paths": ["scripts/in_container/run_schema_defaults_check.py"]
+  }
+]

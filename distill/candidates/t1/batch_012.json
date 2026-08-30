@@ -1,0 +1,240 @@
+[
+  {
+    "rule": "Use `airflow/utils/hashlib_wrapper.py` instead of `hashlib.md5()` directly so that MD5 works in FIPS-enabled environments.",
+    "category": "security",
+    "trigger": "diff adds `import hashlib` or calls `hashlib.md5(` in airflow-core Python source",
+    "rationale": "Direct `hashlib.md5` is rejected in FIPS environments; the wrapper abstracts this away for the whole core.",
+    "evidence": [
+      {
+        "pr": 60065,
+        "url": "https://github.com/apache/airflow/pull/60065#discussion_r2664700544",
+        "excerpt": "use hashlib_wrapper.py; works even in FIPS-enabled environments"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/"]
+  },
+  {
+    "rule": "New `_REVISION_HEADS_MAP` entries in `db.py` must be monotonically ordered: each Airflow version must map to a migration whose `down_revision` points to the previous version's head, never a later one.",
+    "category": "database",
+    "trigger": "diff modifies `_REVISION_HEADS_MAP` in `airflow/utils/db.py`",
+    "rationale": "A non-monotonic mapping (e.g. 3.2.0 pointing to a revision whose down_revision is the 3.3.0 head) breaks version→head ordering logic used for upgrades.",
+    "evidence": [
+      {
+        "pr": 62343,
+        "url": "https://github.com/apache/airflow/pull/62343#discussion_r3025380679",
+        "excerpt": "mapping non-monotonic; new migration should map to next version after 3.3.0"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/db.py"]
+  },
+  {
+    "rule": "When adding a new Alembic migration, add a corresponding `_REVISION_HEADS_MAP` entry for the **next** unreleased Airflow version, not an already-released one.",
+    "category": "database",
+    "trigger": "diff adds a new Alembic migration file under `airflow/migrations/` without updating `_REVISION_HEADS_MAP`, or updates an already-released version key",
+    "rationale": "Assigning a new migration to an already-released version makes the map non-monotonic and breaks upgrade paths.",
+    "evidence": [
+      {
+        "pr": 62343,
+        "url": "https://github.com/apache/airflow/pull/62343#discussion_r3025380679",
+        "excerpt": "3.2.0 should continue to map to 1d6611b6ab7c"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/db.py", "airflow-core/src/airflow/migrations/"]
+  },
+  {
+    "rule": "Do not log connection URIs or credential strings at any log level; use the security code-scanning suppressions or redact before logging.",
+    "category": "security",
+    "trigger": "diff adds a `log.` call whose argument is a variable derived from a connection URI, password, or secret",
+    "rationale": "Airflow's automated security scanning (CodeQL) flags clear-text logging of secrets; see security/code-scanning/532.",
+    "evidence": [
+      {
+        "pr": 56191,
+        "url": "https://github.com/apache/airflow/pull/56191#discussion_r2389558823",
+        "excerpt": "logs sensitive data (secret) as clear text"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/log/"]
+  },
+  {
+    "rule": "In `file_task_handler._read`, treat `UP_FOR_RETRY` and `UP_FOR_RESCHEDULE` as states with a completed attempt, not as actively-running states; serve logs via the fallback path for both.",
+    "category": "correctness",
+    "trigger": "diff changes the `ti.state` condition in `FileTaskHandler._read` and references `TaskInstanceState.UP_FOR_RETRY` or `UP_FOR_RESCHEDULE`",
+    "rationale": "Tasks in UP_FOR_RETRY / UP_FOR_RESCHEDULE are no longer active on a worker; their logs should be viewable via the served-logs fallback just like SUCCESS/FAILED.",
+    "evidence": [
+      {
+        "pr": 54547,
+        "url": "https://github.com/apache/airflow/pull/54547#discussion_r2879817042",
+        "excerpt": "UP_FOR_RESCHEDULE also in State.unfinished; logs viewable via served-logs fallback"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/log/file_task_handler.py"]
+  },
+  {
+    "rule": "Define carve-outs from `State.unfinished` as a module-level `frozenset` constant rather than inline `or == specific_member` conditions.",
+    "category": "correctness",
+    "trigger": "diff adds `ti.state not in State.unfinished or ti.state ==` pattern in `file_task_handler.py`",
+    "rationale": "The inline carve-out pattern is fragile: if `State.unfinished` changes, the special-case is easy to miss. A named frozenset is self-documenting.",
+    "evidence": [
+      {
+        "pr": 54547,
+        "url": "https://github.com/apache/airflow/pull/54547#discussion_r2879817054",
+        "excerpt": "condition pattern not in set or == specific_member is a bit fragile"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/log/file_task_handler.py"]
+  },
+  {
+    "rule": "Do not prefix a TypeAlias with `Legacy` when non-streaming log providers may always exist; use a domain-meaningful name such as `LogResponse` vs `StreamingLogResponse`.",
+    "category": "naming",
+    "trigger": "diff introduces a `TypeAlias` or class name prefixed with `Legacy` in `file_task_handler.py`",
+    "rationale": "\"Legacy\" implies the type is transitional; if non-streaming providers can always exist the alias is permanent and the prefix is misleading.",
+    "evidence": [
+      {
+        "pr": 54813,
+        "url": "https://github.com/apache/airflow/pull/54813#discussion_r2321850410",
+        "excerpt": "call this LogResponse and StreamingLogResponse rather than LegacyLogResponse"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/log/file_task_handler.py"]
+  },
+  {
+    "rule": "Shared enums that must be understood by multi-language DAG authoring (e.g. WeightRule, TriggerRule) must be defined in the ExecAPI OpenAPI spec, not shared via Python code or `airflow-shared`.",
+    "category": "api-design",
+    "trigger": "diff moves or adds an Airflow enum (TriggerRule, WeightRule, etc.) to `airflow-shared/` or imports it from there in task-SDK or provider code",
+    "rationale": "Sharing via spec ensures future non-Python DAG authors can consume the enum; code-sharing breaks at language boundaries.",
+    "evidence": [
+      {
+        "pr": 53393,
+        "url": "https://github.com/apache/airflow/pull/53393#discussion_r2223060036",
+        "excerpt": "should be an enum defined in the extra ExecAPI spec, not sharing the code"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/weight_rule.py", "airflow-core/src/airflow/utils/trigger_rule.py"]
+  },
+  {
+    "rule": "Custom SQLAlchemy compilation functions (via `@compiles`) must use bound parameters, not string interpolation, to avoid SQL injection through user-controlled values.",
+    "category": "security",
+    "trigger": "diff adds a `@compiles` function that builds an SQL string with f-string or `%`/`.format()` containing column or value expressions",
+    "rationale": "Interpolating JSON or key/value strings bypasses SQLAlchemy bind parameters and can enable SQL injection via user-controlled extra keys/values.",
+    "evidence": [
+      {
+        "pr": 64611,
+        "url": "https://github.com/apache/airflow/pull/64611#discussion_r3025321553",
+        "excerpt": "bypasses SQLAlchemy bind parameters; can enable SQL injection via user-controlled keys"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/sqlalchemy.py"]
+  },
+  {
+    "rule": "In the UI e2e Page Object layer, page helper methods must not have default parameter values; callers must supply all arguments explicitly.",
+    "category": "testing",
+    "trigger": "diff adds a method in a `tests/e2e/pages/*.ts` file with a default value for a string parameter (e.g. `dagId: string = \"example_bash_operator\"`)",
+    "rationale": "Default values silently tie tests to a specific DAG, hiding the caller's intent and making failures harder to diagnose.",
+    "evidence": [
+      {
+        "pr": 59943,
+        "url": "https://github.com/apache/airflow/pull/59943#discussion_r2664463948",
+        "excerpt": "We do not need default here"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/tests/e2e/pages/"]
+  },
+  {
+    "rule": "Each e2e page helper method that navigates to a URL must also wait for a key element to become visible before returning.",
+    "category": "testing",
+    "trigger": "diff adds a `navigateTo*` or `goto(` call in a `tests/e2e/pages/*.ts` file without a subsequent `waitFor` or `expect(...).toBeVisible`",
+    "rationale": "Navigation without waiting causes subsequent assertions to race against page load, producing flaky tests.",
+    "evidence": [
+      {
+        "pr": 59943,
+        "url": "https://github.com/apache/airflow/pull/59943#discussion_r2664463948",
+        "excerpt": "We should also wait task to load"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/tests/e2e/pages/"]
+  },
+  {
+    "rule": "E2e specs must use `testConfig.testDag.id` for the DAG under test, not a hardcoded string constant such as `\"example_bash_operator\"`.",
+    "category": "testing",
+    "trigger": "diff adds `const DAG_ID = \"example_bash_operator\"` or similar hardcoded DAG ID string in a `tests/e2e/specs/*.ts` file",
+    "rationale": "Hardcoded DAG IDs are not portable across test environments; the shared `testConfig` object provides the canonical test DAG.",
+    "evidence": [
+      {
+        "pr": 59943,
+        "url": "https://github.com/apache/airflow/pull/59943#discussion_r2664387991",
+        "excerpt": "const testDagId = testConfig.testDag.id"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/tests/e2e/specs/"]
+  },
+  {
+    "rule": "E2e specs that depend on a successful DAG run must use a `test.beforeAll` block to trigger the DAG and wait for `\"success\"` status before running assertions.",
+    "category": "testing",
+    "trigger": "diff adds a `test.describe` block in `tests/e2e/specs/*.ts` that asserts DAG-run-dependent state without a `beforeAll` that calls `triggerDag` and `verifyDagRunStatus`",
+    "rationale": "Without an explicit beforeAll setup, tests may run against a DAG that has never been triggered, producing false passes or unreliable failures.",
+    "evidence": [
+      {
+        "pr": 59943,
+        "url": "https://github.com/apache/airflow/pull/59943#discussion_r2664387991",
+        "excerpt": "triggerDag(testDagId); verifyDagRunStatus(testDagId, \"success\")"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/tests/e2e/specs/"]
+  },
+  {
+    "rule": "E2e tests that verify pagination must use `expect.poll()` to assert that page content has changed, not re-querying immediately after a navigation click.",
+    "category": "testing",
+    "trigger": "diff adds pagination assertions in `tests/e2e/specs/*.ts` that compare page content immediately after `clickNextPage()` without `expect.poll`",
+    "rationale": "Content updates after pagination are asynchronous; `expect.poll` retries the assertion until timeout rather than racing the render.",
+    "evidence": [
+      {
+        "pr": 60449,
+        "url": "https://github.com/apache/airflow/pull/60449#discussion_r2727235691",
+        "excerpt": "await expect.poll(() => this.getActionSubjects(), { timeout: 30_000 })"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/tests/e2e/"]
+  },
+  {
+    "rule": "E2e tests must not have conditional logic that makes them pass regardless of whether the feature under test works (no-op tests).",
+    "category": "testing",
+    "trigger": "diff adds an `if (count > 0) { … }` guard or similar short-circuit in a `tests/e2e/specs/*.ts` assertion block",
+    "rationale": "A test that always passes whether the feature works or not provides zero signal and should be replaced with a focused test using a controlled fixture.",
+    "evidence": [
+      {
+        "pr": 59943,
+        "url": "https://github.com/apache/airflow/pull/59943#discussion_r2664402173",
+        "excerpt": "Test passes whether filtering works or not. This is a no-op test."
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/tests/e2e/specs/"]
+  },
+  {
+    "rule": "Mermaid initialisation in the Airflow UI must be managed as a React context provider in `src/context`, not as a module-level mutable variable.",
+    "category": "api-design",
+    "trigger": "diff adds or modifies mermaid initialisation code outside `airflow-core/src/airflow/ui/src/context/`",
+    "rationale": "A context provider ensures mermaid is initialised once for the whole app, keeps theme updates in the React lifecycle, and avoids mutable shared state.",
+    "evidence": [
+      {
+        "pr": 66809,
+        "url": "https://github.com/apache/airflow/pull/66809#discussion_r3242474705",
+        "excerpt": "make into a react context provider and move it to src/context"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/src/utils/", "airflow-core/src/airflow/ui/src/context/"]
+  },
+  {
+    "rule": "Prefer `getByText` + `.locator('input')` over `getByRole('textbox', { name: … })` when the `<Input>` inside `InputWithAddon` does not expose an accessible name.",
+    "category": "testing",
+    "trigger": "diff adds `getByRole(\"textbox\", { name: filterLabel })` in an e2e page object that targets an `InputWithAddon` component",
+    "rationale": "The `<Input>` inside Airflow's `InputWithAddon` does not expose an accessible name, so `getByRole` locators can silently fail.",
+    "evidence": [
+      {
+        "pr": 63463,
+        "url": "https://github.com/apache/airflow/pull/63463#discussion_r2952349618",
+        "excerpt": "Input inside InputWithAddon does not currently expose an accessible name"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/tests/e2e/pages/"]
+  }
+]

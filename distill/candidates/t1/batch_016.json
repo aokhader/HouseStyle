@@ -1,0 +1,312 @@
+[
+  {
+    "rule": "Use `time.monotonic()` instead of `time.time()` for deadline and duration checks in triggers and operators, because `time.time()` can jump on NTP sync.",
+    "category": "async",
+    "trigger": "diff adds `time.time()` to compute or compare a deadline/elapsed duration inside a Trigger or Operator",
+    "rationale": "time.time() can jump on NTP sync; monotonic clock is required for reliable timeout enforcement in triggerer loops",
+    "evidence": [
+      {
+        "pr": 64051,
+        "url": "https://github.com/apache/airflow/pull/64051#discussion_r3177736300",
+        "excerpt": "time.time() can jump on NTP sync use time.monotonic() for duration checks"
+      }
+    ],
+    "scope_paths": [
+      "providers/airbyte/src/airflow/providers/airbyte/triggers/",
+      "providers/airbyte/src/airflow/providers/airbyte/operators/"
+    ]
+  },
+  {
+    "rule": "In a Trigger's polling loop, check the execution deadline before checking job state so a terminal status observed after the deadline still yields `timeout` rather than `success`/`error`.",
+    "category": "async",
+    "trigger": "diff adds or modifies a `while` loop inside a Trigger `run()` method that checks `is_still_running()` before checking `end_time` / `execution_deadline`",
+    "rationale": "If the triggerer backlog delays the first observation until after the deadline, terminal-state branches are reached without the deadline guard, silently emitting success instead of timeout",
+    "evidence": [
+      {
+        "pr": 64051,
+        "url": "https://github.com/apache/airflow/pull/64051#discussion_r3025331341",
+        "excerpt": "deadline check happens before/independent of is_still_running()"
+      }
+    ],
+    "scope_paths": [
+      "providers/airbyte/src/airflow/providers/airbyte/triggers/"
+    ]
+  },
+  {
+    "rule": "The `execute_complete` method of a deferrable operator must handle every status emitted by its paired Trigger, including `cancelled`; a missing branch silently reports task success for a cancelled job.",
+    "category": "correctness",
+    "trigger": "diff adds a status constant (e.g. `\"cancelled\"`, `\"timeout\"`) to a Trigger's `TriggerEvent` yield but the corresponding `execute_complete` in the operator has no branch for that status",
+    "rationale": "Unhandled Trigger event statuses fall through to the success path; a user-cancelled Airbyte job would be reported as task success",
+    "evidence": [
+      {
+        "pr": 64051,
+        "url": "https://github.com/apache/airflow/pull/64051#discussion_r3133251259",
+        "excerpt": "cancelled Airbyte job silently reports task success"
+      }
+    ],
+    "scope_paths": [
+      "providers/airbyte/src/airflow/providers/airbyte/operators/",
+      "providers/airbyte/src/airflow/providers/airbyte/triggers/"
+    ]
+  },
+  {
+    "rule": "Do not add a `stream()` method stub that raises `NotImplementedError` on a log handler; the log framework uses `getattr` to detect streaming support and the stub defeats the fallback to `read()`.",
+    "category": "correctness",
+    "trigger": "diff adds `def stream(self, ...) -> ...: raise NotImplementedError` to a class that also inherits from a remote log handler",
+    "rationale": "getattr-based capability detection means a NotImplementedError stub makes the method appear present and prevents fallback to the read() method at runtime",
+    "evidence": [
+      {
+        "pr": 54813,
+        "url": "https://github.com/apache/airflow/pull/54813#discussion_r2321856179",
+        "excerpt": "we don't want this to be called, else it would raise NotImplementedError"
+      }
+    ],
+    "scope_paths": [
+      "providers/alibaba/src/airflow/providers/alibaba/cloud/log/"
+    ]
+  },
+  {
+    "rule": "The `tags` field in a provider's `provider.yaml` must match the tags declared in `get_provider_info.py`; mismatched tags produce conflicting categorisation in generated provider docs.",
+    "category": "providers",
+    "trigger": "diff modifies `provider.yaml` `tags:` or `get_provider_info.py` tags list in a provider package and the two sources no longer agree",
+    "rationale": "provider.yaml and get_provider_info.py are both consumed by the provider docs/registry pipeline; inconsistent tags generate conflicting categorisation",
+    "evidence": [
+      {
+        "pr": 64754,
+        "url": "https://github.com/apache/airflow/pull/64754#discussion_r3066502884",
+        "excerpt": "align tags across these two metadata sources to avoid conflicting categorization"
+      }
+    ],
+    "scope_paths": [
+      "providers/"
+    ]
+  },
+  {
+    "rule": "Hooks that accept an `access_type` (or equivalent enum-like parameter) must validate the value against `VALID_*` constants and raise `ValueError` with a message listing allowed values before making any API call.",
+    "category": "correctness",
+    "trigger": "diff adds a hook method that branches on `access_type` / `auth_type` without an explicit `if ... not in VALID_...` guard before the branching",
+    "rationale": "Without validation an unsupported value silently reaches the API call with an incomplete request body, producing a hard-to-debug runtime failure",
+    "evidence": [
+      {
+        "pr": 64754,
+        "url": "https://github.com/apache/airflow/pull/64754#discussion_r3066502782",
+        "excerpt": "Add explicit validation and include a clear message listing allowed values"
+      }
+    ],
+    "scope_paths": [
+      "providers/akeyless/src/airflow/providers/akeyless/hooks/"
+    ]
+  },
+  {
+    "rule": "Provider changelog entries in `changelog.rst` must use sentence-case commit titles (capitalise only the first word and proper nouns); lowercase prefixes such as `fix:` are not acceptable.",
+    "category": "docs",
+    "trigger": "diff adds a line to `providers/*/docs/changelog.rst` whose commit title starts with a lowercase word or a `fix:`/`feat:` conventional-commit prefix",
+    "rationale": "Changelog entries follow sentence-case convention; lowercase prefixes break visual consistency in the generated provider changelog",
+    "evidence": [
+      {
+        "pr": 67920,
+        "url": "https://github.com/apache/airflow/pull/67920#discussion_r3344459225",
+        "excerpt": "fix: EksPodOperator … beautify to Fix EksPodOperator"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/docs/changelog.rst",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "When tightening a provider dependency to a `<X.Y` upper bound, leave a recorded note (in code comment or issue) stating the conditions under which the cap can be relaxed.",
+    "category": "providers",
+    "trigger": "diff adds an upper-bound pin (`<X.Y`) to a provider's dependency in `provider.yaml` or `setup.cfg` without an accompanying comment explaining when the cap may be lifted",
+    "rationale": "Upper-bound pins block users from upgrading; a note ensures the cap is revisited and lifted once the blocking issue in the upstream library is resolved",
+    "evidence": [
+      {
+        "pr": 62962,
+        "url": "https://github.com/apache/airflow/pull/62962#discussion_r2931760949",
+        "excerpt": "take a note to relax this <1.1.0 once changes go into 1.1.x"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/docs/index.rst",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "Trigger test cases that verify a specific deadline path (e.g. `execution_deadline`) must set the other deadline (`end_time`) to a future value so each test exercises exactly one timeout branch.",
+    "category": "testing",
+    "trigger": "diff adds a Trigger unit test where both `end_time` and `execution_deadline` are set to already-expired values",
+    "rationale": "When both deadlines are already expired the test cannot distinguish which deadline fires first, making the test unable to catch regressions in the execution_deadline path",
+    "evidence": [
+      {
+        "pr": 64051,
+        "url": "https://github.com/apache/airflow/pull/64051#discussion_r3177743531",
+        "excerpt": "test doesn't verify which deadline fires first"
+      }
+    ],
+    "scope_paths": [
+      "providers/airbyte/tests/unit/airbyte/triggers/"
+    ]
+  },
+  {
+    "rule": "Do not use `caplog` in Kubernetes/integration tests; replace it with mock-based log capture to avoid test flakiness that CI static checks will flag as a failure.",
+    "category": "testing",
+    "trigger": "diff adds `caplog` as a parameter or fixture to a test function in `kubernetes-tests/`",
+    "rationale": "caplog introduces flakiness in Kubernetes tests; CI has a static check that fails on its use in that test suite",
+    "evidence": [
+      {
+        "pr": 53598,
+        "url": "https://github.com/apache/airflow/pull/53598#discussion_r2234597434",
+        "excerpt": "caplog introduces flakiness; replace with mock or static check will fail"
+      }
+    ],
+    "scope_paths": [
+      "kubernetes-tests/tests/kubernetes_tests/"
+    ]
+  },
+  {
+    "rule": "Helm test coverage for deprecated-but-still-supported Helm value overrides (e.g. `workers.keda.query`) must be retained when the CRD or executor that previously exercised them is removed; migrate the test to an equivalent supported executor.",
+    "category": "testing",
+    "trigger": "diff deletes a helm test parametrize case that covers a value path listed in `chart/templates/NOTES.txt` deprecation notice",
+    "rationale": "Deprecated override paths remain functional and user-facing; dropping tests removes the only regression guard for migration paths documented in NOTES.txt",
+    "evidence": [
+      {
+        "pr": 65866,
+        "url": "https://github.com/apache/airflow/pull/65866#discussion_r3143696871",
+        "excerpt": "override paths are still supported and have a deprecation notice in NOTES.txt"
+      }
+    ],
+    "scope_paths": [
+      "helm-tests/tests/helm_tests/airflow_core/",
+      "chart/templates/"
+    ]
+  },
+  {
+    "rule": "Helm test helper variables must be named after the Kubernetes workload they actually inspect; do not use a variable named `broker_url_secret_in_scheduler` to hold a value read from the worker StatefulSet.",
+    "category": "naming",
+    "trigger": "diff adds a variable in a helm test whose name references one workload type (scheduler/worker/webserver) but the value is fetched from a different workload",
+    "rationale": "Swapped variable names make the test logic appear correct while actually asserting the wrong resources, hiding bugs and confusing future maintainers",
+    "evidence": [
+      {
+        "pr": 65006,
+        "url": "https://github.com/apache/airflow/pull/65006#discussion_r3067846064",
+        "excerpt": "variable names are swapped relative to the actual resources being inspected"
+      }
+    ],
+    "scope_paths": [
+      "helm-tests/tests/helm_tests/"
+    ]
+  },
+  {
+    "rule": "Helm tests for a given Airflow component (e.g. `metadataConnection`) must be co-located in the existing dedicated test file for that component rather than spread across multiple files.",
+    "category": "testing",
+    "trigger": "diff adds a new test class for a component (e.g. `TestMetadataConnectionTplRendering`) to a file other than the established `test_<component>.py` file for that component",
+    "rationale": "Splitting related tests across files makes it harder to find coverage and risks duplication; Airflow helm tests are organised one-concept-per-file",
+    "evidence": [
+      {
+        "pr": 64763,
+        "url": "https://github.com/apache/airflow/pull/64763#discussion_r3046028083",
+        "excerpt": "metadataConnection is already tested in test_metadata_connection_secret.py; move it there"
+      }
+    ],
+    "scope_paths": [
+      "helm-tests/tests/helm_tests/"
+    ]
+  },
+  {
+    "rule": "Version strings that must be kept in sync with an external release (e.g. provider version in the Edge Worker) must be declared as named constants at the top of the file or in a dedicated constants file, not embedded as string literals.",
+    "category": "providers",
+    "trigger": "diff changes a hard-coded version string literal (e.g. `\"3.3.0\"`) inside a function or constructor in the go-sdk or edge worker code",
+    "rationale": "Embedded version literals are hard to detect and automate; a named constant makes the value discoverable and amenable to tooling-assisted updates",
+    "evidence": [
+      {
+        "pr": 64493,
+        "url": "https://github.com/apache/airflow/pull/64493#discussion_r3106198434",
+        "excerpt": "configure it as a constant so it would be easier to detect or automate"
+      }
+    ],
+    "scope_paths": [
+      "go-sdk/edge/"
+    ]
+  },
+  {
+    "rule": "When the Go SDK and Python supervisor use different frame-size caps for the IPC channel, each side's constant must have a doc comment explaining the rationale for the chosen value and why the two sides differ.",
+    "category": "docs",
+    "trigger": "diff adds or changes a frame-size / buffer-size constant in `go-sdk/pkg/execution/` without a comment explaining its value relative to the Python side's cap",
+    "rationale": "Asymmetric caps can silently drop legitimate frames; without documentation reviewers cannot tell whether the asymmetry is intentional or a bug",
+    "evidence": [
+      {
+        "pr": 67315,
+        "url": "https://github.com/apache/airflow/pull/67315#discussion_r3295541071",
+        "excerpt": "asymmetry means a Python supervisor can hand a legitimate frame that Go rejects"
+      }
+    ],
+    "scope_paths": [
+      "go-sdk/pkg/execution/"
+    ]
+  },
+  {
+    "rule": "Go IPC message structs that use `-1` as a sentinel for `map_index` must document the sentinel convention in a comment; prefer `*int` (nullable) to match the Python side's `int | None` representation.",
+    "category": "api-design",
+    "trigger": "diff adds a Go IPC message struct with an `int` field for `MapIndex` that uses -1 as a sentinel while the Python counterpart in `comms.py` uses `int | None`",
+    "rationale": "int sentinel cannot represent an explicit None/unset; losing the distinction prevents future semantics like all-map-indexes and causes wire format divergence from Python",
+    "evidence": [
+      {
+        "pr": 67315,
+        "url": "https://github.com/apache/airflow/pull/67315#discussion_r3295541078",
+        "excerpt": "lost the ability to express None explicitly on the wire"
+      }
+    ],
+    "scope_paths": [
+      "go-sdk/pkg/execution/"
+    ]
+  },
+  {
+    "rule": "ADR documents must accurately reference the actual function/method name where a described behaviour lives; do not cite a helper function when the logic resides in the exported entry-point.",
+    "category": "docs",
+    "trigger": "diff adds or edits an ADR `.md` file that references a Go/Python symbol by name (e.g. `runTask`, `defer recover()`) and the cited symbol does not match the actual code location",
+    "rationale": "ADRs are the primary navigation aid for new contributors; stale symbol references send readers to the wrong place in the code",
+    "evidence": [
+      {
+        "pr": 67153,
+        "url": "https://github.com/apache/airflow/pull/67153#discussion_r3333076480",
+        "excerpt": "defer recover() block actually lives in ExecuteTaskWorkload, not runTask"
+      }
+    ],
+    "scope_paths": [
+      "go-sdk/adr/",
+      "java-sdk/adr/"
+    ]
+  },
+  {
+    "rule": "Source release tarballs built from the Java SDK must use `export-ignore` (or equivalent) for binary wrapper artifacts like `gradle-wrapper.jar` to avoid triggering Apache release-checker warnings during the RC vote.",
+    "category": "commit-hygiene",
+    "trigger": "diff adds a `git archive` invocation in a Gradle release task without a `.gitattributes` export-ignore for `gradle-wrapper.jar`",
+    "rationale": "Apache RC checkers flag binary JARs in source tarballs; export-ignoring the wrapper prevents unnecessary vote objections",
+    "evidence": [
+      {
+        "pr": 69444,
+        "url": "https://github.com/apache/airflow/pull/69444#discussion_r3534186374",
+        "excerpt": "RC checker may ping gradle-wrapper.jar; consider export-ignore it"
+      }
+    ],
+    "scope_paths": [
+      "java-sdk/"
+    ]
+  },
+  {
+    "rule": "Public interfaces in the Java/Kotlin SDK must carry KDoc/JavaDoc so that SDK documentation can be generated from source and IDEs can show inline help.",
+    "category": "docs",
+    "trigger": "diff adds a `public interface` or `public class` to `java-sdk/sdk/src/main/kotlin/` without a KDoc block",
+    "rationale": "The SDK is a public API; missing KDoc means generated SDK documentation and IDE tooltips are empty, harming adopters",
+    "evidence": [
+      {
+        "pr": 65956,
+        "url": "https://github.com/apache/airflow/pull/65956#discussion_r3156775360",
+        "excerpt": "add JavaDoc to public interfaces so SDK documentation can be produced"
+      }
+    ],
+    "scope_paths": [
+      "java-sdk/sdk/src/main/kotlin/"
+    ]
+  }
+]

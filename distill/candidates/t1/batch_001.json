@@ -1,0 +1,226 @@
+[
+  {
+    "rule": "Do not re-query DatasetDagRunQueue (or any table already loaded into memory) inside the per-DAG scheduler loop; pass already-fetched data through instead to avoid N+1 queries.",
+    "category": "performance",
+    "trigger": "A new session.scalars() or session.execute() call targeting DatasetDagRunQueue appears inside a for-loop that iterates over dags_needing_dagruns or dataset_triggered_dag_info.",
+    "rationale": "dags_needing_dagruns already loads all DDRQ records; re-fetching per DAG adds one query per dataset-triggered DAG per scheduler loop tick, and accessing .dataset.uri without eager loading compounds this into an N+1 pattern.",
+    "evidence": [
+      {
+        "pr": 63546,
+        "url": "https://github.com/apache/airflow/pull/63546#discussion_r2984707201",
+        "excerpt": "Re-fetching adds one query per dataset-triggered DAG per scheduler loop"
+      }
+    ],
+    "scope_paths": ["airflow/jobs/scheduler_job_runner.py"]
+  },
+  {
+    "rule": "When eager-loading is absent on a SQLAlchemy relationship used inside the scheduler loop, do not access that relationship attribute lazily; either add eager loading or pass the data from the outer query.",
+    "category": "performance",
+    "trigger": "A scheduler-loop function accesses a dotted relationship attribute (e.g. record.dataset.uri) on a model where the relationship is not declared with lazy='joined' or joinedload().",
+    "rationale": "Lazy loads inside the scheduler loop produce an N+1 query pattern that degrades scheduler throughput under load.",
+    "evidence": [
+      {
+        "pr": 63546,
+        "url": "https://github.com/apache/airflow/pull/63546#discussion_r2984707201",
+        "excerpt": "r.dataset.uri triggers a lazy load per record — N+1 query pattern"
+      }
+    ],
+    "scope_paths": ["airflow/jobs/scheduler_job_runner.py"]
+  },
+  {
+    "rule": "Each upload-artifact step in a GitHub Actions workflow must use a unique artifact name; never reuse the same name (including names that share a dynamic suffix) across multiple upload steps in the same job.",
+    "category": "correctness",
+    "trigger": "Two or more actions/upload-artifact steps within the same job share the same `name:` value or the same name template (e.g. both use container-logs-${{env.JOB_ID}}).",
+    "rationale": "Duplicate artifact names cause silent overwrites or upload collisions depending on runner artifact settings.",
+    "evidence": [
+      {
+        "pr": 64133,
+        "url": "https://github.com/apache/airflow/pull/64133#discussion_r3066475039",
+        "excerpt": "Duplicate name can overwrite or collide depending on artifact settings"
+      }
+    ],
+    "scope_paths": [".github/actions/", ".github/workflows/"]
+  },
+  {
+    "rule": "Do not include unrelated uv.lock churn in a feature or fix PR; either revert lock-file changes or split them into a separate commit with a stated reason tied to the PR.",
+    "category": "commit-hygiene",
+    "trigger": "uv.lock appears in the diff of a PR whose description does not mention a dependency bump, and the lock diff is larger than a few lines.",
+    "rationale": "Unexplained lock-file churn obscures the actual change, inflates review noise, and may introduce unintended dependency upgrades.",
+    "evidence": [
+      {
+        "pr": 61550,
+        "url": "https://github.com/apache/airflow/pull/61550#discussion_r3116493328",
+        "excerpt": "362 lines of churn looks unrelated; revert or split with clear reason"
+      }
+    ],
+    "scope_paths": ["uv.lock"]
+  },
+  {
+    "rule": "Task-SDK client changelog entries must appear in the Task-SDK changelog, not in the core airflow-core RELEASE_NOTES.rst.",
+    "category": "docs",
+    "trigger": "RELEASE_NOTES.rst receives a line mentioning 'task-sdk', 'task SDK', or 'Task SDK client' in a section that belongs to airflow-core.",
+    "rationale": "The server/client separation means task-sdk has its own release cadence; mixing entries blurs the boundary and confuses downstream consumers of each package.",
+    "evidence": [
+      {
+        "pr": 60212,
+        "url": "https://github.com/apache/airflow/pull/60212#discussion_r2671613343",
+        "excerpt": "task-sdk client entry expected in task sdk changelog, not core"
+      }
+    ],
+    "scope_paths": ["RELEASE_NOTES.rst", "task-sdk/"]
+  },
+  {
+    "rule": "A database migration included in a patch release must only repair a bug in an existing migration; it must not change payload semantics so that users who already ran the original upgrade end up in a different state from a fresh installer.",
+    "category": "database",
+    "trigger": "A patch-release PR modifies a file under migrations/ (or alembic/versions/) and the diff touches both upgrade() and downgrade() logic beyond simple no-op corrections.",
+    "rationale": "Divergent DB state between upgraders and fresh installers is a data-integrity hazard that is very hard to recover from in production deployments.",
+    "evidence": [
+      {
+        "pr": 67233,
+        "url": "https://github.com/apache/airflow/pull/67233#discussion_r3273155224",
+        "excerpt": "Confirm this only repairs a bug, not changing payload semantics"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/migrations/", "airflow/migrations/"]
+  },
+  {
+    "rule": "Any new config option introduced in a patch release must be declared in config.yml and explicitly documented in the relevant upgrade notes for that minor version.",
+    "category": "docs",
+    "trigger": "A patch PR adds a new key to config.yml or references a new [section] key_name in documentation without a corresponding entry in the upgrade notes.",
+    "rationale": "Fresh config surface in a patch surprises operators who do not expect behavioural changes outside minor/major releases; the default value and its effect must be called out.",
+    "evidence": [
+      {
+        "pr": 67233,
+        "url": "https://github.com/apache/airflow/pull/67233#discussion_r3273155214",
+        "excerpt": "Confirm config.yml schema is in sync; call out new default in upgrade docs"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/config_templates/config.yml", "docs/"]
+  },
+  {
+    "rule": "A reusable workflow that has a committer allowlist on workflow_dispatch must apply the same allowlist check to its workflow_call trigger so that callers cannot bypass the gate.",
+    "category": "security",
+    "trigger": "A workflow file defines a committer-restricted workflow_dispatch block but also exposes a workflow_call trigger without an equivalent contains(fromJSON([...]), github.event.sender.login) guard.",
+    "rationale": "Any workflow that calls the unguarded workflow_call path can bypass the explicit committer allowlist, defeating the access control.",
+    "evidence": [
+      {
+        "pr": 62261,
+        "url": "https://github.com/apache/airflow/pull/62261#discussion_r2835330116",
+        "excerpt": "workflow_call input doesn't have the same committer restriction"
+      }
+    ],
+    "scope_paths": [".github/workflows/registry-build.yml", ".github/workflows/"]
+  },
+  {
+    "rule": "Provider policy documentation must not imply that a sponsoring committer is absolved of technical responsibility for PRs they merge; committers retain responsibility for CI health and security review regardless of steward approval.",
+    "category": "providers",
+    "trigger": "PROVIDERS.rst (or equivalent governance doc) contains a sentence stating the sponsor is NOT responsible for the codebase or for merged PRs.",
+    "rationale": "Committers have ASF-level obligations for every merge; a governance document that appears to waive that creates confusion about who is accountable for defects and security issues.",
+    "evidence": [
+      {
+        "pr": 60896,
+        "url": "https://github.com/apache/airflow/pull/60896#discussion_r2717321671",
+        "excerpt": "Committer merging a PR should have responsibility to ensure it's technically ok"
+      }
+    ],
+    "scope_paths": ["PROVIDERS.rst"]
+  },
+  {
+    "rule": "Use vendor-neutral examples (e.g. the http provider) rather than named commercial vendors when illustrating provider policy concepts in governance documentation.",
+    "category": "providers",
+    "trigger": "PROVIDERS.rst or a provider governance document uses a specific vendor name (e.g. Slack, AWS, GCP) as the sole illustrative example of a policy concept.",
+    "rationale": "Vendor-named examples can appear to favour or implicitly endorse a particular commercial provider, which conflicts with the ASF vendor-neutrality principle.",
+    "evidence": [
+      {
+        "pr": 60896,
+        "url": "https://github.com/apache/airflow/pull/60896#discussion_r2714637339",
+        "excerpt": "Maybe be a bit more vendor neutral and use http as example"
+      }
+    ],
+    "scope_paths": ["PROVIDERS.rst"]
+  },
+  {
+    "rule": "Every locale skill file under .github/skills/airflow-translations/locales/ must declare that it extends the global rules in ../SKILL.md, and must state that the locale file takes precedence over global rules on any conflict.",
+    "category": "docs",
+    "trigger": "A new or modified locale skill file (.github/skills/airflow-translations/locales/<lang>.md) does not contain a reference to ../SKILL.md and a precedence statement.",
+    "rationale": "Without an explicit inheritance declaration, AI translation agents may apply only the locale file and miss global guidance, leading to inconsistent translations across locales.",
+    "evidence": [
+      {
+        "pr": 62083,
+        "url": "https://github.com/apache/airflow/pull/62083#discussion_r2862611621",
+        "excerpt": "Doesn't explicitly state it inherits global rules from ../SKILL.md"
+      }
+    ],
+    "scope_paths": [".github/skills/airflow-translations/locales/"]
+  },
+  {
+    "rule": "In locale do-not-translate lists, mark only the bare Airflow noun (e.g. 'Asset') as untranslatable; do not block compound phrases (e.g. 'Asset Events') when existing translations already translate the surrounding words.",
+    "category": "docs",
+    "trigger": "A locale skill file's do-not-translate list includes a multi-word phrase containing an Airflow term (e.g. 'Asset Events', 'Dag Run') when the existing locale JSON files translate the non-Airflow words in that phrase.",
+    "rationale": "Blocking the full compound phrase contradicts established translations already in the codebase and produces inconsistency; only the proper noun component should be frozen.",
+    "evidence": [
+      {
+        "pr": 62083,
+        "url": "https://github.com/apache/airflow/pull/62083#discussion_r2862611588",
+        "excerpt": "Existing pt locale strings translate concept as 'Evento(s) de Asset'"
+      }
+    ],
+    "scope_paths": [".github/skills/airflow-translations/locales/"]
+  },
+  {
+    "rule": "Docs for extensible Airflow interfaces (state backends, secrets backends, etc.) must describe the contract and behaviour rather than listing concrete method signatures, which are subject to change.",
+    "category": "docs",
+    "trigger": "A .rst documentation file adds a list-table or code-block containing full method signatures (async def ...) for a pluggable backend or extension point interface.",
+    "rationale": "Concrete signatures in docs become stale when the interface evolves; the secrets-backend docs establish the precedent of describing what must be implemented without embedding signatures.",
+    "evidence": [
+      {
+        "pr": 67299,
+        "url": "https://github.com/apache/airflow/pull/67299#discussion_r3339502069",
+        "excerpt": "Since these are signatures that can change, maybe do not mention at all"
+      }
+    ],
+    "scope_paths": ["airflow-core/docs/administration-and-deployment/"]
+  },
+  {
+    "rule": "CI shell scripts that start 'airflow standalone' in a polling loop must check process liveness with 'kill -0 $AIRFLOW_PID' to exit early when the process crashes instead of looping for the full timeout duration.",
+    "category": "correctness",
+    "trigger": "A CI shell script starts airflow standalone in the background, captures its PID, and then polls in a timed loop without a kill -0 $AIRFLOW_PID liveness check.",
+    "rationale": "Without a liveness check the loop runs for the full timeout even if airflow standalone crashes immediately, wasting CI minutes and delaying failure feedback.",
+    "evidence": [
+      {
+        "pr": 55458,
+        "url": "https://github.com/apache/airflow/pull/55458#discussion_r2734711507",
+        "excerpt": "Loop runs full 10 minutes even if process crashes after 1 second"
+      }
+    ],
+    "scope_paths": [".github/workflows/"]
+  },
+  {
+    "rule": "AIP skill SKILL.md files must anchor the AIP URL pattern to the Apache Confluence prefix (https://cwiki.apache.org/confluence/display/AIRFLOW) rather than a generic https:// host.",
+    "category": "docs",
+    "trigger": "A SKILL.md under .github/skills/aip-* describes AIP URL detection as 'Other https:// arguments are the AIP URL' without anchoring to the cwiki.apache.org/confluence/display/AIRFLOW prefix.",
+    "rationale": "Generic https:// matching cannot distinguish AIP URLs from arbitrary web links; the Confluence path prefix is the only reliable discriminator for valid AIP documents.",
+    "evidence": [
+      {
+        "pr": 65776,
+        "url": "https://github.com/apache/airflow/pull/65776#discussion_r3145874441",
+        "excerpt": "https://cwiki.apache.org/confluence/display/AIRFLOW arguments are the AIP URL"
+      }
+    ],
+    "scope_paths": [".github/skills/aip-user-stories/"]
+  },
+  {
+    "rule": "Locale skill files must cross-reference the rationale documented in the corresponding airflow-core/src/airflow/ui/public/i18n/locales/<lang>/README.md when consolidating translation conventions.",
+    "category": "docs",
+    "trigger": "A locale skill file under .github/skills/airflow-translations/locales/ is created or updated without a reference to the in-tree i18n README for that locale.",
+    "rationale": "The in-tree README holds the authoritative rationale for locale-specific choices; omitting a cross-reference risks duplicating or contradicting that guidance.",
+    "evidence": [
+      {
+        "pr": 65115,
+        "url": "https://github.com/apache/airflow/pull/65115#discussion_r3089058373",
+        "excerpt": "Add reasons from airflow-core/src/airflow/ui/public/i18n/locales/de/README.md"
+      }
+    ],
+    "scope_paths": [".github/skills/airflow-translations/locales/", "airflow-core/src/airflow/ui/public/i18n/locales/"]
+  }
+]

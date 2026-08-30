@@ -1,0 +1,322 @@
+[
+  {
+    "rule": "Connection-listing methods in auth managers must account for all connection sources (env vars, secrets backends, etc.), not only the database; a DB-only query must be documented as returning a partial list",
+    "category": "correctness",
+    "trigger": "New method on BaseAuthManager queries Connection table without considering non-DB connection sources",
+    "rationale": "Airflow connections can come from multiple backends (env vars, secrets backends, DB). A DB-only query silently returns a subset, misleading callers about what the user can actually access.",
+    "evidence": [
+      {
+        "pr": 55298,
+        "url": "https://github.com/apache/airflow/pull/55298#discussion_r2325391737",
+        "excerpt": "Connections don't just come from the db, so you are getting a partial list"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/auth/managers/base_auth_manager.py"
+    ]
+  },
+  {
+    "rule": "Any new public method added to BaseAuthManager that introduces user-facing behaviour must be accompanied by a newsfragment and a defined default behaviour for auth managers that do not override it",
+    "category": "api-design",
+    "trigger": "New method added to BaseAuthManager (or subclass) without a newsfragment file and without a documented/implemented default fallback",
+    "rationale": "BaseAuthManager is an extension point; operators running third-party auth managers will silently break or get undefined behaviour if a new method has no sensible default and no changelog entry.",
+    "evidence": [
+      {
+        "pr": 59399,
+        "url": "https://github.com/apache/airflow/pull/59399#discussion_r2616941968",
+        "excerpt": "thinking on newsfragment and default behaviour for Auth Managers that do not implement it"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/auth/managers/base_auth_manager.py"
+    ]
+  },
+  {
+    "rule": "Do not use runtime inspect() introspection to detect whether a provider-supplied auth-manager override accepts a parameter; perform the parameter-presence check on the caller side and pass the argument conditionally",
+    "category": "api-design",
+    "trigger": "inspect.signature() or inspect.Parameter used inside BaseAuthManager to detect whether a subclass method accepts a specific keyword argument",
+    "rationale": "Inspection logic belongs at the call site, not buried inside the base class. Keeping the check on the caller makes the contract explicit and avoids fragile runtime introspection on user subclasses.",
+    "evidence": [
+      {
+        "pr": 69790,
+        "url": "https://github.com/apache/airflow/pull/69790#discussion_r3623263736",
+        "excerpt": "Cannot we do the inspect on the caller side?"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/auth/managers/base_auth_manager.py"
+    ]
+  },
+  {
+    "rule": "Config values read inside hot paths (called once per task during scheduling) must be cached at construction time, not re-read on every call",
+    "category": "performance",
+    "trigger": "conf.get* called inside a method that is invoked per-task or per-DAG-run in the scheduler loop rather than once at object construction",
+    "rationale": "The scheduler calls token-generation methods for every task; re-reading conf on each call adds unnecessary overhead. Values that are stable for the lifetime of the object should be read once in __init__ or a cached_property.",
+    "evidence": [
+      {
+        "pr": 60108,
+        "url": "https://github.com/apache/airflow/pull/60108#discussion_r2957016171",
+        "excerpt": "called per-task during scheduling, consider reading the value once at construction time"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/auth/tokens.py"
+    ]
+  },
+  {
+    "rule": "Database error handlers in the FastAPI exception layer must follow the existing per-dialect pattern; do not add new string-sniffing markers for individual error sub-types without matching the established dialect-aware structure",
+    "category": "correctness",
+    "trigger": "New tuple of string markers (e.g. _TOO_LARGE_MARKERS) added to an exception handler in api_fastapi/common/exceptions.py without dialect-specific branching",
+    "rationale": "Error messages differ per database dialect; hardcoded English substrings are fragile across MySQL/Postgres/SQLite. The repo already has a dialect-aware pattern for unique-constraint handling that new error types should follow.",
+    "evidence": [
+      {
+        "pr": 66888,
+        "url": "https://github.com/apache/airflow/pull/66888#discussion_r3280362913",
+        "excerpt": "follow the unique constraint style. Per dialect — are the messages the same for each?"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/common/exceptions.py"
+    ]
+  },
+  {
+    "rule": "DataError exception messages surfaced to API clients must be generic enough to cover all possible DataError sub-cases, not worded as if only one specific cause (e.g. text-size overflow) can trigger them",
+    "category": "api-design",
+    "trigger": "HTTPException detail string inside a DataError handler mentions a specific column type (MEDIUMTEXT, LONGTEXT) or a single error cause",
+    "rationale": "DataError covers many database rejection reasons; a message specific to one cause misleads operators debugging a different cause.",
+    "evidence": [
+      {
+        "pr": 66888,
+        "url": "https://github.com/apache/airflow/pull/66888#discussion_r3335522175",
+        "excerpt": "reword this to be more generic — that's just one example of a possible DataError"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/common/exceptions.py"
+    ]
+  },
+  {
+    "rule": "When exposing SQL statement details via conf expose_stacktrace, retrieve sensitive fields (statement, orig) only after the guard check, not before; default them to None rather than a placeholder string",
+    "category": "security",
+    "trigger": "getattr(exc, 'statement', ...) or getattr(exc, 'orig', ...) assigned before the expose_stacktrace config check inside an exception handler",
+    "rationale": "Assigning the real statement/orig before the guard means the values are computed even when expose_stacktrace is disabled, and a sentinel string like 'hidden' is used instead of None, obscuring the intent.",
+    "evidence": [
+      {
+        "pr": 69267,
+        "url": "https://github.com/apache/airflow/pull/69267#discussion_r3519233998",
+        "excerpt": "retrieve statement/orig only after the expose_stacktrace guard; default to None"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/common/exceptions.py"
+    ]
+  },
+  {
+    "rule": "SQLAlchemy JSON column type checks must use isinstance(col.type, JSON) for cross-dialect compatibility; do not add a string-comparison fallback (str(col.type).upper() in ('JSON','JSONB')) unless you can confirm isinstance fails for a specific dialect",
+    "category": "database",
+    "trigger": "str(self.attribute.type).upper() in ('JSON', 'JSONB') used alongside isinstance(self.attribute.type, JSON) in a filter parameter",
+    "rationale": "SQLAlchemy's JSON type already abstracts dialect differences; a redundant string check suggests the isinstance path was not verified against Postgres and could mask a real gap.",
+    "evidence": [
+      {
+        "pr": 55735,
+        "url": "https://github.com/apache/airflow/pull/55735#discussion_r2353712118",
+        "excerpt": "does isinstance(JSON) not work for Postgres, or can it handle all dialects?"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/common/parameters.py"
+    ]
+  },
+  {
+    "rule": "Task-group filters on list endpoints must use exact group-id matching, not pattern/prefix matching, to avoid returning TaskInstances from unrelated groups",
+    "category": "correctness",
+    "trigger": "TaskInstance list filter applies pattern matching (LIKE / regex) against task_group display_name or group_id",
+    "rationale": "Pattern matching can match overlapping group names and return cross-group TIs in the response, which breaks the contract of the list endpoint.",
+    "evidence": [
+      {
+        "pr": 58092,
+        "url": "https://github.com/apache/airflow/pull/58092#discussion_r2603140969",
+        "excerpt": "exact match on group — pattern matching returns cross-group TI in the response"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/common/parameters.py"
+    ]
+  },
+  {
+    "rule": "Single-value filter parameters on list endpoints should accept multiple values (list[str] with FilterOptionEnum.ANY_EQUAL) so callers can request several items in one request instead of needing a dedicated GET /{id} endpoint",
+    "category": "api-design",
+    "trigger": "filter_param_factory used with a scalar type (str | None) for a unique-key field (e.g. uri, conn_id) on a list endpoint that could naturally accept multiple values",
+    "rationale": "A list endpoint with only a single-value exact-match filter duplicates the role of a GET /{id} endpoint; accepting a list of values is the idiomatic REST pattern and is already implemented for other filters such as TI state.",
+    "evidence": [
+      {
+        "pr": 69489,
+        "url": "https://github.com/apache/airflow/pull/69489#discussion_r3535072310",
+        "excerpt": "make this filter accept multiple values — it makes more sense for a list endpoint"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/common/parameters.py"
+    ]
+  },
+  {
+    "rule": "Do not shorten ILIKE performance-warning descriptions in filter_param_factory docstrings; the explicit version ('ILIKE \\'%term%\\' prevents B-tree indexes, prefer prefix_pattern') is required to guide operators on large tables",
+    "category": "docs",
+    "trigger": "Performance note in filter_param_factory description shortened or replaced with an abbreviated form that omits the ILIKE expansion and index guidance",
+    "rationale": "The longer description is embedded in generated OpenAPI docs for every pattern filter; operators on large tables need the full context to choose the right parameter.",
+    "evidence": [
+      {
+        "pr": 69940,
+        "url": "https://github.com/apache/airflow/pull/69940#discussion_r3646673720",
+        "excerpt": "preferred the original — more explicit; reduces the diff and keeps all generated search descriptions"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/common/parameters.py"
+    ]
+  },
+  {
+    "rule": "The API representation of infinite pool slots must use -1, not None; JSON cannot represent float('inf') and None conflicts with the existing API spec for open slots",
+    "category": "api-design",
+    "trigger": "Serialiser or Pydantic validator converts float('inf') pool slots to None before returning an API response",
+    "rationale": "The Airflow pool API spec uses -1 as the sentinel for unlimited/infinite slots; returning None is out of spec and breaks clients that expect a numeric value.",
+    "evidence": [
+      {
+        "pr": 61140,
+        "url": "https://github.com/apache/airflow/pull/61140#discussion_r2742547103",
+        "excerpt": "API returns None for infinite slots — not in line with spec, return -1 instead"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/datamodels/pools.py"
+    ]
+  },
+  {
+    "rule": "List routes in the FastAPI core API must use the paginated_select convention for all DB-backed collections; omitting pagination on a collection endpoint is not acceptable",
+    "category": "api-design",
+    "trigger": "New GET list route in api_fastapi/core_api/routes/public/ returns all rows via session.scalars(select(...)).all() without calling paginated_select",
+    "rationale": "Airflow collections can be arbitrarily large; the paginated_select helper is the established convention for all list endpoints and must be applied consistently.",
+    "evidence": [
+      {
+        "pr": 67041,
+        "url": "https://github.com/apache/airflow/pull/67041#discussion_r3519233998",
+        "excerpt": "do we need paginated_select convention? following connections.py example"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/asset_state.py"
+    ]
+  },
+  {
+    "rule": "All exception types that a service function can raise must be caught at the route level; when a dry-run variant catches an exception (e.g. DagRunTypeNotAllowed) the non-dry-run counterpart must catch it too",
+    "category": "correctness",
+    "trigger": "except tuple in a route handler is missing an exception type that the called service function is documented to raise, while a sibling route (e.g. dry-run) already handles it",
+    "rationale": "Asymmetric exception coverage between twin routes (create vs dry-run) lets certain service errors surface as 500s in one path but as proper 4xx in the other.",
+    "evidence": [
+      {
+        "pr": 64644,
+        "url": "https://github.com/apache/airflow/pull/64644#discussion_r3066477121",
+        "excerpt": "DagRunTypeNotAllowed not caught here; dry-run handles it — results in a 500"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/backfills.py"
+    ]
+  },
+  {
+    "rule": "Do not duplicate a DB lookup at the route level when the same lookup already occurs inside the service function; raise a domain exception from the service and catch-and-convert it at the route level instead",
+    "category": "correctness",
+    "trigger": "Route handler calls session.scalar/session.get for a model that the downstream service function already queries for the same purpose",
+    "rationale": "Duplicating the query adds an extra DB round-trip and can introduce TOCTOU divergence. The Airflow pattern is to raise a ValueError or AirflowNotFoundException inside the service and translate to HTTPException at the route boundary.",
+    "evidence": [
+      {
+        "pr": 61550,
+        "url": "https://github.com/apache/airflow/pull/61550#discussion_r2817988451",
+        "excerpt": "check is already done inside create_dagrun — raise inside service, catch at route"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/dag_run.py"
+    ]
+  },
+  {
+    "rule": "Broad AirflowException catches at route boundaries must not forward arbitrary internal error messages as 4xx detail strings; narrow the catch to user-facing exceptions or validate the message before re-raising",
+    "category": "api-design",
+    "trigger": "except AirflowException as e: raise HTTPException(4xx, str(e)) without narrowing the caught exception type or filtering the message",
+    "rationale": "Generic AirflowException messages (e.g. 'Cannot create DagRun because the dag is not serialized') are internal implementation details that should not leak to API consumers as client-error detail.",
+    "evidence": [
+      {
+        "pr": 61550,
+        "url": "https://github.com/apache/airflow/pull/61550#discussion_r3281945940",
+        "excerpt": "generic 400 forwards str(e) — internal messages like 'dag is not serialized' leak to callers"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/dag_run.py"
+    ]
+  },
+  {
+    "rule": "Authorization checks must short-circuit the query path entirely; do not pass an empty list to XComModel.get_many (or equivalent) as a proxy for 'no results' when the user is unauthorized",
+    "category": "security",
+    "trigger": "result_task_ids = [] or equivalent empty-collection sentinel used to suppress results after a failed authorization check, instead of returning early before the query",
+    "rationale": "Relying on how get_many interprets an empty list is fragile; if the implementation changes to treat an empty list as 'no filter', XCom data is exposed to unauthorized users.",
+    "evidence": [
+      {
+        "pr": 64577,
+        "url": "https://github.com/apache/airflow/pull/64577#discussion_r3066476237",
+        "excerpt": "empty list reliance is fragile — make authorization boundary explicit, skip the query entirely"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/dag_run.py"
+    ]
+  },
+  {
+    "rule": "Aggregate statistics over DagRun history (durations, averages) must not be computed by fetching unbounded result sets; pre-compute them incrementally or use windowed queries, and confirm migration safety before adding new computed columns",
+    "category": "performance",
+    "trigger": "select() over DagRun with no row limit used to compute aggregate statistics (avg duration, p90, etc.) in a route handler",
+    "rationale": "Large deployments have millions of DagRun rows; scanning all of them on every Details-tab request causes severe DB load. Incremental or windowed computation is required.",
+    "evidence": [
+      {
+        "pr": 65722,
+        "url": "https://github.com/apache/airflow/pull/65722#discussion_r3168874498",
+        "excerpt": "some users have millions of runs — querying all every time the Details tab opens is a heavy lift"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/dag_run.py"
+    ]
+  },
+  {
+    "rule": "Bulk DAG updates must use a single subquery-based UPDATE (DagModel.dag_id.in_(subquery)) rather than paginated SELECT loops that issue one DB query per page",
+    "category": "performance",
+    "trigger": "paginated_select or offset/limit loop used to fetch DAG IDs before issuing individual UPDATE statements in a bulk-patch route",
+    "rationale": "Looping with paginated_select makes N DB requests (one per page) for what should be a single UPDATE ... WHERE dag_id IN (filtered_subquery). The subquery approach is both correct and a single round-trip.",
+    "evidence": [
+      {
+        "pr": 63665,
+        "url": "https://github.com/apache/airflow/pull/63665#discussion_r3022239770",
+        "excerpt": "use subquery-based UPDATE — paginated loop makes as many DB requests as number of pages"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/dags.py"
+    ]
+  },
+  {
+    "rule": "Response models must not include fields already available through a separately fetched resource on the same page; check existing endpoint payloads before adding redundant fields to a datamodel",
+    "category": "api-design",
+    "trigger": "Field added to a Grid/collection response datamodel (e.g. GridRunsResponse) that duplicates data already returned by a companion detail endpoint called by the same UI view",
+    "rationale": "The Airflow UI grid already calls get_dag_details which returns dag_version and bundle info; duplicating those fields in GridRunsResponse inflates payload size and creates a maintenance burden for two serialization paths.",
+    "evidence": [
+      {
+        "pr": 53216,
+        "url": "https://github.com/apache/airflow/pull/53216#discussion_r2556388242",
+        "excerpt": "grid calls get_dag_details — dag_version already there; no need to pass it down again"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/datamodels/ui/common.py"
+    ]
+  }
+]

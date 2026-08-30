@@ -1,0 +1,215 @@
+[
+  {
+    "rule": "Delay importing `airflow.settings` until after `AIRFLOW__DATABASE__SQL_ALCHEMY_CONN` is set, and add an explicit comment explaining the deferred-import constraint",
+    "category": "correctness",
+    "trigger": "import of `airflow.settings` inside a function body or helper, especially near `settings.SQL_ALCHEMY_CONN` assignment or `settings.configure_orm()`",
+    "rationale": "Airflow config (including the DB URL) is read when `airflow.settings` is first imported; importing it at module level forces config evaluation before the environment variable can be injected, silently using the wrong connection string",
+    "evidence": [
+      {
+        "pr": 65547,
+        "url": "https://github.com/apache/airflow/pull/65547#discussion_r3154020952",
+        "excerpt": "delayed so AIRFLOW__DATABASE__SQL_ALCHEMY_CONN can be set before Airflow config is loaded"
+      }
+    ],
+    "scope_paths": ["scripts/in_container/run_migration_round_trip.py"]
+  },
+  {
+    "rule": "Serialization fallback hooks in `airflow_shared.logging` must catch `ValueError` (and its subclasses such as `UnicodeEncodeError`) in addition to `TypeError`",
+    "category": "correctness",
+    "trigger": "except clause in a structlog `enc_hook` or serialization fallback that only catches `TypeError` without also catching `ValueError`",
+    "rationale": "DockerOperator surfaced `UnicodeEncodeError` (a `ValueError` subclass) from surrogate characters; catching only `TypeError` leaves Unicode serialization failures unhandled in the shared logging stack",
+    "evidence": [
+      {
+        "pr": 62656,
+        "url": "https://github.com/apache/airflow/pull/62656#discussion_r2935810938",
+        "excerpt": "UnicodeEncodeError sub-classes from ValueError, so Unicode problems are not caught by this"
+      }
+    ],
+    "scope_paths": ["shared/logging/src/airflow_shared/logging/structlog.py"]
+  },
+  {
+    "rule": "Use `__qualname__` (not `__name__`) when building importable dotted paths for `import_string`",
+    "category": "correctness",
+    "trigger": "use of `obj.__name__` to construct a dotted import path intended for `import_string`, or a `use_qualname` flag that makes `__qualname__` opt-in",
+    "rationale": "For nested classes and closures `__name__` produces a path that `import_string` cannot resolve; `__qualname__` is the only form that round-trips correctly through `import_string`",
+    "evidence": [
+      {
+        "pr": 60065,
+        "url": "https://github.com/apache/airflow/pull/60065#discussion_r2667841596",
+        "excerpt": "In cases where this matters (when loaded back by import_string), __name__ would not work anyway"
+      }
+    ],
+    "scope_paths": ["shared/module_loading/src/airflow_shared/module_loading/__init__.py"]
+  },
+  {
+    "rule": "Do not match `VAR_POSITIONAL` (`*args`) in `accepts_context`; only match named `context` parameter or `VAR_KEYWORD` (`**kwargs`)",
+    "category": "correctness",
+    "trigger": "`inspect.Parameter.VAR_POSITIONAL` included in the set of kinds that cause `accepts_context` (or `_accepts_context`) to return `True`",
+    "rationale": "`CallbackTrigger.run()` calls `callback(**callback_kwargs, context=context)`; a function with only `*args` cannot accept keyword arguments and will raise `TypeError` at runtime if `accepts_context` returns `True` for it",
+    "evidence": [
+      {
+        "pr": 62645,
+        "url": "https://github.com/apache/airflow/pull/62645#discussion_r2991911032",
+        "excerpt": "A function with only *args can't accept keyword arguments, so this would raise TypeError"
+      }
+    ],
+    "scope_paths": ["shared/module_loading/src/airflow_shared/module_loading/__init__.py"]
+  },
+  {
+    "rule": "Do not require `conn_type` or `uri` when deserializing a Connection from a secrets backend; connections without `conn_type` must remain valid for Airflow 2→3 migration",
+    "category": "correctness",
+    "trigger": "validation in `_deserialize_connection_value` or `BaseSecretsBackend` that raises an error when a JSON connection blob lacks `conn_type` and `uri`",
+    "rationale": "PR #61728 deliberately made `conn_type` optional on the task-SDK `Connection` model to preserve compatibility for users migrating from Airflow 2 whose secrets have no `conn_type`; re-adding that check regresses the fix",
+    "evidence": [
+      {
+        "pr": 69780,
+        "url": "https://github.com/apache/airflow/pull/69780#discussion_r3628674604",
+        "excerpt": "Connections without a conn_type are important for airflow 2->3 compatibility"
+      }
+    ],
+    "scope_paths": ["shared/secrets_backend/src/airflow_shared/secrets_backend/base.py"]
+  },
+  {
+    "rule": "Abstract `BaseStateBackend.serialize_*_to_ref` and `deserialize_*_from_ref` method docstrings must document the JSON encoding contract required by the Execution API",
+    "category": "api-design",
+    "trigger": "abstract method `serialize_task_state_to_ref`, `deserialize_task_state_from_ref`, `serialize_asset_state_to_ref`, or `deserialize_asset_state_from_ref` added or modified without a docstring stating the JSON round-trip requirement",
+    "rationale": "Execution API routes call `json.dumps` on `serialize_*` results and `json.loads` on `deserialize_*` results; a custom backend that stores plain text will raise a 500 on GET unless implementors know the contract",
+    "evidence": [
+      {
+        "pr": 67418,
+        "url": "https://github.com/apache/airflow/pull/67418#discussion_r3295506167",
+        "excerpt": "any custom BaseStateBackend MUST have serialize_*_to_ref return a valid JSON document"
+      }
+    ],
+    "scope_paths": ["shared/state/src/airflow_shared/state/__init__.py"]
+  },
+  {
+    "rule": "Task SDK documentation added under `task-sdk/docs/` must be cross-linked from the corresponding `airflow-core/docs/` authoring page to avoid fragmented DAG-authoring docs",
+    "category": "docs",
+    "trigger": "new `.rst` file added under `task-sdk/docs/` without a corresponding link or `toctree` entry in `airflow-core/docs/authoring-and-scheduling/`",
+    "rationale": "DAG-authoring documentation is split between Task SDK and core; new task-SDK topics left unlinked from core docs are invisible to users browsing the main documentation site",
+    "evidence": [
+      {
+        "pr": 63500,
+        "url": "https://github.com/apache/airflow/pull/63500#discussion_r2933397333",
+        "excerpt": "dag authoring documentation is a bit fragmented between Task SDK and core"
+      }
+    ],
+    "scope_paths": ["task-sdk/docs/", "airflow-core/docs/authoring-and-scheduling/"]
+  },
+  {
+    "rule": "Every `@lru_cache @property` operation accessor on `task-sdk Client` must have a return-type annotation and a one-line docstring matching the pattern of existing accessors",
+    "category": "api-design",
+    "trigger": "`@lru_cache` + `@property` method on `Client` that lacks a return type annotation or docstring",
+    "rationale": "All existing cached property accessors on `Client` (`hitl`, `assets`, `xcoms`, `task_instances`) have both; omitting them creates an inconsistency in the public task-SDK client API",
+    "evidence": [
+      {
+        "pr": 56955,
+        "url": "https://github.com/apache/airflow/pull/56955#discussion_r2949430786",
+        "excerpt": "Every other cached property on Client has both return type annotation and docstring"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/api/client.py"]
+  },
+  {
+    "rule": "`Client` operation `get` methods must translate HTTP 404 `ServerResponseError` into a typed `ErrorResponse(error=ErrorType.*_NOT_FOUND)` rather than letting the raw exception propagate",
+    "category": "api-design",
+    "trigger": "new `*Operations.get` method on `Client` that catches `ServerResponseError` without converting a 404 status to a typed `ErrorResponse` enum variant",
+    "rationale": "Callers that need to distinguish \"not found\" from other server errors must otherwise resort to brittle `e.error.detail.get('status_code') == 404` checks; the typed-error pattern used by `connections.get`, `variables.get`, `xcoms.get`, and `assets.get` makes the check a clean enum comparison",
+    "evidence": [
+      {
+        "pr": 66160,
+        "url": "https://github.com/apache/airflow/pull/66160#discussion_r3171192455",
+        "excerpt": "Other client get methods translate 404 into a typed ErrorResponse; task_state.get skips that step"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/api/client.py"]
+  },
+  {
+    "rule": "Never edit `task-sdk/src/airflow/sdk/api/datamodels/_generated.py` directly; all changes must be produced by regenerating from the Execution API OpenAPI schema",
+    "category": "correctness",
+    "trigger": "diff that modifies `_generated.py` in the task-sdk datamodels package without a corresponding OpenAPI schema change or regen command in the PR description",
+    "rationale": "The file is produced by `datamodel-codegen`; manual edits will be silently overwritten on the next regeneration, causing schema drift",
+    "evidence": [
+      {
+        "pr": 63733,
+        "url": "https://github.com/apache/airflow/pull/63733#discussion_r2941535964",
+        "excerpt": "_generated.py is generated by datamodel-codegen; please confirm change was produced by regenerating from the OpenAPI schema"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/api/datamodels/_generated.py"]
+  },
+  {
+    "rule": "Flags or attributes set on an operator inside `_TaskDecorator.__call__` must also be propagated through the dynamic task mapping path (`expand` / `expand_kwargs`)",
+    "category": "correctness",
+    "trigger": "assignment to an operator attribute inside `_TaskDecorator.__call__` that is not also applied when creating a mapped operator via `expand` or `expand_kwargs`",
+    "rationale": "Without propagation, dynamically mapped tasks silently lack the flag, causing invisible behavioral differences between normal and mapped task invocations of the same decorated function",
+    "evidence": [
+      {
+        "pr": 64563,
+        "url": "https://github.com/apache/airflow/pull/64563#discussion_r3066484213",
+        "excerpt": "returns_dag_result is only applied in __call__, not when tasks are created via expand/expand_kwargs"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/bases/decorator.py"]
+  },
+  {
+    "rule": "Imports at module level in `task-sdk/src/airflow/sdk/configuration.py` must not defeat the lazy `conf` object initialization; heavy or provider-touching imports must be deferred to `initialize_config()` or `__init__`",
+    "category": "performance",
+    "trigger": "top-level import of `ProvidersManagerTaskRuntime` or other provider-manager / heavy-dependency modules added to `airflow.sdk.configuration` module scope",
+    "rationale": "`conf` is created via `__getattr__` to keep module import cheap; a top-level import of `ProvidersManagerTaskRuntime` forces all its transitive dependencies to load even when `conf` is never accessed",
+    "evidence": [
+      {
+        "pr": 62696,
+        "url": "https://github.com/apache/airflow/pull/62696#discussion_r2973028311",
+        "excerpt": "Importing ProvidersManagerTaskRuntime at module import time defeats the lazy conf initialization pattern"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/configuration.py"]
+  },
+  {
+    "rule": "Sockets created in task-SDK coordinator code must bind to `127.0.0.1`, not to all interfaces (empty string `\"\"`)",
+    "category": "security",
+    "trigger": "`socket.bind((\"\", port))` or `socket.bind((\"0.0.0.0\", port))` in any coordinator or supervisor module under `task-sdk/`",
+    "rationale": "CodeQL flags binding to all interfaces as a security risk; coordinator sockets are local IPC channels and must be restricted to loopback to avoid unintended network exposure",
+    "evidence": [
+      {
+        "pr": 67161,
+        "url": "https://github.com/apache/airflow/pull/67161#discussion_r3264934071",
+        "excerpt": "Binding a socket to all interfaces (using '') is a security risk"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/coordinators/"]
+  },
+  {
+    "rule": "When an executable bundle is located but rejected due to a schema-version mismatch, surface the rejection reason in the raised error rather than masking it as a generic 'bundle not found'",
+    "category": "correctness",
+    "trigger": "code in `ExecutableCoordinator.find` (or similar bundle-lookup paths) that logs a rejection at `debug` level and then raises a generic `FileNotFoundError` without including the rejection cause",
+    "rationale": "Operators receive a misleading 'not found' error when the real problem is an incompatible schema version; the bundle was found but unusable, and the distinction is critical for diagnosing deployment issues",
+    "evidence": [
+      {
+        "pr": 67161,
+        "url": "https://github.com/apache/airflow/pull/67161#discussion_r3321422772",
+        "excerpt": "bundle was found, its schema version was just unusable; real cause is only at debug level"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/coordinators/executable/coordinator.py"]
+  },
+  {
+    "rule": "`ResumableMixin.external_id_key` must be documented as a stable cross-implementation contract between operators and triggers, with naming convention guidance (e.g. `<provider>_<resource>_id`)",
+    "category": "api-design",
+    "trigger": "subclass of `ResumableMixin` or `ResumableJobMixin` that overrides `external_id_key` without a docstring or comment explaining its role as a sync/deferrable shared contract",
+    "rationale": "The sync path and a corresponding trigger (e.g. `SparkSubmitTrigger`) must agree on the same `external_id_key` value to reconnect to the same job on retry; an undocumented contract invites provider implementors to silently change the key and break the deferrable path",
+    "evidence": [
+      {
+        "pr": 67118,
+        "url": "https://github.com/apache/airflow/pull/67118#discussion_r3270208201",
+        "excerpt": "external_id_key is a stable contract that subclasses and corresponding triggers must agree on"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/bases/resumablemixin.py",
+      "task-sdk/src/airflow/sdk/bases/resumablejobmixin.py"
+    ]
+  }
+]

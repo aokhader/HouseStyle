@@ -1,0 +1,142 @@
+[
+  {
+    "rule": "Every new parameter added to chart/values.yaml must also be declared in chart/values.schema.json",
+    "category": "docs",
+    "trigger": "A key is added to values.yaml but no corresponding entry appears in values.schema.json",
+    "rationale": "values.schema.json is both the authoritative documentation source and the Helm validation gate; omitting new parameters silently bypasses both",
+    "evidence": [
+      {
+        "pr": 64902,
+        "url": "https://github.com/apache/airflow/pull/64902#discussion_r3059832928",
+        "excerpt": "it is a source for some documentation and also allows for values.yaml validations"
+      }
+    ],
+    "scope_paths": ["chart/values.schema.json", "chart/values.yaml"]
+  },
+  {
+    "rule": "In the Airflow Helm chart, a component feature sub-flag (e.g. metricsEnabled, tracesEnabled) must be gated on its parent enabled flag so that Airflow is never pointed at a Service that does not exist",
+    "category": "correctness",
+    "trigger": "A template sets otel_on or otel_host from a sub-flag (e.g. .Values.otelCollector.metricsEnabled) without also checking .Values.otelCollector.enabled",
+    "rationale": "metricsEnabled/tracesEnabled without otelCollector.enabled causes Airflow to send telemetry to a collector Service/Deployment that was never created",
+    "evidence": [
+      {
+        "pr": 64902,
+        "url": "https://github.com/apache/airflow/pull/64902#discussion_r3066503188",
+        "excerpt": "can turn on OTel even when .Values.otelCollector.enabled is false, pointing Airflow to a collector that won't exist"
+      }
+    ],
+    "scope_paths": ["chart/values.yaml", "chart/templates/"]
+  },
+  {
+    "rule": "Hardcoded monitoring/telemetry parameters in Airflow Helm chart templates must be exposed as configurable values in values.yaml",
+    "category": "api-design",
+    "trigger": "A chart template or values.yaml hardcodes a monitoring interval or export period (e.g. OTEL_METRIC_EXPORT_INTERVAL: \"30000\") without a corresponding values.yaml key",
+    "rationale": "Monitoring resolution depends heavily on user requirements; hardcoding it removes the ability to tune without patching the chart",
+    "evidence": [
+      {
+        "pr": 64902,
+        "url": "https://github.com/apache/airflow/pull/64902#discussion_r3059687326",
+        "excerpt": "Could we make it configurable? it will depend heavily on the user requirements regarding the monitoring resolution"
+      }
+    ],
+    "scope_paths": ["chart/templates/", "chart/values.yaml"]
+  },
+  {
+    "rule": "Do not duplicate a default value in a values.schema.json description string when the schema already encodes it via a default field",
+    "category": "docs",
+    "trigger": "A description string in values.schema.json ends with 'Defaults to <X>.' where <X> is also specified in a sibling default field",
+    "rationale": "Duplicating the default in prose creates a maintenance hazard when the default changes; the schema default field is authoritative",
+    "evidence": [
+      {
+        "pr": 69954,
+        "url": "https://github.com/apache/airflow/pull/69954#discussion_r3633443676",
+        "excerpt": "suggestion removes the trailing 'Defaults to `connection`.' from the description"
+      }
+    ],
+    "scope_paths": ["chart/values.schema.json"]
+  },
+  {
+    "rule": "When chart topology renames a component-scoped value path (e.g. ingress.enabled → ingress.apiServer.enabled), update existing Helm tests to use the new path instead of deleting them",
+    "category": "testing",
+    "trigger": "A Helm test that previously used a broad values path (e.g. ingress.enabled) is deleted when the chart introduces a component-scoped path (e.g. ingress.apiServer.enabled)",
+    "rationale": "Deleting the test instead of adapting it removes coverage of the component-level toggle; the test should be modified to target the new key",
+    "evidence": [
+      {
+        "pr": 68043,
+        "url": "https://github.com/apache/airflow/pull/68043#discussion_r3374522320",
+        "excerpt": "we should modify this test case … instead of deleting it"
+      }
+    ],
+    "scope_paths": ["chart/tests/helm_tests/"]
+  },
+  {
+    "rule": "Release documentation for apache-airflow-mypy must use apache_airflow_mypy-... (underscore) filenames in twine upload commands, not apache_airflow.mypy-... (dot)",
+    "category": "docs",
+    "trigger": "A twine upload command in release docs references a glob or filename with the pattern apache_airflow.mypy- (dot before mypy)",
+    "rationale": "The distribution name apache-airflow-mypy produces wheel/sdist files named with underscores (apache_airflow_mypy-...); using a dot causes the upload glob to match nothing",
+    "evidence": [
+      {
+        "pr": 61422,
+        "url": "https://github.com/apache/airflow/pull/61422#discussion_r3070079766",
+        "excerpt": "distribution name apache-airflow-mypy will produce files like apache_airflow_mypy-... (underscore)"
+      }
+    ],
+    "scope_paths": ["dev/README_RELEASE_MYPY.md"]
+  },
+  {
+    "rule": "mypy configuration examples for apache-airflow-mypy must reference the airflow_mypy.plugins.* namespace, not airflow.mypy.plugins.*",
+    "category": "docs",
+    "trigger": "A mypy plugins= line in documentation or configuration examples reads airflow.mypy.plugins.",
+    "rationale": "After pip install apache-airflow-mypy the importable namespace is airflow_mypy.plugins.*; using airflow.mypy.plugins.* silently fails to load the plugins",
+    "evidence": [
+      {
+        "pr": 61422,
+        "url": "https://github.com/apache/airflow/pull/61422#discussion_r3070079767",
+        "excerpt": "modules are airflow_mypy.plugins.* as also configured in the repo's pyproject.toml"
+      }
+    ],
+    "scope_paths": ["dev/README_RELEASE_MYPY.md"]
+  },
+  {
+    "rule": "In Breeze's global_constants.py, DEFAULT_POSTGRES_VERSION must point to the oldest entry in the supported versions list so that PR CI catches accidental use of newer Postgres features",
+    "category": "testing",
+    "trigger": "DEFAULT_POSTGRES_VERSION is set to the newest (e.g. [-1]) rather than the oldest ([0]) entry in CURRENT_POSTGRES_VERSIONS or ALLOWED_POSTGRES_VERSIONS",
+    "rationale": "Most PRs run only the default version; using the oldest guarantees that features unavailable on older Postgres versions are caught at PR time, not in canary builds",
+    "evidence": [
+      {
+        "pr": 57899,
+        "url": "https://github.com/apache/airflow/pull/57899#discussion_r2496234116",
+        "excerpt": "we always tested against the oldest version … risk we use cool new features and miss testing against an old version"
+      }
+    ],
+    "scope_paths": ["dev/breeze/src/airflow_breeze/global_constants.py"]
+  },
+  {
+    "rule": "When building providers with flit_core via run_command, pass os.environ.copy() merged with SOURCE_DATE_EPOCH rather than a dict containing only SOURCE_DATE_EPOCH",
+    "category": "correctness",
+    "trigger": "A run_command call for a flit_core provider build sets env= to a dict with only SOURCE_DATE_EPOCH instead of {**os.environ, 'SOURCE_DATE_EPOCH': ...}",
+    "rationale": "Passing only SOURCE_DATE_EPOCH strips PATH and other variables that flit requires to locate Python and its own dependencies, potentially breaking the build silently",
+    "evidence": [
+      {
+        "pr": 56456,
+        "url": "https://github.com/apache/airflow/pull/56456#discussion_r2780491068",
+        "excerpt": "flit_core env is set to only SOURCE_DATE_EPOCH (wiping all other env vars) … may break if flit needs PATH"
+      }
+    ],
+    "scope_paths": ["dev/breeze/src/airflow_breeze/prepare_providers/provider_distributions.py"]
+  },
+  {
+    "rule": "In Breeze's path_utils.py, a gitdir: path parsed from a .git file must be resolved to an absolute path before use as a Docker bind-mount source",
+    "category": "correctness",
+    "trigger": "Code reads a gitdir: value from a .git file and constructs a Path from it without calling .resolve() or anchoring it to AIRFLOW_ROOT_PATH",
+    "rationale": "A relative gitdir: value would be interpreted relative to cwd when passed to Docker as a bind-mount source, silently mounting the wrong directory or causing a Docker error",
+    "evidence": [
+      {
+        "pr": 62905,
+        "url": "https://github.com/apache/airflow/pull/62905#discussion_r2887279222",
+        "excerpt": "relative path used as Docker bind-mount source would be interpreted relative to cwd, not AIRFLOW_ROOT_PATH"
+      }
+    ],
+    "scope_paths": ["dev/breeze/src/airflow_breeze/utils/path_utils.py"]
+  }
+]

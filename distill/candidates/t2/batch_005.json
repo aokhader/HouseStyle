@@ -1,0 +1,258 @@
+[
+  {
+    "rule": "An Execution API FastAPI route's declared `status_code` must match every HTTP status code the handler actually returns; all non-default success codes must appear in the `responses` dict",
+    "category": "api-design",
+    "trigger": "FastAPI route decorator has `status_code=HTTP_204_NO_CONTENT` (or similar) but the handler also returns a different 2xx status, or a new status code is added to `responses` without updating the route's default `status_code`",
+    "rationale": "Mismatched declared and actual status codes cause OpenAPI spec ambiguity and break clients that rely on the generated schema to understand what responses to expect",
+    "evidence": [
+      {
+        "pr": 63355,
+        "url": "https://github.com/apache/airflow/pull/63355#discussion_r3066474121",
+        "excerpt": "route declares 204 No Content but handler also returns 200 OK for idempotent requests"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/"
+    ]
+  },
+  {
+    "rule": "OpenTelemetry span names in the task execution path must embed the executing component (worker or triggerer) as a segment, e.g. `task_run.worker.{task_id}` or `worker.{task_id}`",
+    "category": "api-design",
+    "trigger": "New `tracer.start_span(name=...)` call in task execution routes uses a flat name like `task_run.{task_id}` without a component segment",
+    "rationale": "Component-qualified span names allow workers and triggerers to be distinguished in traces; a flat `task_run.{task_id}` loses that context",
+    "evidence": [
+      {
+        "pr": 63839,
+        "url": "https://github.com/apache/airflow/pull/63839#discussion_r2955115416",
+        "excerpt": "remove `_run` suffix; prefer `worker.{task_id}` or `task_run.worker.{task_id}`"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"
+    ]
+  },
+  {
+    "rule": "`VersionChange` subclass names must describe the schema migration performed (what field or model changes), not the behaviour of the old code being replaced",
+    "category": "naming",
+    "trigger": "A class that subclasses `VersionChange` is named after what the previous code did (e.g. `ValidateSomething`) rather than after the data-model delta (e.g. `ChangeFooToBar`)",
+    "rationale": "VersionChange subclasses exist solely to record upgrade/downgrade steps; naming them after old business logic misleads readers about the class's purpose",
+    "evidence": [
+      {
+        "pr": 63604,
+        "url": "https://github.com/apache/airflow/pull/63604#discussion_r2951083101",
+        "excerpt": "name should describe upgrade/downgrade behavior, not token validation"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/versions/"
+    ]
+  },
+  {
+    "rule": "Do not add application-level mutex lock tables to guard writes that SQLite already serialises; skip the lock for SQLite backends",
+    "category": "database",
+    "trigger": "A new ORM model used as a mutex lock (e.g. `MutexLock`, `LockTable`) is added and `session.add`/`session.delete` are used around a critical section without a SQLite exemption",
+    "rationale": "SQLite in WAL mode only allows one writer at a time, so a second application-level lock is redundant and adds unnecessary table overhead",
+    "evidence": [
+      {
+        "pr": 59183,
+        "url": "https://github.com/apache/airflow/pull/59183#discussion_r2608617724",
+        "excerpt": "SQLite WAL mode only allows one writer; simply skip the lock table"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/assets/manager.py"
+    ]
+  },
+  {
+    "rule": "Use `if TYPE_CHECKING: assert x is not None` to narrow a variable's type within a branch rather than widening a downstream function's signature to accept `None`",
+    "category": "correctness",
+    "trigger": "A function's parameter type is widened to `T | None` solely because a caller cannot statically prove the value is non-None at the call site, and the value is known to be non-None at runtime",
+    "rationale": "Adding `None` to a signature propagates the nullable type through callers and complicates the API; a `TYPE_CHECKING` assert narrows the type at the call site without runtime overhead",
+    "evidence": [
+      {
+        "pr": 62501,
+        "url": "https://github.com/apache/airflow/pull/62501#discussion_r3644880841",
+        "excerpt": "`if TYPE_CHECKING: assert dialect_name is not None` avoids adding None to signature"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/assets/manager.py"
+    ]
+  },
+  {
+    "rule": "Prefer `session.scalar()` or `session.scalars().one()` over `session.get()` with a composite primary-key dict when querying ORM models",
+    "category": "database",
+    "trigger": "`session.get(ModelClass, {\"key1\": val1, \"key2\": val2})` is used to look up a model with a composite primary key",
+    "rationale": "Composite-PK `session.get()` calls are fragile under schema changes; explicit `session.scalar(select(...).where(...))` makes the lookup columns visible and survives PK restructuring",
+    "evidence": [
+      {
+        "pr": 62501,
+        "url": "https://github.com/apache/airflow/pull/62501#discussion_r3425207396",
+        "excerpt": "`session.get()` with composite PK is difficult to maintain if schema changes"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/assets/manager.py"
+    ]
+  },
+  {
+    "rule": "Setting `_AIRFLOW_PROCESS_CONTEXT` must be centralised in the `action_cli` decorator (when `check_db=True`), not scattered at individual CLI command call sites",
+    "category": "correctness",
+    "trigger": "A CLI command manually sets or reads `os.environ[\"_AIRFLOW_PROCESS_CONTEXT\"]` inside the command body rather than relying on the `action_cli` decorator",
+    "rationale": "Centralising context setup in the decorator ensures all `check_db=True` CLI commands get the correct server context; per-call-site fixes leave other commands vulnerable to the same missing-context bug",
+    "evidence": [
+      {
+        "pr": 61036,
+        "url": "https://github.com/apache/airflow/pull/61036#discussion_r2933868112",
+        "excerpt": "setting context in `action_cli` decorator provides centralised solution matching PR description"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/cli/commands/"
+    ]
+  },
+  {
+    "rule": "When adding a new keyword argument to a DB-command callable passed to `run_db_migrate_command`, all concrete implementations of that callable (including `BaseDBManager.upgradedb` and `FABDBManager.upgradedb`) must accept the new kwarg",
+    "category": "correctness",
+    "trigger": "A new `kwarg` is forwarded to a `command(...)` call inside `run_db_migrate_command` but the corresponding `upgradedb` methods on `BaseDBManager` or `FABDBManager` are not updated to accept it",
+    "rationale": "`run_db_migrate_command` is shared by `fab-db migrate` and `db-manager migrate`; missing kwargs on any implementation cause a `TypeError` at runtime",
+    "evidence": [
+      {
+        "pr": 62234,
+        "url": "https://github.com/apache/airflow/pull/62234#discussion_r2914981218",
+        "excerpt": "`fab-db migrate` and `db-manager migrate` will crash with unexpected keyword argument"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/cli/commands/db_command.py"
+    ]
+  },
+  {
+    "rule": "CLI date arguments that document a `yyyy-mm-dd` format must strictly validate that format and reject ISO-8601 datetime strings (e.g. timestamps with a `T` component)",
+    "category": "correctness",
+    "trigger": "A CLI argument parsed with `parsedate` or similar permissive parser is documented as accepting only `yyyy-mm-dd` but is not validated to reject datetime strings with time components",
+    "rationale": "`parsedate` accepts timestamps like `2026-01-02T01:00:00`, silently bypassing date-only validation and producing unexpected range semantics",
+    "evidence": [
+      {
+        "pr": 66520,
+        "url": "https://github.com/apache/airflow/pull/66520#discussion_r3302862130",
+        "excerpt": "`parsedate` could bypass validation with `2026-01-02T01:00:00` as input"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/cli/commands/partition_command.py"
+    ]
+  },
+  {
+    "rule": "Only lazy-import a module inside a function body to break an import cycle; stdlib modules (`importlib`, `logging`) must always be imported at module top level",
+    "category": "correctness",
+    "trigger": "`import importlib`, `import logging`, or other stdlib modules appear inside a function body rather than at the top of the file",
+    "rationale": "Per Airflow's AGENTS.md, lazy imports are reserved for breaking import cycles (e.g. `from airflow.providers_manager import ProvidersManager`); stdlib lazy imports are unnecessary overhead",
+    "evidence": [
+      {
+        "pr": 66161,
+        "url": "https://github.com/apache/airflow/pull/66161#discussion_r3176620527",
+        "excerpt": "AGENTS.md says stdlib imports don't need to be lazy; only airflow import cycles do"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/dag_processing/bundles/manager.py"
+    ]
+  },
+  {
+    "rule": "Bundle names persisted in `DagBundleModel` rows and emitted in REST API responses must be finalised before the first release that ships them; renaming afterwards requires a DB migration",
+    "category": "database",
+    "trigger": "A new auto-generated bundle name string (e.g. via an f-string concatenating package names) is introduced in bundle-discovery code that writes to `DagBundleModel`",
+    "rationale": "Bundle names are stored in the database and returned by the REST API; any post-release rename requires a schema migration and breaks existing API consumers",
+    "evidence": [
+      {
+        "pr": 66161,
+        "url": "https://github.com/apache/airflow/pull/66161#discussion_r3176620533",
+        "excerpt": "persisted in DagBundleModel rows and REST API responses; renaming requires a migration"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/dag_processing/bundles/manager.py"
+    ]
+  },
+  {
+    "rule": "Columns added to SQLAlchemy `load_only()` clauses must be actually accessed by the downstream code that consumes the query result",
+    "category": "performance",
+    "trigger": "A column is added to a `load_only(...)` call in a query-builder function but no code path that calls that function reads the newly added column attribute",
+    "rationale": "Unnecessary columns in `load_only()` widen the SELECT unnecessarily, adding I/O and memory overhead with no benefit",
+    "evidence": [
+      {
+        "pr": 66488,
+        "url": "https://github.com/apache/airflow/pull/66488#discussion_r3212988421",
+        "excerpt": "downstream references to the statement don't access `run_after` at all"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/dag_processing/collection.py"
+    ]
+  },
+  {
+    "rule": "Use structlog keyword-argument style for all log calls; do not use `%s` positional format strings as log message arguments",
+    "category": "correctness",
+    "trigger": "A `log.info(...)`, `log.warning(...)`, or similar structlog call passes positional `%s` format arguments instead of keyword arguments for metadata fields",
+    "rationale": "Airflow uses structlog throughout; `%s` format strings bypass structlog's structured key-value output and make log events harder to query and filter",
+    "evidence": [
+      {
+        "pr": 68791,
+        "url": "https://github.com/apache/airflow/pull/68791#discussion_r3509515952",
+        "excerpt": "We use structlog, so provide short message with additional metadata with kwargs"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/dag_processing/collection.py"
+    ]
+  },
+  {
+    "rule": "Config entries in `config.yml` must document the meaning of all special sentinel values (e.g. `0` meaning \"disabled\" or \"unlimited\") in the `description` field",
+    "category": "docs",
+    "trigger": "A new config key with a numeric `default` of `0` (or another sentinel) is added to `config.yml` without the `description` explaining what `0` means",
+    "rationale": "Operators reading `config.yml` have no other source of truth for what a default of `0` means; omitting it forces them to read source code",
+    "evidence": [
+      {
+        "pr": 68133,
+        "url": "https://github.com/apache/airflow/pull/68133#discussion_r3392246837",
+        "excerpt": "description doesn't mention that `0` disables the limit"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/config_templates/config.yml"
+    ]
+  },
+  {
+    "rule": "A config `description` in `config.yml` must not reference Airflow features or model fields that do not exist at HEAD in the same PR",
+    "category": "docs",
+    "trigger": "A new config key's `description` mentions a field name or feature (e.g. `TaskInstanceDTO.language`) that is not present in the codebase in the same PR",
+    "rationale": "Config docs shipped before the feature they describe mislead operators into configuring something that has no effect, and the mismatch is hard to trace months later",
+    "evidence": [
+      {
+        "pr": 65958,
+        "url": "https://github.com/apache/airflow/pull/65958#discussion_r3307754498",
+        "excerpt": "description references `language` field on TaskInstanceDTO which doesn't exist at HEAD"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/config_templates/config.yml"
+    ]
+  },
+  {
+    "rule": "A new single-entry config section must not be created as a top-level section in `config.yml`; place the entry in the `core` section following the precedent of `xcom_backend` and similar singleton settings",
+    "category": "api-design",
+    "trigger": "A new top-level YAML section is added to `config.yml` containing only one config key, when no further keys are planned",
+    "rationale": "Single-entry top-level sections fragment the config namespace; Airflow convention is to place singleton backend/behaviour config keys under `core` (e.g. `xcom_backend`)",
+    "evidence": [
+      {
+        "pr": 65759,
+        "url": "https://github.com/apache/airflow/pull/65759#discussion_r3141820990",
+        "excerpt": "Should not open a section for a single entry; add to core like `xcom_backend`"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/config_templates/config.yml"
+    ]
+  }
+]

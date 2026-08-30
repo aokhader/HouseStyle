@@ -1,0 +1,202 @@
+[
+  {
+    "rule": "Within task-SDK coordinator modules, use `exc_info=True` as a structlog keyword argument instead of `error=str(exc)` when logging caught exceptions at debug/warning level, so the traceback is preserved for debuggability.",
+    "category": "providers",
+    "trigger": "log.debug(..., error=str(exc)) or log.warning(..., error=str(exc)) inside task-sdk/src/airflow/sdk/coordinators/",
+    "rationale": "exc_info is a special structlog key that attaches the full traceback; converting the exception to a string loses it and makes post-mortem debugging harder.",
+    "evidence": [
+      {
+        "pr": 68548,
+        "url": "https://github.com/apache/airflow/pull/68548#discussion_r3488536778",
+        "excerpt": "exc_info=True would keep the traceback for debuggability"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/coordinators/"]
+  },
+  {
+    "rule": "Do not define a separate `__version__` attribute inside `airflow.sdk.coordinators.*` sub-packages; the canonical distribution version is exposed only at `airflow.sdk.__version__`.",
+    "category": "api-design",
+    "trigger": "diff adds `__version__ = \"...\"` or `\"__version__\"` in `__all__` inside task-sdk/src/airflow/sdk/coordinators/*/",
+    "rationale": "Keeping a separate subpackage version risks confusion and stale or incorrect version reporting compared with the single Task SDK distribution version.",
+    "evidence": [
+      {
+        "pr": 67635,
+        "url": "https://github.com/apache/airflow/pull/67635#discussion_r3316173854",
+        "excerpt": "inconsistent with the rest of the Task SDK; risks confusion and stale version reporting"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/coordinators/"]
+  },
+  {
+    "rule": "Import `NotRequired` (and other symbols added in later Python minor versions) with a `try/except ImportError` stdlib-first fallback before importing from `typing_extensions`, to support the full Python version range Airflow targets.",
+    "category": "correctness",
+    "trigger": "diff adds a bare `from typing_extensions import NotRequired` (or similar backport) without a stdlib try/except guard",
+    "rationale": "Airflow supports multiple Python versions; unconditionally importing from typing_extensions bypasses the stdlib when available and is inconsistent with the project's compatibility pattern.",
+    "evidence": [
+      {
+        "pr": 54421,
+        "url": "https://github.com/apache/airflow/pull/54421#discussion_r2307741444",
+        "excerpt": "try: from typing import NotRequired except ImportError: from typing_extensions"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/definitions/"]
+  },
+  {
+    "rule": "Function-local imports are only permitted when a circular import makes a module-level import impossible; otherwise move all imports to module scope.",
+    "category": "correctness",
+    "trigger": "diff adds an import statement inside a function body where the same module is already imported at the top of the file or no circular-import comment explains the deferral",
+    "rationale": "Keeping imports at module scope avoids repeated imports, follows the project's import-style rules, and makes dependency relationships explicit.",
+    "evidence": [
+      {
+        "pr": 64563,
+        "url": "https://github.com/apache/airflow/pull/64563#discussion_r3025276601",
+        "excerpt": "move to module scope; project's import-style rules unless circular-import reason"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/definitions/"]
+  },
+  {
+    "rule": "Task-SDK mapper classes exported in the public API must fully implement all abstract methods of their base class (including `to_upstream()`); incomplete implementations must be kept abstract or unexported until finished.",
+    "category": "api-design",
+    "trigger": "diff adds a concrete mapper class in task-sdk/src/airflow/sdk/definitions/partition_mappers/ that inherits RollupMapper without overriding to_upstream()",
+    "rationale": "Exporting a class as usable when calls to an inherited method raise NotImplementedError misleads users and diverges from the airflow-core reference implementation.",
+    "evidence": [
+      {
+        "pr": 64571,
+        "url": "https://github.com/apache/airflow/pull/64571#discussion_r3066486451",
+        "excerpt": "calls to to_upstream() will raise NotImplementedError; implement or make abstract"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/definitions/partition_mappers/"]
+  },
+  {
+    "rule": "When a Task-SDK API method (e.g. `Variable.keys()`) only queries the metadata database and does not consult secrets backends, the docstring must include an explicit `.. note::` block documenting the asymmetry with `Variable.get()` and why secrets backends are excluded.",
+    "category": "docs",
+    "trigger": "diff adds a Variable.keys() or similar listing method in task-sdk/src/airflow/sdk/definitions/variable.py without a note about secrets-backend exclusion",
+    "rationale": "Users running AwsSecretsManagerBackend or other backends will reasonably expect listing APIs to match the lookup behaviour of Variable.get(); the omission must be intentional and documented.",
+    "evidence": [
+      {
+        "pr": 66022,
+        "url": "https://github.com/apache/airflow/pull/66022#discussion_r3215276676",
+        "excerpt": "add a note calling out that asymmetry is a deliberate design decision"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/definitions/variable.py"]
+  },
+  {
+    "rule": "Exception classes defined in `task-sdk/src/airflow/sdk/exceptions.py` that are only raised (and not caught) within the Task SDK must not be imported into `airflow-core`, even in tests; tests for those exceptions must reside in the SDK test tree.",
+    "category": "correctness",
+    "trigger": "diff imports an exception from airflow.sdk.exceptions inside airflow-core source or airflow-core/tests/",
+    "rationale": "Importing SDK exceptions into core creates an unwanted cross-boundary dependency; tests belong in the same component that owns the code under test.",
+    "evidence": [
+      {
+        "pr": 53389,
+        "url": "https://github.com/apache/airflow/pull/53389#discussion_r2284577067",
+        "excerpt": "not caught in the sdk; do not import in core even in tests; move tests to sdk"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/exceptions.py", "airflow-core/tests/"]
+  },
+  {
+    "rule": "The `supervise_callback` function must call `_make_process_nondumpable()` before spawning a subprocess, exactly as `supervise_task` does, to prevent core dumps from leaking secrets present in callback credentials (Notifier tokens, connection passwords, etc.).",
+    "category": "security",
+    "trigger": "diff adds or modifies a supervise_callback function in callback_supervisor.py without a call to _make_process_nondumpable()",
+    "rationale": "Callbacks handle connection credentials such as Slack tokens and PagerDuty keys; omitting _make_process_nondumpable() creates a secret-leakage risk via core dumps that supervise_task already guards against.",
+    "evidence": [
+      {
+        "pr": 62645,
+        "url": "https://github.com/apache/airflow/pull/62645#discussion_r2991911043",
+        "excerpt": "supervise_task calls _make_process_nondumpable(); supervise_callback does not"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/execution_time/callback_supervisor.py"]
+  },
+  {
+    "rule": "When invoking a callback callable with context kwargs, only pass `context` when `accepts_context` returns True AND the context value is not None; never forward `context=None` to a callback.",
+    "category": "correctness",
+    "trigger": "diff passes **callback_kwargs unconditionally to callback_callable when accepts_context() is True, without checking context is not None",
+    "rationale": "Callbacks that previously received no context argument would now receive context=None, breaking the old semantics and potentially crashing callbacks that do not expect a None context.",
+    "evidence": [
+      {
+        "pr": 62645,
+        "url": "https://github.com/apache/airflow/pull/62645#discussion_r3066378011",
+        "excerpt": "old code checked context is not None before including context"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/execution_time/callback_supervisor.py"]
+  },
+  {
+    "rule": "Exception log calls inside `callback_supervisor.py` must include structured identifying fields (`callback_id=`, `pid=`) to distinguish concurrent callback failures in logs, mirroring the `ActivitySubprocess` pattern in `supervisor.py`.",
+    "category": "correctness",
+    "trigger": "diff adds log.exception(...) or log.error(...) in callback_supervisor.py without callback_id or pid keyword arguments",
+    "rationale": "When multiple callbacks run concurrently a bare message is insufficient to correlate the log line with the failing callback; the ActivitySubprocess equivalent already sets this pattern.",
+    "evidence": [
+      {
+        "pr": 66379,
+        "url": "https://github.com/apache/airflow/pull/66379#discussion_r3284948214",
+        "excerpt": "multiple callbacks run concurrently; bare message won't tell you which failed"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/execution_time/callback_supervisor.py"]
+  },
+  {
+    "rule": "All datetime fields placed into a callback context dict must be wrapped with `coerce_datetime` (from `airflow.sdk._shared.timezones`) to produce `pendulum.DateTime` objects, consistent with `RuntimeTaskInstance.get_template_context()` and the triggerer-side context builder.",
+    "category": "correctness",
+    "trigger": "diff populates a context dict in callback_supervisor.py with datetime fields from DagRunResult or similar without calling coerce_datetime()",
+    "rationale": "Callbacks on the executor path would return stdlib datetime objects while triggerer/task callbacks return pendulum; user code calling .in_timezone() or .add(days=1) works on one path and crashes on the other.",
+    "evidence": [
+      {
+        "pr": 66608,
+        "url": "https://github.com/apache/airflow/pull/66608#discussion_r3307566706",
+        "excerpt": "executor-path callbacks get stdlib datetimes; triggerer-path get pendulum; inconsistent"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/execution_time/callback_supervisor.py"]
+  },
+  {
+    "rule": "When renaming message types in `comms.py`, update the message-type sync test allowlists in `airflow-core/tests/unit/dag_processing/test_processor.py` and `airflow-core/tests/unit/jobs/test_triggerer_job.py` in the same PR.",
+    "category": "testing",
+    "trigger": "diff renames a class in task-sdk/src/airflow/sdk/execution_time/comms.py that appears in ToTask or ToSupervisor without updating the corresponding hardcoded allowlists in test_processor.py or test_triggerer_job.py",
+    "rationale": "Both test files build the live type set from get_args(ToTask)/get_args(ToSupervisor) and diff it against hardcoded allowlists; a rename causes the new names to fall into task_diff/supervisor_diff and the assert-not-diff checks fail.",
+    "evidence": [
+      {
+        "pr": 67833,
+        "url": "https://github.com/apache/airflow/pull/67833#discussion_r3333837270",
+        "excerpt": "rename breaks message-type sync tests; allowlist entries must be updated"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/comms.py",
+      "airflow-core/tests/unit/dag_processing/test_processor.py",
+      "airflow-core/tests/unit/jobs/test_triggerer_job.py"
+    ]
+  },
+  {
+    "rule": "Partition keys accumulated for the same task instance must be stored as a set (deduplicated), not a list, consistent with how asset aliases handle repeated keys.",
+    "category": "correctness",
+    "trigger": "diff uses a list field (e.g. attrs.field(factory=list)) for partition_keys on a task-instance context object and appends without deduplication",
+    "rationale": "Asset aliases already use a set for keys to avoid duplicates within the same TI; partition_keys must follow the same pattern to avoid double-counting.",
+    "evidence": [
+      {
+        "pr": 65447,
+        "url": "https://github.com/apache/airflow/pull/65447#discussion_r3217147746",
+        "excerpt": "for the same ti, use a set; that's how asset alias work as well"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/execution_time/context.py"]
+  },
+  {
+    "rule": "In Asset lookup code, treat `Asset(uri=...)` as having `name == uri` (matching the DB storage convention), and do not treat `name=None` as a meaningful distinct state from `name=uri`.",
+    "category": "correctness",
+    "trigger": "diff introduces None-guarded name/uri paths in Asset or AssetRef handling inside task-sdk/src/airflow/sdk/execution_time/context.py without normalising name to uri when name is absent",
+    "rationale": "Asset(uri='x') is stored in the DB as (uri='x', name='x'); SDK code that leaves name=None diverges from the persistence model and causes lookup mismatches.",
+    "evidence": [
+      {
+        "pr": 66160,
+        "url": "https://github.com/apache/airflow/pull/66160#discussion_r3180943994",
+        "excerpt": "Asset(uri='uri') is basically Asset(uri='uri', name='uri') in the db"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/execution_time/context.py"]
+  }
+]

@@ -1,0 +1,293 @@
+[
+  {
+    "rule": "HITL XCom action fields that drive a poll loop must use Literal or Enum types, not bare str, to prevent infinite loops from typos",
+    "category": "correctness",
+    "trigger": "A dataclass or TypedDict field typed as `str` is used as a discriminator in a poll loop that checks for specific string values (e.g. \"approve\", \"reject\")",
+    "rationale": "A typo such as \"approved\" silently falls through all branches and causes the worker to loop forever; Literal/Enum validates at parse time before any polling begins",
+    "evidence": [
+      {
+        "pr": 63081,
+        "url": "https://github.com/apache/airflow/pull/63081#discussion_r2901184010",
+        "excerpt": "A typo like \"approved\" would cause the worker to loop forever"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/utils/hitl_review.py"
+    ]
+  },
+  {
+    "rule": "Each provider hook subclass must declare its own `default_conn_name` that matches its specific `conn_type`, not inherit a generic parent's connection name",
+    "category": "providers",
+    "trigger": "A hook subclass (e.g. `PydanticAIAzureHook`) does not override `default_conn_name` and inherits the parent's generic value",
+    "rationale": "Without its own `default_conn_name`, the subclass fetches connections typed for the parent hook, causing `conn_type` mismatches at runtime that tests may assert are intentional sharing when they are not",
+    "evidence": [
+      {
+        "pr": 62816,
+        "url": "https://github.com/apache/airflow/pull/62816#discussion_r2896204384",
+        "excerpt": "Consider giving each subclass its own `default_conn_name` (e.g. pydanticai_azure_default)"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/src/airflow/providers/common/ai/hooks/"
+    ]
+  },
+  {
+    "rule": "Tests for SQL safety/validation utilities must include a test case that exercises the exact call pattern used by the production operator (e.g. with `allowed_types=DEFAULT_ALLOWED_TYPES`)",
+    "category": "testing",
+    "trigger": "New tests for a validation function omit the call signature used by the operator that owns it, leaving the operator's code path untested",
+    "rationale": "LLMSQLQueryOperator calls validate_sql with allowed_types=DEFAULT_ALLOWED_TYPES; tests calling it without that arg miss the exact bypass the operator is vulnerable to",
+    "evidence": [
+      {
+        "pr": 64173,
+        "url": "https://github.com/apache/airflow/pull/64173#discussion_r2983533616",
+        "excerpt": "LLMSQLQueryOperator calls it with allowed_types=DEFAULT_ALLOWED_TYPES — adding a test for that call pattern would have caught the bypass"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/ai/tests/unit/common/ai/utils/test_sql_validation.py",
+      "providers/common/ai/src/airflow/providers/common/ai/operators/"
+    ]
+  },
+  {
+    "rule": "When a module is renamed or moved, the `common/compat/sdk.py` compatibility mapping must be updated to reflect the new module path",
+    "category": "api-design",
+    "trigger": "A module referenced in `providers/common/compat/src/airflow/providers/common/compat/sdk.py` is renamed but the mapping tuple still points to the old path",
+    "rationale": "The compat layer re-exports symbols by module path; stale entries silently break imports for consumers relying on backward compatibility",
+    "evidence": [
+      {
+        "pr": 59883,
+        "url": "https://github.com/apache/airflow/pull/59883#discussion_r2664998198",
+        "excerpt": "changed from listeners/ (module) to listener.py (file), but this wasn't updated"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/compat/src/airflow/providers/common/compat/sdk.py"
+    ]
+  },
+  {
+    "rule": "Example values in `provider.yaml` configuration entries must be valid runtime values accepted by the underlying library, not file-extension aliases",
+    "category": "docs",
+    "trigger": "A `provider.yaml` config entry has an `example:` value that is a file extension (e.g. `\"gz\"`) rather than the codec name the runtime code accepts (e.g. `\"gzip\"`)",
+    "rationale": "fsspec codec names differ from file extensions; using `gz` raises ValueError at runtime, while the class docstring and .rst already correctly use `gzip`",
+    "evidence": [
+      {
+        "pr": 68283,
+        "url": "https://github.com/apache/airflow/pull/68283#discussion_r3484539887",
+        "excerpt": "`state_store_objectstorage_compression = gz` raises ValueError: Compression 'gz' is not supported"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/io/provider.yaml"
+    ]
+  },
+  {
+    "rule": "AI-toolset-specific API (retry exception mappings, AI retry hooks) must not be added to `DbApiHook`; keep such concerns in the AI toolset layer",
+    "category": "api-design",
+    "trigger": "A class attribute or method whose only consumer is `common/ai` is added to `DbApiHook` or another base hook shared by 10+ provider hooks",
+    "rationale": "DbApiHook is the base for 25+ database hooks; adding AI-specific surface confuses contributors into treating it as a general mechanism and tightly couples the DB layer to the AI toolset contract",
+    "evidence": [
+      {
+        "pr": 63358,
+        "url": "https://github.com/apache/airflow/pull/63358#discussion_r2920847228",
+        "excerpt": "Adding AI-specific API surface to DbApiHook — the base for 25+ database hooks — may confuse future contributors"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/sql/src/airflow/providers/common/sql/hooks/sql.py"
+    ]
+  },
+  {
+    "rule": "Sync and deferred execution paths in an operator must emit equivalent log messages so task logs are comparable across both modes",
+    "category": "correctness",
+    "trigger": "A new sync code path in an operator that already has a deferred path omits progress log statements present in the deferred path (e.g. offset/page progress logging)",
+    "rationale": "Users debugging long-running transfers rely on task logs; divergent log output between sync and deferred modes makes pagination problems harder to diagnose in whichever path is active",
+    "evidence": [
+      {
+        "pr": 64321,
+        "url": "https://github.com/apache/airflow/pull/64321#discussion_r3173443439",
+        "excerpt": "the deferred branch logs \"Offset increased to %d\" after each page; the new sync loop has no equivalent"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/sql/src/airflow/providers/common/sql/operators/generic_transfer.py"
+    ]
+  },
+  {
+    "rule": "In `.pyi` stubs, parameters whose runtime default is config-driven (`default_deferrable`, `default_pool`, etc.) must use `...` as the stub default, not a hardcoded literal",
+    "category": "api-design",
+    "trigger": "A `.pyi` stub declares `deferrable: bool = False` (or another hardcoded literal) for a parameter whose runtime default reads from Airflow configuration",
+    "rationale": "Hardcoding `False` misleads API consumers and type checkers; the effective default is determined by `conf.getboolean(\"operators\", \"default_deferrable\")` at import time",
+    "evidence": [
+      {
+        "pr": 64321,
+        "url": "https://github.com/apache/airflow/pull/64321#discussion_r3025332237",
+        "excerpt": "runtime default is configuration-driven (`default_deferrable`). Consider using an unspecified default in the stub (e.g., `deferrable: bool = ...`)"
+      }
+    ],
+    "scope_paths": [
+      "providers/common/sql/src/airflow/providers/common/sql/operators/generic_transfer.pyi"
+    ]
+  },
+  {
+    "rule": "Optional provider dependencies must be guarded with a lazy import (try/except ImportError) rather than added as an unconditional entry in `pyproject.toml` dependencies",
+    "category": "providers",
+    "trigger": "A new package is added to the `dependencies` list in a provider's `pyproject.toml` where the package is only used in one optional code path",
+    "rationale": "Every provider dependency is installed for all users of that provider; unconditional additions cause unnecessary pip conflicts for users who do not need the feature",
+    "evidence": [
+      {
+        "pr": 63518,
+        "url": "https://github.com/apache/airflow/pull/63518#discussion_r2931283094",
+        "excerpt": "We can't install everything on every provider. Only things you actually need should be installed."
+      }
+    ],
+    "scope_paths": [
+      "providers/databricks/pyproject.toml",
+      "providers/standard/src/airflow/providers/standard/operators/python.py",
+      "providers/apache/impala/src/airflow/providers/apache/impala/hooks/impala.py"
+    ]
+  },
+  {
+    "rule": "When fixing authentication-dispatch precedence in a hook, include a regression test asserting the new ordering when multiple auth extras are simultaneously set",
+    "category": "testing",
+    "trigger": "A commit reorders if-branches in an `_get_token` or equivalent auth-dispatch method without adding a test for the case where both old and new conditions are truthy",
+    "rationale": "Without a test, the precedence fix can silently regress in a future refactor; the test must assert which credential source wins when both `federated_k8s` and `federated_aws` are configured",
+    "evidence": [
+      {
+        "pr": 69509,
+        "url": "https://github.com/apache/airflow/pull/69509#discussion_r3575243998",
+        "excerpt": "no regression test for it… a test asserting AWS takes precedence when both extras are set would guard against this silently regressing"
+      }
+    ],
+    "scope_paths": [
+      "providers/databricks/src/airflow/providers/databricks/hooks/databricks_base.py"
+    ]
+  },
+  {
+    "rule": "Deferred operator `get_job_status` implementations must handle expired or deleted remote jobs by returning a non-active/non-succeeded status that causes the mixin to resubmit, not raise",
+    "category": "async",
+    "trigger": "A `get_job_status` method in a deferred operator does not catch the not-found/404 error from the remote API and instead lets it propagate as a hard task failure",
+    "rationale": "Run history can expire or runs can be deleted on the remote side; propagating the error kills the task instead of allowing the mixin to resubmit a fresh run as `SparkSubmitOperator` does",
+    "evidence": [
+      {
+        "pr": 68974,
+        "url": "https://github.com/apache/airflow/pull/68974#discussion_r3474712130",
+        "excerpt": "SparkSubmitOperator sibling handles this case explicitly… maps a vanished job (K8s 404) to a 'NotFound' status… so the mixin resubmits fresh"
+      }
+    ],
+    "scope_paths": [
+      "providers/databricks/src/airflow/providers/databricks/operators/databricks.py"
+    ]
+  },
+  {
+    "rule": "In Databricks trigger constructors, pass `owner=caller` to validation helpers rather than `owner=self.__class__.__name__` to stay consistent with the existing `caller` attribution pattern",
+    "category": "api-design",
+    "trigger": "A validation helper call inside a trigger `__init__` uses `owner=self.__class__.__name__` when the constructor already accepts a `caller: str` parameter",
+    "rationale": "The `caller` argument carries more precise context (operator vs trigger) than the class name; diverging from it makes error messages inconsistent with the established pattern",
+    "evidence": [
+      {
+        "pr": 64960,
+        "url": "https://github.com/apache/airflow/pull/64960#discussion_r3066475855",
+        "excerpt": "consider passing `owner=caller` to keep error attribution consistent with existing patterns"
+      }
+    ],
+    "scope_paths": [
+      "providers/databricks/src/airflow/providers/databricks/triggers/databricks.py"
+    ]
+  },
+  {
+    "rule": "Provider `changelog.rst` entries must be concise; do not include methodology notes, PR descriptions, or \"add tests for…\" clauses inline in the changelog line",
+    "category": "docs",
+    "trigger": "A changelog entry in `docs/changelog.rst` contains parenthetical descriptions of test coverage, refactor rationale, or methodology (e.g. \"Add tests for best-effort cancellation semantics…\")",
+    "rationale": "Changelog entries are user-facing release notes; embedding implementation detail and test rationale makes them verbose and hard to scan",
+    "evidence": [
+      {
+        "pr": 67137,
+        "url": "https://github.com/apache/airflow/pull/67137#discussion_r3265575239",
+        "excerpt": "Refactor deferrable execution … Simplify trigger polling/control flow and propagate execution_timeout via defer (#66449)"
+      }
+    ],
+    "scope_paths": [
+      "providers/dbt/cloud/docs/changelog.rst"
+    ]
+  },
+  {
+    "rule": "Async provider hooks that call sync connection helpers must centralise version-gating logic in the `common` provider rather than duplicating version checks across individual provider hooks",
+    "category": "providers",
+    "trigger": "An async hook in an individual provider directly wraps a sync connection call with an inline version check instead of delegating to a helper in `providers/common`",
+    "rationale": "Centralising the version-gating in common/compat avoids every provider reimplementing the same check and drifting; issue #57018 tracks this pattern",
+    "evidence": [
+      {
+        "pr": 56911,
+        "url": "https://github.com/apache/airflow/pull/56911#discussion_r2453608665",
+        "excerpt": "add the if statement with version check in the common provider and then all the other providers can just make a simple call"
+      }
+    ],
+    "scope_paths": [
+      "providers/discord/src/airflow/providers/discord/hooks/discord_webhook.py"
+    ]
+  },
+  {
+    "rule": "In provider code, `Connection` must be imported from `airflow.models.connection`, not from `airflow.providers.common.compat.version_compat` or similar compat modules",
+    "category": "api-design",
+    "trigger": "A provider file imports `Connection` from a path other than `airflow.models.connection` (e.g. from `airflow.providers.common.compat.version_compat`)",
+    "rationale": "The compat module does not define Connection; importing from it causes runtime AttributeError and mypy errors",
+    "evidence": [
+      {
+        "pr": 56911,
+        "url": "https://github.com/apache/airflow/pull/56911#discussion_r2446899106",
+        "excerpt": "The Connection import should come from airflow.models.connection, not version_compat, since that module doesn't define it"
+      }
+    ],
+    "scope_paths": [
+      "providers/discord/src/airflow/providers/discord/hooks/discord_webhook.py"
+    ]
+  },
+  {
+    "rule": "Provider changelog `.. note::` entries about minimum Airflow version requirements must not overstate the constraint when the provider still supports older Airflow versions via conditional feature activation",
+    "category": "docs",
+    "trigger": "A `changelog.rst` note states a provider release *requires* Airflow X.Y when the provider actually still runs on older versions and only conditionally activates the new feature",
+    "rationale": "Overstating the minimum version causes users on older Airflow to unnecessarily pin or avoid the provider upgrade",
+    "evidence": [
+      {
+        "pr": 67920,
+        "url": "https://github.com/apache/airflow/pull/67920#discussion_r3344494286",
+        "excerpt": "Edge 3.8.0 supports the callback for Airflow 3.3+ but is still running with older 3.0+ releases as well"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/docs/changelog.rst"
+    ]
+  },
+  {
+    "rule": "Airflow metrics documentation must refer to the stats system generically (supporting both statsd and OpenTelemetry), not solely as \"statsd\"",
+    "category": "docs",
+    "trigger": "Documentation or comments describe Airflow's metrics/observability integration as \"statsd\" exclusively without mentioning OTel/OpenTelemetry",
+    "rationale": "Airflow supports both statsd and OpenTelemetry; referring only to statsd is misleading and will become incorrect for OTel users",
+    "evidence": [
+      {
+        "pr": 67328,
+        "url": "https://github.com/apache/airflow/pull/67328#discussion_r3379914136",
+        "excerpt": "Airflow supports both statsd and otel. It's misleading referring to the airflow metrics as just the statsd implementation"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/docs/edge_executor.rst"
+    ]
+  },
+  {
+    "rule": "SQL queries in Edge executor that filter on a newly-added DB column must guard against older schema versions where that column may not yet exist",
+    "category": "database",
+    "trigger": "A SQLAlchemy query in the Edge executor adds a `.where(Model.new_column == ...)` filter without a schema-version guard or migration check",
+    "rationale": "Edge executor targets multiple Airflow versions; filtering on a column that doesn't exist in older schemas raises OperationalError at runtime with no fallback",
+    "evidence": [
+      {
+        "pr": 61646,
+        "url": "https://github.com/apache/airflow/pull/61646#discussion_r2866510636",
+        "excerpt": "team_name filter here is always applied, regardless of Airflow version. This causes SQL errors if the column is absent"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/executors/edge_executor.py"
+    ]
+  }
+]

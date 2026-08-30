@@ -1,0 +1,142 @@
+[
+  {
+    "rule": "When an optional provider dependency is experimental or not yet default, place it in a named extras group rather than in the mandatory dependencies list",
+    "category": "providers",
+    "trigger": "pyproject.toml of a provider adds a new dependency that is experimental, a protocol upgrade (e.g. psycopg3), or explicitly described as optional",
+    "rationale": "Adding an optional/experimental library as a hard dependency forces it onto all users of the provider; reviewers require it be gated behind an extras group so users opt in consciously",
+    "evidence": [
+      {
+        "pr": 52976,
+        "url": "https://github.com/apache/airflow/pull/52976#discussion_r2288497540",
+        "excerpt": "add psycopg extra and move psycopg there; it's still experimental/optional"
+      }
+    ],
+    "scope_paths": ["providers/postgres/pyproject.toml"]
+  },
+  {
+    "rule": "Only pass new connection kwargs in a Hook when the user has explicitly provided them, to avoid breaking existing behaviour",
+    "category": "providers",
+    "trigger": "a Hook's get_conn() or connection-building method unconditionally passes a new keyword argument that previously had no default",
+    "rationale": "Unconditionally injecting new kwargs (e.g. catalog, source, query) into connection calls is a breaking change for existing users; reviewer requires guarding with 'only add if provided'",
+    "evidence": [
+      {
+        "pr": 56298,
+        "url": "https://github.com/apache/airflow/pull/56298#discussion_r2425171555",
+        "excerpt": "catalog, source, query variables might introduce breaking change; only add kwargs if user provides"
+      }
+    ],
+    "scope_paths": ["providers/presto/src/airflow/providers/presto/hooks/presto.py"]
+  },
+  {
+    "rule": "Use module-level try/except ImportError to detect optional library availability in providers; do not import optional libraries inside hook or operator methods at call time",
+    "category": "providers",
+    "trigger": "a provider hook or operator method contains a bare `import` or `from … import` statement for an optional third-party library inside a function body",
+    "rationale": "Airflow's guideline keeps imports at module level; runtime imports inside provider functions violate this and cause repeated import overhead; use a module-level sentinel set once",
+    "evidence": [
+      {
+        "pr": 61866,
+        "url": "https://github.com/apache/airflow/pull/61866#discussion_r3066481696",
+        "excerpt": "Importing DriverInfo inside get_conn() violates Airflow's guideline to keep imports at module level"
+      }
+    ],
+    "scope_paths": ["providers/redis/src/airflow/providers/redis/hooks/redis.py"]
+  },
+  {
+    "rule": "When embedding client-identification metadata, use the full provider package name (e.g. apache-airflow-providers-redis) rather than 'apache-airflow', so the version reported matches the component being identified",
+    "category": "providers",
+    "trigger": "provider code sets a client library name or driver_info string to 'apache-airflow' while using `provider_version`",
+    "rationale": "Reporting 'apache-airflow' with a provider version number misleads Redis (or other) admins; the name must match the versioned artefact — the provider package",
+    "evidence": [
+      {
+        "pr": 61866,
+        "url": "https://github.com/apache/airflow/pull/61866#discussion_r3066481752",
+        "excerpt": "reports apache-airflow with provider_version, does not match actual Airflow versions; use provider package name"
+      }
+    ],
+    "scope_paths": ["providers/redis/src/airflow/providers/redis/hooks/redis.py"]
+  },
+  {
+    "rule": "Use the NOTSET sentinel to distinguish 'user explicitly passed None' from 'parameter not provided' in Airflow 2.x compatibility code paths",
+    "category": "correctness",
+    "trigger": "code in an Airflow-2.x compat branch checks `getattr(self, attr) is not None` or `!= None` to decide whether a parameter was supplied by the user",
+    "rationale": "None is a valid user-supplied value; checking `is not NOTSET` is the correct Airflow idiom; using `is not None` causes false positives for default-None parameters",
+    "evidence": [
+      {
+        "pr": 62259,
+        "url": "https://github.com/apache/airflow/pull/62259#discussion_r3066493271",
+        "excerpt": "getattr … is not NOTSET or None treats None as 'set'; note with default None reported as unsupported"
+      }
+    ],
+    "scope_paths": ["providers/standard/src/airflow/providers/standard/operators/trigger_dagrun.py"]
+  },
+  {
+    "rule": "Do not set metadata[\"end_of_log\"] = True when a log-fetch returns an empty result set; empty results may mean logs are not yet indexed, not that the task has finished logging",
+    "category": "correctness",
+    "trigger": "a task-log handler sets end_of_log to True inside an else/empty branch triggered by an empty logs_by_host or equivalent empty response",
+    "rationale": "Prematurely marking end_of_log stops UI polling/streaming before task logs are available; the existing missing-log timeout logic should determine when to end",
+    "evidence": [
+      {
+        "pr": 64364,
+        "url": "https://github.com/apache/airflow/pull/64364#discussion_r3025329273",
+        "excerpt": "marks log complete even when no lines returned; logs not indexed yet; can prematurely stop UI polling"
+      }
+    ],
+    "scope_paths": ["providers/opensearch/src/airflow/providers/opensearch/log/os_task_handler.py"]
+  },
+  {
+    "rule": "When an optional SQLAlchemy or provider feature is unavailable at runtime, emit a warning rather than raising AirflowOptionalProviderFeatureException, so the method can still return partial results from the SQL parser",
+    "category": "providers",
+    "trigger": "an except ImportError block inside a provider method raises AirflowOptionalProviderFeatureException for a missing optional dependency that the surrounding method can partially work around",
+    "rationale": "Raising an exception aborts the entire method; a warning preserves partial functionality (e.g. sql_parser results) when only the optional SQLAlchemy path is unavailable",
+    "evidence": [
+      {
+        "pr": 59921,
+        "url": "https://github.com/apache/airflow/pull/59921#discussion_r2652901240",
+        "excerpt": "should not raise but warn; method should work fine without sqlalchemy"
+      }
+    ],
+    "scope_paths": ["providers/openlineage/src/airflow/providers/openlineage/sqlparser.py"]
+  },
+  {
+    "rule": "Every new authentication branch added to a Hook's _init_conn() or get_conn() must have a dedicated unit test asserting the correct client initialisation",
+    "category": "testing",
+    "trigger": "a provider Hook adds a new auth branch (e.g. oauth_token, api_key, certificate) with no corresponding test case covering that branch",
+    "rationale": "New auth code paths that are untested can silently regress or fall back to incorrect auth modes; reviewers require explicit coverage for each supported auth strategy",
+    "evidence": [
+      {
+        "pr": 64591,
+        "url": "https://github.com/apache/airflow/pull/64591#discussion_r3025323103",
+        "excerpt": "new oauth_token branch in _init_conn() not covered; add test with extra={\"oauth_token\": …}"
+      }
+    ],
+    "scope_paths": ["providers/zendesk/tests/unit/zendesk/hooks/test_zendesk.py"]
+  },
+  {
+    "rule": "The @provide_session enforcement script must check both posonlyargs and args when detecting a positional session parameter",
+    "category": "correctness",
+    "trigger": "the check_provide_session_kwargs CI script's positional-detection function inspects only args.args and omits args.posonlyargs",
+    "rationale": "A def f(session, /, …) signature places session in posonlyargs; omitting that field means the script silently misses violations and the @provide_session keyword-only invariant is not enforced",
+    "evidence": [
+      {
+        "pr": 67150,
+        "url": "https://github.com/apache/airflow/pull/67150#discussion_r3263751118",
+        "excerpt": "ignores posonlyargs; def f(session, /, …) not flagged; check both posonlyargs and args"
+      }
+    ],
+    "scope_paths": ["scripts/ci/prek/check_provide_session_kwargs.py"]
+  },
+  {
+    "rule": "OpenLineage DAG-run conf integration must strongly encourage all six parent and root ID fields; document that omitting root info is discouraged when the consumer supports ParentRunFacet 1.1.0",
+    "category": "docs",
+    "trigger": "documentation for the _openlineage conf dict lists parent/root fields as fully optional without noting the strong preference for providing all six when using ParentRunFacet 1.1.0",
+    "rationale": "There is no point in not providing root info when the downstream consumer understands ParentRunFacet 1.1.0; docs should strongly encourage completeness",
+    "evidence": [
+      {
+        "pr": 57809,
+        "url": "https://github.com/apache/airflow/pull/57809#discussion_r2494393036",
+        "excerpt": "strongly encourage all six; no point not providing root info when using ParentRunFacet 1.1.0"
+      }
+    ],
+    "scope_paths": ["providers/openlineage/docs/guides/user.rst"]
+  }
+]

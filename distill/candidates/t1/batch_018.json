@@ -1,0 +1,325 @@
+[
+  {
+    "rule": "Do not replace AirflowException with RuntimeError in operator/sensor/trigger error paths without auditing all callers that catch the original exception type.",
+    "category": "correctness",
+    "trigger": "diff removes `raise AirflowException(` and adds `raise RuntimeError(` inside an operator, sensor, or trigger",
+    "rationale": "Downstream code—operators, sensors, or other hooks in the same provider—may catch AirflowException specifically. Switching to RuntimeError silently breaks those catch sites without a compilation error.",
+    "evidence": [
+      {
+        "pr": 56936,
+        "url": "https://github.com/apache/airflow/pull/56936#discussion_r2449631897",
+        "excerpt": "Was there any other code catching the previous AirflowException that now needs updating?"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/",
+      "providers/amazon/src/airflow/providers/amazon/aws/sensors/",
+      "providers/amazon/src/airflow/providers/amazon/aws/triggers/"
+    ]
+  },
+  {
+    "rule": "In async trigger `run()` methods, define and explicitly handle distinct SUCCESS and FAILURE terminal states; do not collapse all non-transitional statuses into a single success event.",
+    "category": "async",
+    "trigger": "diff adds an `async def run()` trigger that yields a `TriggerEvent` without separate success/failure state handling, or compares status against a single string instead of an Enum",
+    "rationale": "Collapsing all non-transitional statuses into one yield path hides unexpected/error states. Triggers must define explicit SUCCESS and FAILURE sets and yield appropriately typed TriggerEvents for each, with unknown states and max-attempts yielding their own error events.",
+    "evidence": [
+      {
+        "pr": 67524,
+        "url": "https://github.com/apache/airflow/pull/67524#discussion_r3329167919",
+        "excerpt": "Define SUCCESS and FAILURE states and handle TriggerEvent emission explicitly for both."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/triggers/"
+    ]
+  },
+  {
+    "rule": "Use the provider-specific Enum (e.g., `DmsTaskWaiterStatus`) for state comparisons inside triggers and operators instead of raw string literals.",
+    "category": "correctness",
+    "trigger": "diff adds a comparison like `if status != \"<state_string>\"` inside a trigger or operator where a corresponding Enum already exists in the provider",
+    "rationale": "Raw strings diverge from the operator's Enum usage, creating inconsistency and making refactors error-prone. Reviewers require parity with how operators in the same provider reference states.",
+    "evidence": [
+      {
+        "pr": 67524,
+        "url": "https://github.com/apache/airflow/pull/67524#discussion_r3329167919",
+        "excerpt": "Use the ENUM for task state instead of raw strings to be consistent with the operator."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/triggers/"
+    ]
+  },
+  {
+    "rule": "Inside async trigger methods (including `safe_to_cancel()`), wrap synchronous DB/hook calls with `sync_to_async()` to prevent blocking the triggerer event loop.",
+    "category": "async",
+    "trigger": "diff adds a synchronous call (e.g., `self.get_task_instance()`, `hook.stop_query()`) inside an `async def` method of a `BaseTrigger` subclass without `await sync_to_async(...)`",
+    "rationale": "Synchronous DB queries or blocking hook calls inside the triggerer loop degrade reliability under load by blocking all other triggers running in the same loop. Airflow's `sync_to_async` is the prescribed escape hatch.",
+    "evidence": [
+      {
+        "pr": 64770,
+        "url": "https://github.com/apache/airflow/pull/64770#discussion_r3066476206",
+        "excerpt": "Both can block the triggerer loop and degrade reliability under load."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/triggers/"
+    ]
+  },
+  {
+    "rule": "In system tests, set `AIRFLOW_CONN_*` environment variables inside a `@task`-decorated function rather than at DAG parse time, so the connection is available in the same worker process that executes subsequent tasks.",
+    "category": "testing",
+    "trigger": "diff adds `os.environ[f\"AIRFLOW_CONN_...\"] = ...` at DAG-level scope (outside any `@task`) in a system test file",
+    "rationale": "Setting the env var at parse time only affects the process that parses the DAG. Executors that run each task in an isolated container (ECS, Batch, Lambda) will not inherit this env var; the connection must be set inside a task or stored in the DB.",
+    "evidence": [
+      {
+        "pr": 66976,
+        "url": "https://github.com/apache/airflow/pull/66976#discussion_r3270512477",
+        "excerpt": "Executors like ECS, Batch and Lambda won't read env var set in another container."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/system/amazon/aws/"
+    ]
+  },
+  {
+    "rule": "System tests must annotate each task chain step with its phase: setup, test body, or teardown—mirroring the pattern used in canonical examples such as `example_sqs.py`.",
+    "category": "testing",
+    "trigger": "diff adds a `chain(...)` call in a system test file without inline comments or task naming that distinguishes setup / test / teardown phases",
+    "rationale": "Airflow system tests follow a structured three-phase layout (setup → test body → teardown) so contributors can quickly identify which tasks are infrastructure preparation versus assertions. Reviewers explicitly request this annotation pattern.",
+    "evidence": [
+      {
+        "pr": 65789,
+        "url": "https://github.com/apache/airflow/pull/65789#discussion_r3139313496",
+        "excerpt": "Annotate system test steps with setup, test body, and teardown."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/system/amazon/aws/"
+    ]
+  },
+  {
+    "rule": "System tests must be validated by running them locally before submission; reviewers will reject system tests that have not been exercised end-to-end.",
+    "category": "testing",
+    "trigger": "diff adds or substantially modifies a file matching `providers/*/tests/system/**/*.py`",
+    "rationale": "Multiple CI failures were traced to system tests that were never run locally. Reviewers explicitly ask authors to confirm local execution before merging.",
+    "evidence": [
+      {
+        "pr": 66549,
+        "url": "https://github.com/apache/airflow/pull/66549#discussion_r3228605455",
+        "excerpt": "Did you run the system test locally to be sure it is running successfully?"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/system/amazon/aws/"
+    ]
+  },
+  {
+    "rule": "In system test DAGs, read external variables (e.g., role ARNs from `SystemTestContextBuilder`) and perform connection setup inside a `@task`-decorated function so XCom resolution happens at task runtime, not at DAG-parse time.",
+    "category": "testing",
+    "trigger": "diff adds code that reads `os.environ[<VAR>]` or constructs a connection string at module/DAG-definition scope in a system test file",
+    "rationale": "Variables exported by `SystemTestContextBuilder` are XCom-resolved at runtime. Reading them at parse time fails or produces stale values; the reviewer's pattern wraps this block in a `@task` and passes the value via XCom.",
+    "evidence": [
+      {
+        "pr": 66976,
+        "url": "https://github.com/apache/airflow/pull/66976#discussion_r3252367756",
+        "excerpt": "Defers the role-ARN read to task runtime (XCom-resolved from test_context)."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/system/amazon/aws/"
+    ]
+  },
+  {
+    "rule": "In `pytest.raises` blocks that test a specific AWS `ClientError` error code, add a `match=` parameter to assert the exact error code rather than any `ClientError`.",
+    "category": "testing",
+    "trigger": "diff adds `pytest.raises(ClientError)` without a `match=` argument in a provider unit test",
+    "rationale": "Without `match=`, the test accepts any `ClientError`, including unrelated ones, making it possible for the test to pass on the wrong error path. Reviewers require matching the specific error code string.",
+    "evidence": [
+      {
+        "pr": 66891,
+        "url": "https://github.com/apache/airflow/pull/66891#discussion_r3244164924",
+        "excerpt": "Ensures the test validates the right error path, not just any ClientError."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/unit/amazon/aws/"
+    ]
+  },
+  {
+    "rule": "Remove unused `moto` fixtures and their associated `mock_aws` imports from unit tests; do not leave moto infrastructure in a test module that does not exercise real AWS API calls.",
+    "category": "testing",
+    "trigger": "diff adds a `@pytest.fixture` that wraps a hook with `mock_aws()` context manager but the fixture is not referenced by any test function in the same module",
+    "rationale": "Unused moto fixtures import an unnecessary dependency in unit tests and add maintenance overhead for the OSS project with a limited contributor roster.",
+    "evidence": [
+      {
+        "pr": 64274,
+        "url": "https://github.com/apache/airflow/pull/64274#discussion_r3025348535",
+        "excerpt": "Drop this import to avoid an unnecessary dependency in unit tests."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/unit/amazon/aws/"
+    ]
+  },
+  {
+    "rule": "Avoid redundant unit tests that exercise the same code paths as more complex tests already present; prefer fewer, higher-value tests over exhaustive branch-by-branch coverage.",
+    "category": "testing",
+    "trigger": "diff adds multiple small test functions each testing a single simple branch that is also exercised as a sub-case of an existing broader test in the same file",
+    "rationale": "In OSS Airflow every test line requires ongoing maintenance by a small volunteer contributor base. AI-generated test suites often duplicate coverage excessively; reviewers ask that simpler tests be removed if a complex test already covers those branches.",
+    "evidence": [
+      {
+        "pr": 64545,
+        "url": "https://github.com/apache/airflow/pull/64545#discussion_r3018832289",
+        "excerpt": "If complex tests cover simpler ones, please remove the simpler ones entirely."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/unit/amazon/aws/"
+    ]
+  },
+  {
+    "rule": "In caplog-based trigger tests, call `caplog.set_level(\"INFO\")` before invoking the method under test to prevent environment-dependent log-capture failures.",
+    "category": "testing",
+    "trigger": "diff adds an `async def test_*` that calls a trigger method and then asserts on `caplog.records` or `caplog.text` without first setting `caplog.set_level(...)`",
+    "rationale": "Without an explicit capture level, caplog may silently drop INFO records depending on the test environment's root logger level, causing flaky test failures.",
+    "evidence": [
+      {
+        "pr": 64342,
+        "url": "https://github.com/apache/airflow/pull/64342#discussion_r3025334221",
+        "excerpt": "Set caplog.set_level(\"INFO\") to avoid environment-dependent flakiness."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/tests/unit/amazon/aws/triggers/"
+    ]
+  },
+  {
+    "rule": "Prefer using the provider's existing Hook class (e.g., `KafkaProducerHook`) rather than constructing the underlying client directly inside operator or listener code.",
+    "category": "providers",
+    "trigger": "diff constructs a provider client (e.g., `confluent_kafka.Producer(...)`) directly inside operator, trigger, or listener code where a corresponding Hook already wraps that client",
+    "rationale": "Bypassing the hook layer duplicates connection-management logic that the hook already encapsulates and diverges from Airflow's provider architecture where all client construction belongs in Hooks.",
+    "evidence": [
+      {
+        "pr": 68082,
+        "url": "https://github.com/apache/airflow/pull/68082#discussion_r3367594185",
+        "excerpt": "Leverage KafkaProducerHook instead of constructing ourselves, which duplicates hook features."
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/kafka/src/airflow/providers/apache/kafka/"
+    ]
+  },
+  {
+    "rule": "Trigger resource-holder attributes (e.g., a consumer or client stored on `self`) must be initialised to `None` in `__init__` and reset to `None` after cleanup to make the cleanup method idempotent.",
+    "category": "async",
+    "trigger": "diff assigns `self.<resource>` for the first time inside `async def run()` (or another non-`__init__` method) of a `BaseTrigger` subclass",
+    "rationale": "Dynamically injected instance attributes skip type-checker visibility and make cleanup non-idempotent: if `cleanup()` is called twice the second call may attempt to close an already-closed resource. Initialising to None in `__init__` and clearing after close prevents both issues.",
+    "evidence": [
+      {
+        "pr": 64612,
+        "url": "https://github.com/apache/airflow/pull/64612#discussion_r3025696227",
+        "excerpt": "Initialize _consumer to None in __init__; set back to None after closing."
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/kafka/src/airflow/providers/apache/kafka/triggers/"
+    ]
+  },
+  {
+    "rule": "New provider dependencies (e.g., `requests`) used in provider source code must be declared in the provider's `pyproject.toml` before the code that uses them is merged.",
+    "category": "providers",
+    "trigger": "diff adds `import <package>` inside `providers/<name>/src/` where `<package>` is not listed as a dependency in `providers/<name>/pyproject.toml`",
+    "rationale": "Using an undeclared import makes the provider installable only when the implicit dependency happens to be present. Reviewers flag this as a missing `pyproject.toml` entry that must land before or alongside the consuming code.",
+    "evidence": [
+      {
+        "pr": 65991,
+        "url": "https://github.com/apache/airflow/pull/65991#discussion_r3311352887",
+        "excerpt": "requests still isn't a declared dependency in providers/apache/spark/pyproject.toml."
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/src/airflow/providers/apache/spark/",
+      "providers/apache/spark/pyproject.toml"
+    ]
+  },
+  {
+    "rule": "Operator parameters that are initialised in `__init__` must be declared as constructor arguments; do not reference `self.<param>` in `execute()` if the parameter was never added to `__init__`.",
+    "category": "correctness",
+    "trigger": "diff adds a reference to `self.<param>` inside `execute()` or `execute_complete()` of an operator where the same `<param>` is not present in the class `__init__` signature",
+    "rationale": "Tests and user code that instantiate the operator without the undeclared argument will raise a TypeError at instantiation time, breaking the operator entirely.",
+    "evidence": [
+      {
+        "pr": 62560,
+        "url": "https://github.com/apache/airflow/pull/62560#discussion_r2906152480",
+        "excerpt": "The operator currently doesn't accept that argument; tests will fail at operator instantiation."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/"
+    ]
+  },
+  {
+    "rule": "State-tracking attributes that represent submission/execution status must be initialised in `__init__` and must not be reset inside the method that drives the operation (e.g., `submit()`).",
+    "category": "correctness",
+    "trigger": "diff assigns a state-tracking attribute (e.g., `self._yarn_application_submitted = False`) at the top of an operation method (`submit`, `execute`, `run`) rather than in `__init__`",
+    "rationale": "Re-initialising a status flag inside the method that tracks that status is confusing and can mask bugs on retry paths where the flag should retain its previous state. Reviewers require such attributes to live only in `__init__`.",
+    "evidence": [
+      {
+        "pr": 65991,
+        "url": "https://github.com/apache/airflow/pull/65991#discussion_r3237175340",
+        "excerpt": "Confusing to set a submission-status variable to false in a method called submit."
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/src/airflow/providers/apache/spark/hooks/"
+    ]
+  },
+  {
+    "rule": "In `SparkSubmitHook.submit()`, post-submit commands or cleanup called after the job completes must be wrapped in a `try/finally` block so they execute regardless of whether the job succeeded or failed.",
+    "category": "correctness",
+    "trigger": "diff adds a method call (e.g., `self._run_post_submit_commands()`) after an `AirflowException` raise site inside `SparkSubmitHook.submit()` without a `try/finally` guard",
+    "rationale": "Any AirflowException raised for non-zero return codes or bad driver status will bypass the post-submit call. If the intent is always-run cleanup, `try/finally` is required; otherwise the docstring must explicitly state commands run only on success.",
+    "evidence": [
+      {
+        "pr": 64391,
+        "url": "https://github.com/apache/airflow/pull/64391#discussion_r3025334221",
+        "excerpt": "Any AirflowException will bypass the post-submit cleanup entirely."
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"
+    ]
+  },
+  {
+    "rule": "Spark provider documentation for K8s-API tracking must note that the worker's kube client is used for pod tracking and that the K8s path bypasses `ResumableJobMixin`, causing retries to submit a fresh driver instead of reattaching.",
+    "category": "docs",
+    "trigger": "diff adds or modifies a **Requirements** or **Caveats** section for K8s-based Spark submission in `providers/apache/spark/docs/`",
+    "rationale": "Users enabling K8s-API tracking assume the worker's kube client can reach the API server and that retry semantics are preserved. Both assumptions can fail silently; reviewers require these limitations to be explicitly documented.",
+    "evidence": [
+      {
+        "pr": 67715,
+        "url": "https://github.com/apache/airflow/pull/67715#discussion_r3336889369",
+        "excerpt": "K8s-API tracking path bypasses ResumableJobMixin; retries submit a fresh driver."
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/docs/"
+    ]
+  },
+  {
+    "rule": "Spark provider documentation describing failure modes must note that conflicts can arise when a resubmitted job is not idempotent, not only that compute is wasted.",
+    "category": "docs",
+    "trigger": "diff adds prose about worker-crash / job-resubmission behaviour in `providers/apache/spark/docs/` without mentioning idempotency conflicts",
+    "rationale": "Reviewers explicitly added 'or even cause conflict if the Spark job itself is not designed to be idempotent' to ensure users understand resubmission risks beyond simple compute waste.",
+    "evidence": [
+      {
+        "pr": 67118,
+        "url": "https://github.com/apache/airflow/pull/67118#discussion_r3290410720",
+        "excerpt": "Cause conflict if the Spark job itself is not designed to be idempotent."
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/docs/"
+    ]
+  }
+]

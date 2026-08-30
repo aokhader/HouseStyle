@@ -1,0 +1,227 @@
+[
+  {
+    "rule": "Assert trigger.serialize() by checking isinstance(result, tuple), the fully-qualified class-path string via __module__.__name__, and the complete args dict.",
+    "category": "testing",
+    "trigger": "diff adds assertions on trigger.serialize() that destructure the result without verifying the tuple type or the class-path format",
+    "rationale": "Trigger serialization is a first-class Airflow contract; the class-path string must survive across restarts. Asserting only selected fields lets regressions in the path or missing args go undetected.",
+    "evidence": [
+      {
+        "pr": 62391,
+        "url": "https://github.com/apache/airflow/pull/62391#discussion_r2849015599",
+        "excerpt": "assert isinstance(actual, tuple) … assert actual[0] == f\"{….__module__}.{….__name__}\""
+      }
+    ],
+    "scope_paths": [
+      "providers/microsoft/azure/tests/unit/microsoft/azure/triggers/"
+    ]
+  },
+  {
+    "rule": "When a trigger uses time.monotonic() for its deadline, construct deadline values with time.monotonic() in tests too — never mix time.time() and time.monotonic() across trigger and test.",
+    "category": "async",
+    "trigger": "diff adds a trigger deadline constant (e.g. END_TIME = time.time() + ...) while the trigger implementation uses time.monotonic()",
+    "rationale": "Mixing wall-clock and monotonic clock sources in the same timeout path produces tests that silently validate the wrong behaviour; the reviewer flagged this as a correctness issue for timeout tests.",
+    "evidence": [
+      {
+        "pr": 66815,
+        "url": "https://github.com/apache/airflow/pull/66815#discussion_r3322963355",
+        "excerpt": "test should also use time.monotonic() when constructing BATCH_END_TIME"
+      }
+    ],
+    "scope_paths": [
+      "providers/microsoft/azure/tests/unit/microsoft/azure/triggers/"
+    ]
+  },
+  {
+    "rule": "When refactoring the OpenLineage no-extractor branch, do not silently drop the unknownSourceAttribute facet or inlets/outlets fallback on the default hook_lineage=True configuration.",
+    "category": "providers",
+    "trigger": "diff changes the else/elif branching around extract_metadata's no-extractor path in openlineage/extractors/manager.py",
+    "rationale": "On the default config (hook_lineage=True) an operator with no registered extractor and no hook-collected lineage must still emit the unknownSourceAttribute facet and manually-declared inlets/outlets; losing them is a silent lineage-content regression.",
+    "evidence": [
+      {
+        "pr": 66992,
+        "url": "https://github.com/apache/airflow/pull/66992#discussion_r3322897988",
+        "excerpt": "broad, silent lineage-content regression on the default configuration"
+      }
+    ],
+    "scope_paths": [
+      "providers/openlineage/src/airflow/providers/openlineage/extractors/"
+    ]
+  },
+  {
+    "rule": "When refactoring the OpenLineage extractor manager, ensure test_manager.py is updated to cover any modified branching paths.",
+    "category": "testing",
+    "trigger": "diff modifies openlineage/extractors/manager.py without any corresponding change to tests/unit/openlineage/plugins/test_manager.py",
+    "rationale": "Reviewer noted no test covers the affected path — test_manager.py was not modified by the PR, so CI won't catch it.",
+    "evidence": [
+      {
+        "pr": 66992,
+        "url": "https://github.com/apache/airflow/pull/66992#discussion_r3322897988",
+        "excerpt": "No test covers this path — test_manager.py was not modified by the PR"
+      }
+    ],
+    "scope_paths": [
+      "providers/openlineage/src/airflow/providers/openlineage/extractors/",
+      "providers/openlineage/tests/unit/openlineage/plugins/"
+    ]
+  },
+  {
+    "rule": "Do not add new keyword arguments to BaseExtractor subclass constructors without maintaining backward compatibility with the public __init__(self, operator) signature.",
+    "category": "api-design",
+    "trigger": "diff adds a new keyword argument to an extractor's __init__ and passes it unconditionally from _get_extractor()",
+    "rationale": "Custom extractors following the previously-public shape __init__(self, operator) will raise TypeError at construction, dropping the entire task event instead of merely omitting the new feature.",
+    "evidence": [
+      {
+        "pr": 66992,
+        "url": "https://github.com/apache/airflow/pull/66992#discussion_r3322901303",
+        "excerpt": "Custom extractors … will raise TypeError at construction — before extraction begins"
+      }
+    ],
+    "scope_paths": [
+      "providers/openlineage/src/airflow/providers/openlineage/extractors/"
+    ]
+  },
+  {
+    "rule": "When a provider moves an import from airflow.listeners (or any airflow-core module) to airflow.providers.common.compat.sdk, bump the minimum required airflow-core version indicator used by the providers release manager.",
+    "category": "providers",
+    "trigger": "diff replaces `from airflow.listeners import hookimpl` (or similar core import) with `from airflow.providers.common.compat.sdk import … hookimpl`",
+    "rationale": "Without bumping the version indicator the provider will be released against an airflow-core version that does not yet expose the symbol via common.compat.sdk, breaking the provider at runtime.",
+    "evidence": [
+      {
+        "pr": 59883,
+        "url": "https://github.com/apache/airflow/pull/59883#discussion_r2653089623",
+        "excerpt": "bump the version required … otherwise this will break OL"
+      }
+    ],
+    "scope_paths": [
+      "providers/openlineage/src/airflow/providers/openlineage/plugins/"
+    ]
+  },
+  {
+    "rule": "Do not call logging.shutdown() inside a provider listener without verifying the call is isolated and cannot affect global Airflow logging.",
+    "category": "providers",
+    "trigger": "diff adds logging.shutdown() inside a provider's listener plugin (e.g. openlineage/plugins/listener.py)",
+    "rationale": "logging.shutdown() is process-global; calling it from a provider listener can silently discard buffered log records from other parts of the Airflow process.",
+    "evidence": [
+      {
+        "pr": 64843,
+        "url": "https://github.com/apache/airflow/pull/64843#discussion_r3045965439",
+        "excerpt": "any implications of doing that in a provider, for other logs flowing in airflow"
+      }
+    ],
+    "scope_paths": [
+      "providers/openlineage/src/airflow/providers/openlineage/plugins/"
+    ]
+  },
+  {
+    "rule": "When a provider raises AirflowOptionalProviderFeatureException for a missing optional dependency, the install hint must use `pip install --upgrade <package>`, not bare `pip install <package>`.",
+    "category": "providers",
+    "trigger": "diff adds an AirflowOptionalProviderFeatureException with an install hint string that does not include `--upgrade`",
+    "rationale": "Users may already have an older version installed; --upgrade ensures they get the version that includes the required feature.",
+    "evidence": [
+      {
+        "pr": 69526,
+        "url": "https://github.com/apache/airflow/pull/69526#discussion_r3554175771",
+        "excerpt": "pip install --upgrade pgvector"
+      }
+    ],
+    "scope_paths": [
+      "providers/"
+    ]
+  },
+  {
+    "rule": "In the Postgres hook, do not gate psycopg3 notice-logging with an early return when enable_log_db_messages=True; implement separate psycopg3 notice handling instead of skipping it entirely.",
+    "category": "providers",
+    "trigger": "diff adds `if USE_PSYCOPG3 or not self.enable_log_db_messages: return` before the notice-logging loop in postgres.py",
+    "rationale": "The early return silently disables notice logging for psycopg3 even when the user has explicitly enabled it via enable_log_db_messages=True.",
+    "evidence": [
+      {
+        "pr": 52976,
+        "url": "https://github.com/apache/airflow/pull/52976#discussion_r2281017973",
+        "excerpt": "prevents any logging … should handle psycopg3 notice logging differently"
+      }
+    ],
+    "scope_paths": [
+      "providers/postgres/src/airflow/providers/postgres/hooks/"
+    ]
+  },
+  {
+    "rule": "Retryable-error tuples in the Postgres hook must use the narrowest psycopg error subclasses (e.g. UndefinedColumn, UndefinedTable) from the correct package (psycopg for v3, psycopg2 for v2) — never a broad class like OperationalError.",
+    "category": "database",
+    "trigger": "diff defines a _POSTGRES_RETRYABLE_ERRORS tuple that includes psycopg.OperationalError or any other broad psycopg exception class",
+    "rationale": "OperationalError covers connection failures, timeouts, OOM, and disk I/O errors — none fixable by retrying a query. Only schema-mismatch errors like UndefinedColumn/UndefinedTable justify automatic retry.",
+    "evidence": [
+      {
+        "pr": 63358,
+        "url": "https://github.com/apache/airflow/pull/63358#discussion_r2920847230",
+        "excerpt": "OperationalError covers connection failures … none of which can be fixed by rewriting a query"
+      }
+    ],
+    "scope_paths": [
+      "providers/postgres/src/airflow/providers/postgres/hooks/"
+    ]
+  },
+  {
+    "rule": "Task-log handlers that implement delete_local_copy must delete only the specific uploaded log file (path.unlink()), not its entire parent directory via shutil.rmtree().",
+    "category": "correctness",
+    "trigger": "diff uses shutil.rmtree(os.path.dirname(log_file)) inside a task log handler's upload-and-delete path",
+    "rationale": "shutil.rmtree on the parent directory removes sibling task logs or even the base log directory, depending on the path layout.",
+    "evidence": [
+      {
+        "pr": 64364,
+        "url": "https://github.com/apache/airflow/pull/64364#discussion_r3025329231",
+        "excerpt": "can remove other task logs … Prefer deleting only the uploaded file"
+      }
+    ],
+    "scope_paths": [
+      "providers/opensearch/src/airflow/providers/opensearch/log/"
+    ]
+  },
+  {
+    "rule": "In provider-layer utility classes, a ClassVar dict used as an in-process cache is acceptable because provider worker processes are short-lived.",
+    "category": "performance",
+    "trigger": "diff adds a ClassVar[dict] cache to a provider utility class and a reviewer questions whether it could grow unboundedly",
+    "rationale": "Provider code executes inside short-lived worker/trigger processes; a class-level cache does not accumulate across DAG runs the way it would in a long-running scheduler.",
+    "evidence": [
+      {
+        "pr": 69109,
+        "url": "https://github.com/apache/airflow/pull/69109#discussion_r3502799712",
+        "excerpt": "short lived processes as this code will run in the provider layer"
+      }
+    ],
+    "scope_paths": [
+      "providers/openlineage/src/airflow/providers/openlineage/utils/"
+    ]
+  },
+  {
+    "rule": "When extracting fields from a DagRun, read attributes that exist directly on the DagRun model (e.g. dagrun.team_name) instead of re-deriving them via dag_version_info().",
+    "category": "correctness",
+    "trigger": "diff reads a DagRun attribute by calling cls.dag_version_info(dagrun, \"field_name\") when that field is already a direct attribute on DagRun",
+    "rationale": "DagRun already carries the team_name attribute directly; routing through dag_version_info() adds indirection and may break if the version record is absent.",
+    "evidence": [
+      {
+        "pr": 69109,
+        "url": "https://github.com/apache/airflow/pull/69109#discussion_r3502818094",
+        "excerpt": "The dagrun already has the team name … Do you need it from the dag version info?"
+      }
+    ],
+    "scope_paths": [
+      "providers/openlineage/src/airflow/providers/openlineage/utils/"
+    ]
+  },
+  {
+    "rule": "In the Redis provider, trigger and queue implementations must accept host/port exclusively via redis_conn_id — not via raw host:port in the queue URI.",
+    "category": "providers",
+    "trigger": "diff adds a RedisPubSubMessageQueueProvider or AwaitMessageTrigger that parses host:port from the queue URI string",
+    "rationale": "AwaitMessageTrigger only accepts a redis_conn_id parameter for host/port; raw host:port parsing creates a code path that is silently unused.",
+    "evidence": [
+      {
+        "pr": 53556,
+        "url": "https://github.com/apache/airflow/pull/53556#discussion_r2256344482",
+        "excerpt": "Redis AwaitMessageTrigger only accepts using connection (redis_conn_id) to specify host and port"
+      }
+    ],
+    "scope_paths": [
+      "providers/redis/src/airflow/providers/redis/"
+    ]
+  }
+]

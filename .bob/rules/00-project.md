@@ -11,22 +11,26 @@ These rules apply to every mode and every phase of the project.
 
 ## Privacy — GitHub identity
 
-- **Never store a GitHub username** (login, display name, or any derivative) in any committed
-  artifact, rule file, Skill file, or dashboard asset.
-- Reviewer identity must be pseudonymised: compute `sha256(login)`, take the first 12 hex
-  characters, and store only that hash.
+- **Never store a GitHub username** (login, display name, or any derivative) anywhere — including
+  `data/`. This applies to committed artifacts, rule files, Skill files, dashboard assets, and
+  raw harvested JSON alike.
+- Reviewer identity must be pseudonymised at harvest time: compute `sha256(login)`, take the
+  first 12 hex characters, and store only that hash.
 - Example: `alice` → `sha256("alice")[:12]` → `"2bd806c97f09"`.
 
 ## Privacy — comment content
 
-- **Never reproduce a review comment body verbatim** in any committed artifact.
-- Store: the comment URL and an excerpt of **at most 15 words** (truncated mid-sentence is fine).
-- The full text lives only in `data/` (gitignored) and is used transiently during distillation.
+`data/` is gitignored working storage. Full comment bodies and full diff hunks are stored there
+in full — they are the raw material for distillation and must be preserved faithfully.
+
+Committed artifacts (`.bob/rules/**`, `dashboard/**`, `eval/results.*`, and anything else tracked
+by git) must never reproduce a review comment verbatim. They carry only the comment URL and an
+excerpt of **at most 15 words** (truncated mid-sentence is fine).
 
 ## Data storage
 
-- Everything under `data/` is **gitignored**. Raw harvested JSON never leaves the local machine
-  unless the developer explicitly decides otherwise.
+- Everything under `data/` is **gitignored**. Raw harvested JSON (including full comment bodies
+  and diff hunks) never leaves the local machine unless the developer explicitly decides otherwise.
 - Everything under `.bob/` (rules, skills, mode AGENTS files) is **committed** and version-controlled.
 
 ## Filtering philosophy

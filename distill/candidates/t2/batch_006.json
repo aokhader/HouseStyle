@@ -1,0 +1,249 @@
+[
+  {
+    "rule": "Use `is None` (not falsiness) when testing `dag.fileloc` in the DAG-bag loader, because ZIP-importer paths may be a non-empty string while a legitimate absence is represented by None",
+    "category": "correctness",
+    "trigger": "Code in dagbag.py checks `if not dag.fileloc:` or `if dag.fileloc` to decide whether to set fileloc",
+    "rationale": "ZIP importers embed the inner archive path in fileloc; an empty string is a distinct sentinel from None. A truthiness check silently overwrites legitimate empty-string values set by the importer.",
+    "evidence": [
+      {
+        "pr": 60127,
+        "url": "https://github.com/apache/airflow/pull/60127#discussion_r2661971525",
+        "excerpt": "consider checking for None specifically or clarifying expected behavior"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/dag_processing/dagbag.py"]
+  },
+  {
+    "rule": "The DAG-importer extension registry must raise or warn when a newly registered importer tries to claim an extension that is already owned by another importer, preventing silent override",
+    "category": "correctness",
+    "trigger": "A `register()` method or dict assignment in the importer registry performs `self._importers[ext] = importer` without first checking for an existing entry",
+    "rationale": "Multiple importer types (Python, YAML, ZIP) can legitimately handle overlapping extensions; silent overwrite makes extension conflicts impossible to diagnose and breaks per-bundle customisation.",
+    "evidence": [
+      {
+        "pr": 60127,
+        "url": "https://github.com/apache/airflow/pull/60127#discussion_r2662174544",
+        "excerpt": "need protection to prevent accidental overrides of already-claimed extensions"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/dag_processing/importers/base.py"]
+  },
+  {
+    "rule": "Database queries inside metric-emission helpers in DagProcessor must be guarded by a metrics-enabled check (`statsd_on`, `statsd_datadog_enabled`, or `otel_on`) and skipped when all metrics backends are disabled",
+    "category": "performance",
+    "trigger": "A method in `dag_processing/manager.py` issues a `session.scalar()` or similar DB query solely to feed a `Stats.gauge/timing` call, without first checking `_is_metrics_enabled()` or equivalent",
+    "rationale": "Airflow's `[metrics]` section controls three independent backends; querying the DB unconditionally wastes resources for every user who has not configured any metrics backend.",
+    "evidence": [
+      {
+        "pr": 52815,
+        "url": "https://github.com/apache/airflow/pull/52815#discussion_r2314605866",
+        "excerpt": "runs a query even when user does not intend to send metrics anywhere"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/dag_processing/manager.py"]
+  },
+  {
+    "rule": "Emit `executor.*` Stats metrics from `SchedulerJobRunner._run_scheduler_loop`, not from `DagProcessor`; DAG-processor metrics must be limited to `dag_processing.*` and `dag_bag.*` namespaces",
+    "category": "correctness",
+    "trigger": "A `Stats.gauge/timing/incr` call with a metric name beginning `executor.` appears inside `dag_processing/manager.py` or `DagProcessorJobRunner`",
+    "rationale": "The Airflow codebase assigns metric-namespace ownership by component; executor metrics live in the scheduler loop. Misplaced metrics mislead operators reading dashboards and break the established convention seen across the codebase.",
+    "evidence": [
+      {
+        "pr": 52815,
+        "url": "https://github.com/apache/airflow/pull/52815#discussion_r2448871745",
+        "excerpt": "executor is closer to Scheduler; only dag_processing/dag_bag metrics belong in DagProcessor"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/dag_processing/manager.py",
+      "airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+    ]
+  },
+  {
+    "rule": "Do not widen `DagModel` bundle-name queries with `OR bundle_name IS NULL` to paper over missing bundle assignments; instead add an Alembic migration that sets NULL bundle_name to `'dags-folder'` for 2.x-upgraded DAGs",
+    "category": "database",
+    "trigger": "A SQLAlchemy query in `dag_processing/manager.py` adds `.or_(DagModel.bundle_name.is_(None))` or equivalent to handle bundle-less DAGs from a 2.x upgrade",
+    "rationale": "Treating NULL bundle_name as matching every bundle masks upstream migration gaps and makes bundle-resolution failures silent; the canonical fix is a data migration that assigns the default bundle name.",
+    "evidence": [
+      {
+        "pr": 61019,
+        "url": "https://github.com/apache/airflow/pull/61019#discussion_r2725930057",
+        "excerpt": "better to apply same migration to 2.x upgrades, set NULL to 'dags-folder'"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/dag_processing/manager.py"]
+  },
+  {
+    "rule": "Sanitise DAG relative file paths to a safe stem (e.g. `Path(relative_fileloc).stem`) before embedding them in `Stats.timing` / `Stats.gauge` metric names",
+    "category": "correctness",
+    "trigger": "Code passes a raw filename or path string directly into a `Stats.timing(f\"dag_processing.last_duration.{...}\", ...)` call without stripping the extension and disallowed characters",
+    "rationale": "Airflow metric-backend naming rules forbid characters that are valid in filenames; unstripped paths produce invalid metric names, a pre-existing bug that was discovered and fixed explicitly.",
+    "evidence": [
+      {
+        "pr": 61079,
+        "url": "https://github.com/apache/airflow/pull/61079#discussion_r2733244353",
+        "excerpt": "filenames have more allowed characters than metrics; bug: not sanitizing them before"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/dag_processing/manager.py"]
+  },
+  {
+    "rule": "Public methods on `DagProcessorManager` that accept `Iterable[str]` bundle names must guard against a plain `str` argument (iterating characters) by either accepting `str | Iterable[str]` and special-casing strings, or raising `TypeError` when a `str` is received",
+    "category": "api-design",
+    "trigger": "A new public method accepts `bundle_names: Iterable[str]` and calls `.update(bundle_names)` or iterates it without checking `isinstance(bundle_names, str)`",
+    "rationale": "Passing a single bundle name as a plain string to an `Iterable[str]` parameter silently iterates characters and corrupts the set; this is a hard-to-debug failure mode for external event-handler callers.",
+    "evidence": [
+      {
+        "pr": 66107,
+        "url": "https://github.com/apache/airflow/pull/66107#discussion_r3182263258",
+        "excerpt": "caller accidentally passes plain string; treated as iterable of characters"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/dag_processing/manager.py"]
+  },
+  {
+    "rule": "Only acquire `BundleVersionLock` in the DAG-processing callback path when `request.bundle_version is not None`; skip the lock entirely for non-versioned bundles",
+    "category": "performance",
+    "trigger": "A `with BundleVersionLock(bundle_name=..., bundle_version=request.bundle_version):` block in `processor.py` wraps callback execution unconditionally, regardless of whether `bundle_version` is None",
+    "rationale": "Non-versioned bundles always have `bundle_version=None`; acquiring the lock for them is unnecessary overhead and couples non-versioned DAG execution to versioning machinery.",
+    "evidence": [
+      {
+        "pr": 60734,
+        "url": "https://github.com/apache/airflow/pull/60734#discussion_r2739600702",
+        "excerpt": "lock only necessary for versioned bundles; bundle_version may be None"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/dag_processing/processor.py"]
+  },
+  {
+    "rule": "Example DAGs in `airflow-core/src/airflow/example_dags/` that target the current `main` branch (Airflow 3.1+) must not include `try/except ImportError` compatibility shims for older Airflow versions",
+    "category": "docs",
+    "trigger": "An example DAG file adds a `try: from airflow.sdk import X / except ImportError: from airflow.utils... import X` block",
+    "rationale": "The `main` branch tracks the next Airflow release; back-compat shims in example DAGs add noise and imply a cross-version stability guarantee that does not apply to unreleased code.",
+    "evidence": [
+      {
+        "pr": 53389,
+        "url": "https://github.com/apache/airflow/pull/53389#discussion_r2273403899",
+        "excerpt": "no need to maintain back-compat for example dag in main (which will become 3.1)"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/example_dags/"]
+  },
+  {
+    "rule": "When a bug-fix to an example DAG is motivated by a specific config scenario (e.g. non-UTC `[core] default_timezone`), extend `tests/unit/always/test_example_dags.py` to cover that DAG under the triggering config",
+    "category": "testing",
+    "trigger": "A commit changes `start_date` or timezone handling in an example DAG file without adding or modifying a corresponding test in `test_example_dags.py`",
+    "rationale": "Example DAGs must remain importable across all supported timezone configurations; a fix without a regression test leaves the fixed scenario uncovered and liable to regress silently.",
+    "evidence": [
+      {
+        "pr": 63882,
+        "url": "https://github.com/apache/airflow/pull/63882#discussion_r3025334647",
+        "excerpt": "no regression coverage to ensure example DAGs remain importable under non-UTC timezone"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/example_dags/",
+      "airflow-core/tests/unit/always/test_example_dags.py"
+    ]
+  },
+  {
+    "rule": "In example DAGs, inject context values via named `@task` parameters (e.g. `def load(asset_state):`) rather than capturing them from `**context`",
+    "category": "docs",
+    "trigger": "An example DAG `@task` function signature uses `**context` and then accesses `context[\"asset_state\"]`, `context[\"task_state\"]`, or similar named keys",
+    "rationale": "Named parameters make the API surface explicit and readable for users learning Airflow from example DAGs; `**context` hides which values are actually used.",
+    "evidence": [
+      {
+        "pr": 67376,
+        "url": "https://github.com/apache/airflow/pull/67376#discussion_r3293247873",
+        "excerpt": "generally better to pull named kwargs directly, not use kwargs"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/example_dags/"]
+  },
+  {
+    "rule": "Do not use the variable name `ts` in example DAG task functions, because `ts` is a reserved Airflow template variable (execution timestamp) and the abbreviation causes confusion",
+    "category": "naming",
+    "trigger": "An example DAG assigns `ts = context[\"task_state\"]` or uses `ts` as a local variable name inside a `@task` function",
+    "rationale": "Airflow exposes `{{ ts }}` as a built-in template variable for execution timestamp; reusing `ts` in example code misleads users about what the variable represents.",
+    "evidence": [
+      {
+        "pr": 67376,
+        "url": "https://github.com/apache/airflow/pull/67376#discussion_r3294520872",
+        "excerpt": "`ts` can be confused with timestamp; we have `{{ ds }}`, `{{ ts }}`"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/example_dags/"]
+  },
+  {
+    "rule": "When renaming an example DAG file or model, rename the corresponding test file and all test class names in the same commit; do not leave stale `*State` names in files that now test `*Store` semantics",
+    "category": "commit-hygiene",
+    "trigger": "A PR renames an example DAG (e.g. `example_task_state` → `example_task_store`) but the matching test file path or class name still contains the old identifier",
+    "rationale": "Mismatched filenames and class names between production code and tests create confusion about what is being tested and break search-by-name discovery of related files.",
+    "evidence": [
+      {
+        "pr": 67833,
+        "url": "https://github.com/apache/airflow/pull/67833#discussion_r3336965435",
+        "excerpt": "filenames still say *_state; test files keep stale class names testing *StoreModel"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/example_dags/",
+      "airflow-core/tests/unit/models/"
+    ]
+  },
+  {
+    "rule": "When forcibly failing a stuck queued TaskInstance in the scheduler, update both the TI ORM state (`ti.set_state(FAILED)`) and the executor state (`executor.fail(ti.key)`) together; do not rely solely on executor drift detection to propagate the failure",
+    "category": "correctness",
+    "trigger": "Code in `scheduler_job_runner.py` that handles stuck TIs calls only `executor.fail(ti.key)` without also setting `ti.set_state(TaskInstanceState.FAILED, session=session)`",
+    "rationale": "Relying solely on drift detection to mark a TI failed is an unnecessary indirection: the scheduler already knows the task is stuck and owns the decision; omitting the ORM update leaves a window where state is inconsistent.",
+    "evidence": [
+      {
+        "pr": 53435,
+        "url": "https://github.com/apache/airflow/pull/53435#discussion_r2220158382",
+        "excerpt": "should update both TI state and executor state; don't rely on drift detection"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/jobs/scheduler_job_runner.py"]
+  },
+  {
+    "rule": "Deadline/callback workloads must capture the `bundle_version` from the DAG run at the time the workload is created, not resolved lazily at execution time, to ensure the correct bundle version is used even after a bundle upgrade",
+    "category": "correctness",
+    "trigger": "Code building a deadline or callback `WorkloadDTO` in `executors/workloads/task.py` sets `bundle_info.version` from `ti.dag_run.bundle_version` at execution time rather than at enqueue/creation time",
+    "rationale": "If a bundle is upgraded between workload creation and execution, using the run-time bundle version would execute the callback against the wrong code; the version must be pinned at creation.",
+    "evidence": [
+      {
+        "pr": 61153,
+        "url": "https://github.com/apache/airflow/pull/61153#discussion_r2858337390",
+        "excerpt": "if deadline fires after bundle upgrade, should execute with version where deadline was created"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/executors/workloads/task.py"]
+  },
+  {
+    "rule": "`trigger_connection_tests()` in `BaseExecutor` must check remaining slot capacity (`self.slots_available`) before dispatching queued connection-test workloads, not assume slots are fully available after `trigger_tasks()` has already consumed some",
+    "category": "correctness",
+    "trigger": "The `trigger_connection_tests()` method in `base_executor.py` dispatches all entries in `queued_connection_tests` via `_process_workloads` without first checking `self.slots_available`",
+    "rationale": "`trigger_tasks()` is called earlier in the same `heartbeat()` and consumes slots; dispatching all connection tests unconditionally afterwards can overshoot executor capacity.",
+    "evidence": [
+      {
+        "pr": 62343,
+        "url": "https://github.com/apache/airflow/pull/62343#discussion_r2963468977",
+        "excerpt": "slots may have been consumed between enqueue time and executor heartbeat; cleaner to check slots_available"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/executors/base_executor.py"]
+  },
+  {
+    "rule": "The abstract `key` property on workload base classes in `executors/workloads/` must be typed as `Hashable` (not `Any`) to enforce the constraint that workload keys must be usable as dict keys",
+    "category": "api-design",
+    "trigger": "An `@abstractmethod` property named `key` in `executors/workloads/base.py` is declared with return type `Any` instead of `Hashable`",
+    "rationale": "Workload keys are used as dictionary keys throughout the executor; declaring the return type as `Hashable` makes the constraint explicit and lets type-checkers catch non-hashable key implementations at author time.",
+    "evidence": [
+      {
+        "pr": 62645,
+        "url": "https://github.com/apache/airflow/pull/62645#discussion_r2937212212",
+        "excerpt": "can `key` be typed as `Hashable` to enforce the hashability constraint?"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/executors/workloads/base.py"]
+  }
+]

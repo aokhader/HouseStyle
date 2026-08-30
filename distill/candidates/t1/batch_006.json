@@ -1,0 +1,246 @@
+[
+  {
+    "rule": "Do not add new email-related configuration options to airflow-core; route all email settings through the SMTP provider.",
+    "category": "providers",
+    "trigger": "A new config key referencing email, SMTP, or a notifier default is added inside airflow-core/src/airflow/config_templates/config.yml",
+    "rationale": "The community agreed to migrate all email integration out of core into the SMTP provider; adding new core email config options contradicts that ongoing migration.",
+    "evidence": [
+      {
+        "pr": 69877,
+        "url": "https://github.com/apache/airflow/pull/69877#discussion_r3580742444",
+        "excerpt": "We need to complete the Core->SMTP migration and deprecate all email related stuff"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/config_templates/",
+      "airflow-core/src/airflow/configuration.py"
+    ]
+  },
+  {
+    "rule": "Do not define domain-model enums (e.g. WeightRule) inside configuration.py; place them in the module that owns the concept.",
+    "category": "api-design",
+    "trigger": "A class definition for an Enum or domain type is added to airflow-core/src/airflow/configuration.py",
+    "rationale": "configuration.py is for config parsing; domain enums placed there mislead readers about where the concept lives and create unusual coupling.",
+    "evidence": [
+      {
+        "pr": 53393,
+        "url": "https://github.com/apache/airflow/pull/53393#discussion_r2276411247",
+        "excerpt": "it looks like a very odd location to put this enum"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/configuration.py"
+    ]
+  },
+  {
+    "rule": "Expose internal collections from AirflowConfigParser via methods returning immutable sequences (tuple), not as mutable-list properties.",
+    "category": "api-design",
+    "trigger": "A @property in AirflowConfigParser or a subclass returns a mutable list[...] type annotation",
+    "rationale": "Mutable list properties on the config object are brittle; callers can mutate the internal state unexpectedly. Returning a tuple from a method makes the contract explicit.",
+    "evidence": [
+      {
+        "pr": 58188,
+        "url": "https://github.com/apache/airflow/pull/58188#discussion_r2513483702",
+        "excerpt": "Return a tuple from a method. Hidden, mutable lists as a property are brittle."
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/configuration.py"
+    ]
+  },
+  {
+    "rule": "Use `tuple[DagWarningType, ...]` (open-ended homogeneous tuple) for warning_types parameters to avoid breaking callers when new warning types are added.",
+    "category": "api-design",
+    "trigger": "A function parameter typed tuple[DagWarningType, DagWarningType] (fixed-length) is added or modified in dag_processing/collection.py",
+    "rationale": "Using a fixed-length tuple type forces a signature change whenever a new DagWarningType is added; the open-ended form avoids that churn.",
+    "evidence": [
+      {
+        "pr": 59430,
+        "url": "https://github.com/apache/airflow/pull/59430#discussion_r2626462173",
+        "excerpt": "use this everywhere for warning_types so we can avoid signature change in the future"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/dag_processing/collection.py"
+    ]
+  },
+  {
+    "rule": "When removing a parameter from DagBag or DagBag.collect_dags, either drop it entirely from the signature and docstring, or emit a UserWarning when it is supplied, rather than silently ignoring it.",
+    "category": "api-design",
+    "trigger": "A parameter of DagBag.__init__ or DagBag.collect_dags is removed from the implementation body but kept in the function signature or docstring",
+    "rationale": "Silently ignoring a still-documented parameter is a footgun for CLI commands and tests that pass the argument expecting an effect.",
+    "evidence": [
+      {
+        "pr": 66161,
+        "url": "https://github.com/apache/airflow/pull/66161#discussion_r3176620534",
+        "excerpt": "silently ignoring a still-documented bool is a real footgun for anyone writing CLI commands"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/dag_processing/dagbag.py"
+    ]
+  },
+  {
+    "rule": "In DagBundleManager._refresh_dag_bundles, only remove a bundle from _force_refresh_bundles after DB persistence succeeds, and clear _bundle_versions on persistence failure to prevent stale-version short-circuiting.",
+    "category": "correctness",
+    "trigger": "Code removes a bundle from _force_refresh_bundles before the corresponding update_bundle_state call, or swallows an exception from update_bundle_state without clearing _bundle_versions",
+    "rationale": "On persistence failure the cached version prevents other processors from detecting the new bundle version for up to refresh_interval, leaving the DB stale.",
+    "evidence": [
+      {
+        "pr": 63835,
+        "url": "https://github.com/apache/airflow/pull/63835#discussion_r2948332761",
+        "excerpt": "only discarding _force_refresh_bundles after persistence succeeds"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/dag_processing/manager.py"
+    ]
+  },
+  {
+    "rule": "Do not rely on SQLAlchemy UPDATE rowcount==0 to detect a missing row across all supported databases; use an explicit SELECT/EXISTS check instead.",
+    "category": "database",
+    "trigger": "Code does `if result.rowcount == 0: raise` after a SQLAlchemy update() call on a single-row update",
+    "rationale": "MySQL can report rowcount==0 for a no-op UPDATE on an existing row, causing a spurious RuntimeError and noisy logs.",
+    "evidence": [
+      {
+        "pr": 63835,
+        "url": "https://github.com/apache/airflow/pull/63835#discussion_r2947946854",
+        "excerpt": "MySQL can report 0 when the row exists but the UPDATE is a no-op"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/dag_processing/manager.py"
+    ]
+  },
+  {
+    "rule": "Docstrings on overridable DAG-processing methods must document no-op conditions explicitly so subclass authors understand inherited skip behaviour.",
+    "category": "docs",
+    "trigger": "A public or protected method in dag_processing/ is decorated for override (or its docstring says 'override') but the docstring omits the conditions under which the default implementation is a no-op",
+    "rationale": "An override author reading only the docstring may implement the wrong behaviour when the base silently skips work under certain conditions (e.g. unversioned bundles).",
+    "evidence": [
+      {
+        "pr": 65543,
+        "url": "https://github.com/apache/airflow/pull/65543#discussion_r3118690528",
+        "excerpt": "an override author reading only the docstring may not realize they inherit the skip-when-unversioned behavior"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/dag_processing/manager.py"
+    ]
+  },
+  {
+    "rule": "In dag_processing exception handlers that catch broad Exception, ensure CallbackBundleUnavailable (or other purpose-built sentinel exceptions) is not re-wrapped; let it propagate or explicitly re-raise.",
+    "category": "correctness",
+    "trigger": "An `except Exception` block in dag_processing/ wraps or swallows a re-raise that could originate from CallbackBundleUnavailable",
+    "rationale": "Catching CallbackBundleUnavailable inside a broad handler loses the original reason, making debugging difficult and masking intentional skip signals.",
+    "evidence": [
+      {
+        "pr": 65543,
+        "url": "https://github.com/apache/airflow/pull/65543#discussion_r3118690531",
+        "excerpt": "re-wraps with the generic message, losing the original reason"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/dag_processing/manager.py"
+    ]
+  },
+  {
+    "rule": "In DagFileProcessorProcess, pass dag_file.rel_path from the DagFileInfo object directly rather than recomputing it with Path.relative_to().",
+    "category": "correctness",
+    "trigger": "Code inside dag_processing/processor.py calls Path(path).relative_to(bundle_path) when a DagFileInfo object with a rel_path attribute is already available in the call chain",
+    "rationale": "Path.relative_to() raises ValueError if the path is outside bundle_path (e.g. via symlink resolution); the already-computed rel_path on DagFileInfo is safer.",
+    "evidence": [
+      {
+        "pr": 65528,
+        "url": "https://github.com/apache/airflow/pull/65528#discussion_r3110465797",
+        "excerpt": "relative_to will raise ValueError if path ever drifts outside bundle_path"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/dag_processing/processor.py"
+    ]
+  },
+  {
+    "rule": "Example DAGs that fix timezone-related bugs must include a regression test that imports the DAG with a non-UTC default_timezone (e.g., Asia/Shanghai) to prevent OverflowError recurrence.",
+    "category": "testing",
+    "trigger": "A commit modifies an example_dags/ file to fix a datetime/timezone issue but adds no test exercising a non-UTC [core] default_timezone",
+    "rationale": "The existing test suite only exercises UTC; non-UTC timezone configurations expose OverflowError in datetime arithmetic that goes undetected without an explicit regression test.",
+    "evidence": [
+      {
+        "pr": 63882,
+        "url": "https://github.com/apache/airflow/pull/63882#discussion_r3025334665",
+        "excerpt": "Adding a regression test that imports this file with a non-UTC timezone"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/example_dags/",
+      "airflow-core/tests/"
+    ]
+  },
+  {
+    "rule": "In BaseExecutor.run_workload() and related executor entry-points, guard setproctitle usage with a macOS (darwin) platform check.",
+    "category": "correctness",
+    "trigger": "Code in airflow-core/src/airflow/executors/ calls setproctitle() without a `sys.platform != 'darwin'` (or equivalent) guard",
+    "rationale": "Other executor entry-points (LocalExecutor, Celery) already skip setproctitle on macOS to avoid known issues; omitting the guard from BaseExecutor reintroduces that problem.",
+    "evidence": [
+      {
+        "pr": 62645,
+        "url": "https://github.com/apache/airflow/pull/62645#discussion_r3066495789",
+        "excerpt": "add the same darwin guard here to avoid reintroducing macOS issues"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/executors/base_executor.py",
+      "airflow-core/src/airflow/executors/local_executor.py"
+    ]
+  },
+  {
+    "rule": "New executor workload features must be implemented in BaseExecutor (or a shared mixin) so that each concrete executor does not need to be individually updated.",
+    "category": "api-design",
+    "trigger": "A new workload-handling method or branch is added to multiple concrete executor files (e.g., local_executor.py, celery_executor.py) without a corresponding base-class implementation",
+    "rationale": "Requiring all executors to implement the same generic feature independently is unsustainable; the feature should live in the base class.",
+    "evidence": [
+      {
+        "pr": 62343,
+        "url": "https://github.com/apache/airflow/pull/62343#discussion_r2970099580",
+        "excerpt": "all executors must be touched to implement this feature; would it be possible to use a base class?"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/executors/base_executor.py",
+      "airflow-core/src/airflow/executors/"
+    ]
+  },
+  {
+    "rule": "The executor workload type error message must be generated dynamically from the ExecutorWorkload union rather than by manually listing type names in an f-string.",
+    "category": "correctness",
+    "trigger": "An f-string in base_executor.py lists concrete workload type names (ExecuteTask, ExecuteCallback, TestConnection, …) manually rather than unpacking them from the type alias",
+    "rationale": "Manually maintained lists go out of date when new workload types are added; deriving the list from the type union ensures the error is always accurate.",
+    "evidence": [
+      {
+        "pr": 62343,
+        "url": "https://github.com/apache/airflow/pull/62343#discussion_r2893084458",
+        "excerpt": "generate this list by unpacking ExecutorWorkload instead of manually adding new workload types"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/executors/base_executor.py"
+    ]
+  },
+  {
+    "rule": "In prepare_file_queue, use the pre-built presence_key index dict to look up file stats in O(1) rather than performing an O(n) linear scan per file, avoiding O(n²) overall complexity.",
+    "category": "performance",
+    "trigger": "Code in dag_processing/manager.py builds a dict keyed by file.presence_key but then calls a helper (e.g. processed_recently) that iterates over _file_stats linearly",
+    "rationale": "prepare_file_queue is called on every scheduling loop cycle; O(n²) behaviour degrades heavily at scale.",
+    "evidence": [
+      {
+        "pr": 66484,
+        "url": "https://github.com/apache/airflow/pull/66484#discussion_r3220819225",
+        "excerpt": "makes prepare_file_queue O(n²) overall"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/dag_processing/manager.py"
+    ]
+  }
+]

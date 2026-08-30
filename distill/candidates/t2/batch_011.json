@@ -1,0 +1,290 @@
+[
+  {
+    "rule": "Graph-view URL search params must be prefixed (e.g. 'graph-') to avoid colliding with TaskInstance filter params that share the same SearchParamsKeys",
+    "category": "correctness",
+    "trigger": "UI component reads or writes SearchParamsKeys (OPERATOR, TASK_STATE, TASK_GROUP, etc.) inside a graph/layout context without a distinguishing prefix",
+    "rationale": "Graph filters and TaskInstance filters occupy the same URL query-string namespace; unprefixed keys silently override each other",
+    "evidence": [
+      {
+        "pr": 64271,
+        "url": "https://github.com/apache/airflow/pull/64271#discussion_r3065454612",
+        "excerpt": "These still conflict with the TaskInstance filters, use keys like 'graph-'"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/layouts/Details/Graph"
+    ]
+  },
+  {
+    "rule": "New task-group click interactions in the Grid View must be covered by a Playwright e2e regression test in the dag-grid-view spec",
+    "category": "testing",
+    "trigger": "Component under airflow-core/src/airflow/ui/src/layouts/Details/Grid modifies click/navigation behaviour of task groups without a corresponding Playwright spec update",
+    "rationale": "Airflow's Playwright grid spec (dag-grid-view.spec.ts) is the authoritative regression harness for Grid View interactions; omitting tests leaves user-facing behaviour unverified",
+    "evidence": [
+      {
+        "pr": 64284,
+        "url": "https://github.com/apache/airflow/pull/64284#discussion_r3025330583",
+        "excerpt": "no automated coverage; add a regression test for the new click semantics"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/layouts/Details/Grid",
+      "airflow-core/src/airflow/ui/tests/e2e/specs/dag-grid-view.spec.ts"
+    ]
+  },
+  {
+    "rule": "Place UI components under the layout folder that exclusively uses them; only put components in 'src/components/' when they are reused across multiple features",
+    "category": "api-design",
+    "trigger": "A new component file is added to 'src/components/' but is imported only from a single layout (e.g. layouts/Details/Grid)",
+    "rationale": "Airflow's UI architecture reserves 'components/' for cross-feature reusable pieces; single-use components in 'components/' inflate the shared namespace and obscure ownership",
+    "evidence": [
+      {
+        "pr": 53216,
+        "url": "https://github.com/apache/airflow/pull/53216#discussion_r2794542552",
+        "excerpt": "'components' are for general reshareable components; move single-use ones to the layout folder"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/components",
+      "airflow-core/src/airflow/ui/src/layouts"
+    ]
+  },
+  {
+    "rule": "Use an existing query result object (e.g. 'initialConnection') to derive dirty/changed state; do not introduce new useState+useEffect pairs that duplicate already-available data",
+    "category": "api-design",
+    "trigger": "A new useState is added to track a form field's initial value when an 'initialXxx' prop or query result already carries that data",
+    "rationale": "Airflow's UI form patterns rely on a single initialConnection (or equivalent) reference for comparison; extra state variables create a second source of truth and can diverge",
+    "evidence": [
+      {
+        "pr": 55558,
+        "url": "https://github.com/apache/airflow/pull/55558#discussion_r2350022943",
+        "excerpt": "We already have initialConnection; compare against conf: extra instead of new useStates"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Connections"
+    ]
+  },
+  {
+    "rule": "Centralise the Airflow stable-docs base URL in 'src/utils/docs.ts' (or equivalent) and build doc links from that constant; do not hard-code the base URL in multiple component files",
+    "category": "docs",
+    "trigger": "The literal string 'https://airflow.apache.org/docs/apache-airflow/stable' appears in a .tsx/.ts file other than a dedicated docs-URL utility module",
+    "rationale": "The stable-docs base path is duplicated across components (NothingFoundInfo.tsx, DocsButton.tsx, etc.); centralising prevents divergence if the base path changes",
+    "evidence": [
+      {
+        "pr": 64542,
+        "url": "https://github.com/apache/airflow/pull/64542#discussion_r3025324183",
+        "excerpt": "stable docs base URL is hard-coded in multiple places; centralize in src/utils/docs.ts"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Connections/NothingFoundInfo.tsx",
+      "airflow-core/src/airflow/ui/src/utils"
+    ]
+  },
+  {
+    "rule": "Use 'total_entries' from the paginated API response for displayed counts, not 'data.items.length' or 'array.length', because the response may represent only one page",
+    "category": "correctness",
+    "trigger": "A badge, counter, or summary element is set to 'someData.someArray.length' where someData comes from a paginated Airflow API endpoint",
+    "rationale": "Airflow's list APIs are paginated; the local array length reflects only the fetched page and silently shows a wrong count to users",
+    "evidence": [
+      {
+        "pr": 62195,
+        "url": "https://github.com/apache/airflow/pull/62195#discussion_r3067538182",
+        "excerpt": "API response is paginated; badge count must use total_entries, not alerts.length"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Dag/DeadlineAlertsBadge.tsx"
+    ]
+  },
+  {
+    "rule": "Key alert/entity lookup maps by a stable unique identifier (UUID or id), not by a mutable name field that is not enforced to be unique in the Airflow schema",
+    "category": "correctness",
+    "trigger": "A Map or dictionary is keyed by 'alert.name', 'deadline.name', or any other Airflow entity name field whose uniqueness is not schema-enforced",
+    "rationale": "DeadlineAlert.name is not unique in Airflow's data model; keying by it causes the last write to win and silently mis-associates alerts",
+    "evidence": [
+      {
+        "pr": 62195,
+        "url": "https://github.com/apache/airflow/pull/62195#discussion_r3067538216",
+        "excerpt": "DeadlineAlert.name is not unique; key by stable identifier (alert UUID) instead"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Dag/Overview/DagDeadlines.tsx"
+    ]
+  },
+  {
+    "rule": "Extract repeated calls to the same Airflow service method (e.g. getDeadlines) across multiple components into a shared custom hook so query keys are identical and React Query cache is reused",
+    "category": "performance",
+    "trigger": "The same generated service hook (e.g. useDeadlinesServiceGetDeadlines) is called with equivalent parameters in two or more sibling components without a shared custom hook",
+    "rationale": "Duplicate hook calls with divergent query keys defeat React Query's caching and result in redundant network requests against the Airflow API",
+    "evidence": [
+      {
+        "pr": 62195,
+        "url": "https://github.com/apache/airflow/pull/62195#discussion_r3148079445",
+        "excerpt": "extract common logic to getDeadlines() hook so query keys match and results are cached"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Dag/Overview/DagDeadlines.tsx"
+    ]
+  },
+  {
+    "rule": "Custom filter hooks (e.g. useTagFilter) must have unit tests covering state transitions such as adding/removing tags and toggling match-mode when tag count crosses relevant thresholds",
+    "category": "testing",
+    "trigger": "A new useXxxFilter hook is added to the UI without a corresponding unit test file",
+    "rationale": "Airflow's tag filtering logic has edge cases at count boundaries (e.g. < 2 vs >= 2 tags) that are easily regressed; unit tests are required to document and protect this behaviour",
+    "evidence": [
+      {
+        "pr": 63273,
+        "url": "https://github.com/apache/airflow/pull/63273#discussion_r2918648365",
+        "excerpt": "add unit tests for add/remove tags, toggling any/all, especially near the 2-tag threshold"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/DagsList"
+    ]
+  },
+  {
+    "rule": "Dashboard stats cards that display a non-zero count must link to the corresponding detail/list page consistent with the other stats cards",
+    "category": "api-design",
+    "trigger": "A StatsCard component is rendered without an 'href' or 'onClick' prop while other stats cards in the same Dashboard do provide navigation",
+    "rationale": "Airflow's Dashboard UX convention is that stats cards are navigable; a card that looks clickable but does nothing breaks user expectations set by sibling cards",
+    "evidence": [
+      {
+        "pr": 68038,
+        "url": "https://github.com/apache/airflow/pull/68038#discussion_r3404953812",
+        "excerpt": "MissedDeadlines appears clickable but goes nowhere; link to the deadlines page like other stats cards"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Dashboard/Stats"
+    ]
+  },
+  {
+    "rule": "Never implement client-side filtering or pagination over data already fetched from a paginated Airflow API endpoint; apply all filters through backend query parameters",
+    "category": "correctness",
+    "trigger": "A .filter() or .slice() call is applied to an array returned from a paginated Airflow service hook (useXxxServiceGetXxx) to simulate backend filtering or pagination in the UI",
+    "rationale": "Client-side filtering over a single page silently drops results that are on other pages and creates a mixed source of truth between the backend and the UI",
+    "evidence": [
+      {
+        "pr": 54210,
+        "url": "https://github.com/apache/airflow/pull/54210#discussion_r2283166527",
+        "excerpt": "remove partial search until backend is updated; only filter by what the backend can do"
+      },
+      {
+        "pr": 56920,
+        "url": "https://github.com/apache/airflow/pull/56920#discussion_r2479250274",
+        "excerpt": "client-side filtering breaks pagination; use the backend filter instead"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Events/Events.tsx",
+      "airflow-core/src/airflow/ui/src/pages/TaskInstances/TaskInstances.tsx"
+    ]
+  },
+  {
+    "rule": "In Airflow's generated OpenAPI client, null and undefined query-parameter values are stripped automatically; do not add explicit '!== null && !== \"\"' guards before assigning optional query params",
+    "category": "api-design",
+    "trigger": "Query parameter passed to a generated service hook is wrapped in a conditional checking for null or empty string before assignment (e.g. 'field: val !== null && val !== \"\" ? val : undefined')",
+    "rationale": "Airflow's OpenAPI-generated client omits null/undefined params from the HTTP request; manual guards add noise and can mask bugs by converting empty-string to undefined inconsistently",
+    "evidence": [
+      {
+        "pr": 54210,
+        "url": "https://github.com/apache/airflow/pull/54210#discussion_r2266233772",
+        "excerpt": "null and undefined are automatically stripped; owner: userFilter ?? undefined is enough"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Events/Events.tsx"
+    ]
+  },
+  {
+    "rule": "Components that derive status from async Airflow API queries must guard rendering with isLoading/isError flags; never render a settled status (e.g. 'Met') while queries are still in-flight",
+    "category": "correctness",
+    "trigger": "A status indicator, badge, or card renders a definitive state using 'data?.field ?? fallback' without first checking the query's isLoading or isError flag",
+    "rationale": "Airflow UI components query multiple async endpoints (deadlines, alerts, etc.); rendering from unresolved data produces momentarily incorrect status displays visible to users",
+    "evidence": [
+      {
+        "pr": 62195,
+        "url": "https://github.com/apache/airflow/pull/62195#discussion_r3030078472",
+        "excerpt": "renders 'Met' while deadlines still loading; gate on isLoading/isError before showing settled status"
+      },
+      {
+        "pr": 56760,
+        "url": "https://github.com/apache/airflow/pull/56760#discussion_r2479250274",
+        "excerpt": "loading bar should be matched with isLoading from the query object"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/Run/DeadlineStatus.tsx",
+      "airflow-core/src/airflow/ui/src/pages/TaskInstance/HITLResponse.tsx"
+    ]
+  },
+  {
+    "rule": "Use Chakra UI spacing/size tokens (1, 2, 3, 4, 5 …) for padding, margin, and font-size; do not pass raw pixel values via inline style objects",
+    "category": "api-design",
+    "trigger": "A JSX element has a 'style' prop or sx object containing literal pixel strings (e.g. '\"padding\": \"8px\"', '\"fontSize\": \"14px\"') instead of Chakra token values",
+    "rationale": "Airflow's UI enforces Chakra UI's design-token system for visual consistency; raw pixel values bypass the token scale and produce inconsistent spacing across the UI",
+    "evidence": [
+      {
+        "pr": 53657,
+        "url": "https://github.com/apache/airflow/pull/53657#discussion_r2248384388",
+        "excerpt": "chakraUI provides token values 1,2,3,4,5 for padding/margin for consistency across UI"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/pages/TaskInstance/RenderedTemplates.tsx"
+    ]
+  },
+  {
+    "rule": "To clear an optional field through an Airflow PATCH API, send 'null' (not 'undefined'); sending undefined omits the field from JSON and prevents model_fields_set from detecting the clear intent",
+    "category": "correctness",
+    "trigger": "A PATCH mutation converts an empty-string form value to 'undefined' before adding the field to updateMask (e.g. 'const field = val === \"\" ? undefined : val')",
+    "rationale": "Airflow's backend patch logic uses Pydantic's model_fields_set; fields absent from JSON are not updated, so converting to undefined silently prevents clearing a previously-set value",
+    "evidence": [
+      {
+        "pr": 63994,
+        "url": "https://github.com/apache/airflow/pull/63994#discussion_r3025588552",
+        "excerpt": "undefined omitted from JSON payload; updateMask contains field but clear never applies — send null instead"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/queries/useEditConnection.tsx"
+    ]
+  },
+  {
+    "rule": "Display API error messages to the user via 'error.message' from the Airflow error object (consistent with usePatchTaskInstance and other existing mutation hooks); do not hand-code per-status-code description strings",
+    "category": "api-design",
+    "trigger": "A mutation hook's onError callback maps specific HTTP status codes to hardcoded description strings instead of forwarding 'error.message'",
+    "rationale": "Airflow's UI convention (established in usePatchTaskInstance and similar hooks) is to surface the backend's own error message; custom strings duplicate maintenance effort and may mislead users",
+    "evidence": [
+      {
+        "pr": 58016,
+        "url": "https://github.com/apache/airflow/pull/58016#discussion_r2549817508",
+        "excerpt": "use error.message like usePatchTaskInstance; backend error is shown to user"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/queries/useTrigger.ts"
+    ]
+  },
+  {
+    "rule": "Every translation key passed to translate() must be registered in the corresponding i18n JSON file (e.g. airflow-core/src/airflow/ui/public/locales/en/components.json) before the PR is merged",
+    "category": "correctness",
+    "trigger": "A translate() call uses a new key string that is not present in the en/components.json (or equivalent locale file)",
+    "rationale": "Airflow's i18n setup requires keys to exist in locale files; missing keys cause the UI to fall back to the default text at best, or render the raw key string at worst",
+    "evidence": [
+      {
+        "pr": 58016,
+        "url": "https://github.com/apache/airflow/pull/58016#discussion_r2549811642",
+        "excerpt": "add translation keys to translation files, e.g. en/components.json"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/queries/useTrigger.ts",
+      "airflow-core/src/airflow/ui/public/locales/en"
+    ]
+  }
+]

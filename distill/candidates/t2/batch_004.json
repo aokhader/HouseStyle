@@ -1,0 +1,293 @@
+[
+  {
+    "rule": "DagModel subqueries that filter by file location must also include bundle_name to correctly scope results across bundles",
+    "category": "correctness",
+    "trigger": "select(DagModel.relative_fileloc).distinct().subquery() without bundle_name column",
+    "rationale": "Since multi-bundle support was added, relative_fileloc alone is not unique across bundles; omitting bundle_name causes cross-bundle collisions in subquery joins",
+    "evidence": [
+      {
+        "pr": 69790,
+        "url": "https://github.com/apache/airflow/pull/69790#discussion_r3571298575",
+        "excerpt": "files_with_any_dags = select(DagModel.relative_fileloc, DagModel.bundle_name,).distinct().subquery()"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/import_error.py"
+    ]
+  },
+  {
+    "rule": "Every HTTP status code a FastAPI route can actually raise must be declared in the route decorator's responses dict so the OpenAPI spec and generated clients include it",
+    "category": "api-design",
+    "trigger": "raise HTTPException(status.HTTP_4xx_...) inside a route whose @router decorator lacks that status code in responses={}",
+    "rationale": "Undeclared status codes are invisible to the generated OpenAPI spec and openapi-ts client types, so callers have no type-safe way to handle those errors",
+    "evidence": [
+      {
+        "pr": 63994,
+        "url": "https://github.com/apache/airflow/pull/63994#discussion_r3040828096",
+        "excerpt": "bulk endpoint decorator doesn't declare a 400 response; OpenAPI spec won't include this error case"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/pools.py"
+    ]
+  },
+  {
+    "rule": "Multi-team validation error messages shared across connections, pools, and variables routes must be extracted into a single shared constant to avoid drift",
+    "category": "api-design",
+    "trigger": "identical multi_team error message string literal duplicated across two or more of connections.py / pools.py / variables.py",
+    "rationale": "Duplicated literal error messages across endpoints drift over time and complicate future changes or translations; a single constant keeps all three routes in sync",
+    "evidence": [
+      {
+        "pr": 63994,
+        "url": "https://github.com/apache/airflow/pull/63994#discussion_r3025588585",
+        "excerpt": "same literal error message duplicated across connections/pools/variables POST and PATCH"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/pools.py"
+    ]
+  },
+  {
+    "rule": "Error messages that cite 'manually triggered' as the reason logical_date is None must also cover asset-triggered DAG runs, which equally have logical_date=None",
+    "category": "docs",
+    "trigger": "error message string containing 'manually triggered' adjacent to a logical_date is None check on a DagRun",
+    "rationale": "Asset-triggered DAG runs also have logical_date=None, so blaming only manual triggers is factually wrong and misleads operators",
+    "evidence": [
+      {
+        "pr": 54416,
+        "url": "https://github.com/apache/airflow/pull/54416#discussion_r2318283676",
+        "excerpt": "an asset triggered Dag will also have logical_date is none; description is inaccurate"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/task_instances.py"
+    ]
+  },
+  {
+    "rule": "Task-group pattern resolution logic invoked from a public API endpoint must reside inside the corresponding QueryTI filter class's to_orm method, not be inlined in the route handler",
+    "category": "api-design",
+    "trigger": "resolve_task_group_pattern_to_task_ids or equivalent task-group expansion code placed directly in a route function rather than in a QueryTI* subclass",
+    "rationale": "Inlining the logic in the route bypasses the filter abstraction and breaks the guarantee that group filtering is always applied uniformly when QueryTITaskDisplayNamePatternSearch is used",
+    "evidence": [
+      {
+        "pr": 55670,
+        "url": "https://github.com/apache/airflow/pull/55670#discussion_r2426513087",
+        "excerpt": "should live in QueryTITaskDisplayNamePatternSearch, subclass and implement custom to_orm method"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/task_instances.py"
+    ]
+  },
+  {
+    "rule": "Do not use inspect to probe clear_task_instances function signatures at runtime; fix tests to pass expected arguments directly",
+    "category": "correctness",
+    "trigger": "inspect.signature or 'params' in params pattern used to conditionally pass arguments to clear_task_instances",
+    "rationale": "Runtime signature introspection is fragile and unnecessary; the authoritative fix is updating the test to align with the real function signature",
+    "evidence": [
+      {
+        "pr": 56351,
+        "url": "https://github.com/apache/airflow/pull/56351#discussion_r2486282442",
+        "excerpt": "we don't need inspect to check clear_task_instances; just fix the test"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/task_instances.py"
+    ]
+  },
+  {
+    "rule": "Removing an existing public REST API query parameter is a breaking change; keep the old parameter and add the new one alongside it",
+    "category": "api-design",
+    "trigger": "diff removing a Query parameter (e.g. xcom_key) from a public route that previously exposed it",
+    "rationale": "Callers depending on the old parameter break silently; both exact-match and pattern variants must coexist on the backend",
+    "evidence": [
+      {
+        "pr": 54049,
+        "url": "https://github.com/apache/airflow/pull/54049#discussion_r2266307744",
+        "excerpt": "keep both xcom_key and xcom_key_pattern; removing xcom_key is a breaking change"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/xcom.py"
+    ]
+  },
+  {
+    "rule": "Logic used exclusively by a public API endpoint must not be placed under the ui/ service layer; move it to a common or public service module",
+    "category": "api-design",
+    "trigger": "service function inside api_fastapi/.../services/ui/ being imported or called from a public/ route",
+    "rationale": "Services under ui/ are intended for UI-specific concerns; placing shared logic there creates an incorrect dependency and obscures the public API's service boundary",
+    "evidence": [
+      {
+        "pr": 55670,
+        "url": "https://github.com/apache/airflow/pull/55670#discussion_r2426518186",
+        "excerpt": "used by the public API endpoint and should not live in a ui service"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/services/ui/task_group.py"
+    ]
+  },
+  {
+    "rule": "Dashboard DAG state counts (active, failed, running, queued) must use a consistent semantic baseline—either all based on latest run or all based on any run—so counts cannot exceed the total number of DAGs",
+    "category": "correctness",
+    "trigger": "dashboard query mixing latest-run state with any-run state counts in the same response (e.g. failed uses latest_state while running/queued use any DagRun in that state)",
+    "rationale": "Mixing semantics makes counts non-exclusive: a DAG with an old running run and a failed latest run appears in both buckets, causing the total to exceed the actual DAG count",
+    "evidence": [
+      {
+        "pr": 68657,
+        "url": "https://github.com/apache/airflow/pull/68657#discussion_r3429475465",
+        "excerpt": "running/queued are 'any run in that state' but failed is 'latest run is failed'; counts no longer mutually exclusive"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/dashboard.py"
+    ]
+  },
+  {
+    "rule": "Skip calling _serialize_xcoms() entirely when result_task_ids is an empty list; only call it when result_task_ids is None (DAG-authored default) or a non-empty list",
+    "category": "performance",
+    "trigger": "await self._serialize_xcoms() called unconditionally or without checking result_task_ids == []",
+    "rationale": "An empty result_task_ids signals the client explicitly opted out of results; querying XComs anyway wastes a DB round-trip and may leak data through an authorization-suppressed empty list path",
+    "evidence": [
+      {
+        "pr": 64577,
+        "url": "https://github.com/apache/airflow/pull/64577#discussion_r3066476254",
+        "excerpt": "queries XComs for every finished run even when results not requested; guard when result_task_ids == []"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/services/public/dag_run.py",
+      "airflow-core/src/airflow/api_fastapi/core_api/services/public/dag_run.py"
+    ]
+  },
+  {
+    "rule": "Execution-API JWT data models should expose only the scope field needed at the application layer; JWT validation fields (exp, aud, iss, nbf, iat) belong in the upstream JWTValidator, not in the application-level token model",
+    "category": "api-design",
+    "trigger": "Pydantic model for an execution-API token including JWT standard claims (exp, aud, iss, nbf, iat) alongside application-level fields like scope",
+    "rationale": "JWT standard claims are consumed and validated by JWTValidator before the payload reaches application code; re-exposing them in the application model creates unnecessary coupling",
+    "evidence": [
+      {
+        "pr": 63604,
+        "url": "https://github.com/apache/airflow/pull/63604#discussion_r2957813443",
+        "excerpt": "exp, aud only used at JWTValidator; only scope field needed in the application data model"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/datamodels/token.py"
+    ]
+  },
+  {
+    "rule": "Regex-based query parameters in the execution API must use a _pattern suffix to match the public REST API naming convention",
+    "category": "naming",
+    "trigger": "Annotated[str | None, Query(description='... pattern ...')] parameter whose name does not end in _pattern",
+    "rationale": "The public REST API uses partition_key_pattern for regex filters; inconsistent naming on the execution API is misleading and suggests exact-match semantics to callers",
+    "evidence": [
+      {
+        "pr": 64610,
+        "url": "https://github.com/apache/airflow/pull/64610#discussion_r3025330410",
+        "excerpt": "named partition_key but treats it as regex; inconsistent with public REST API's partition_key_pattern"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/asset_events.py"
+    ]
+  },
+  {
+    "rule": "AssetEvent.extra filtering in execution-API routes must use _parse_extra_params() and JsonContains() rather than ad-hoc string splitting on '='",
+    "category": "correctness",
+    "trigger": "for item in extra: if '=' in item: k, v = item.split('=', 1) pattern applied to AssetEvent.extra",
+    "rationale": "Ad-hoc splitting does not handle None (raises TypeError), misses multi-key payloads, and diverges from the established _parse_extra_params/JsonContains pattern used elsewhere in the same file",
+    "evidence": [
+      {
+        "pr": 64611,
+        "url": "https://github.com/apache/airflow/pull/64611#discussion_r3025321525",
+        "excerpt": "extra defaults to None; unconditional iteration raises TypeError; reuse _parse_extra_params and JsonContains"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/asset_events.py"
+    ]
+  },
+  {
+    "rule": "Execution-API asset resolvers must filter by AssetModel.active.has() when resolving an asset by name, to prevent workers from reading or writing state against removed assets",
+    "category": "correctness",
+    "trigger": "select(AssetModel.id).where(AssetModel.name == name) inside an execution-API route without .where(AssetModel.active.has())",
+    "rationale": "An asset row persists in the DB after removal from its DAG but loses its asset_active partner; resolving such a row lets workers operate against a logically inactive asset",
+    "evidence": [
+      {
+        "pr": 66073,
+        "url": "https://github.com/apache/airflow/pull/66073#discussion_r3170621778",
+        "excerpt": "other execution-API routes filter by AssetModel.active.has(); omitting it lets removed assets resolve"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/asset_state.py",
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/assets.py",
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/asset_events.py"
+    ]
+  },
+  {
+    "rule": "JWT generation for the execution token must occur inside the same try/except block that commits the TaskInstance state transition, so a token-generation failure does not leave a TI committed as running without a token",
+    "category": "correctness",
+    "trigger": "execution_token = generator.generate(...) or response.headers['X-Execution-Token'] = ... placed after the try/except that commits TI state",
+    "rationale": "If JWT generation fails after TI state is committed the task instance is stuck in RUNNING with no way for the worker to authenticate, creating an unrecoverable inconsistency",
+    "evidence": [
+      {
+        "pr": 60108,
+        "url": "https://github.com/apache/airflow/pull/60108#discussion_r2980465092",
+        "excerpt": "if generate raises, API returns 500 but TI was already committed as running; move into try/except"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"
+    ]
+  },
+  {
+    "rule": "OpenAPI HTTP exception description strings within the same route file must consistently either all end with a period or none do",
+    "category": "docs",
+    "trigger": "create_openapi_http_exception_doc([...]) call where some description strings end with '.' and others do not within the same file",
+    "rationale": "Inconsistent punctuation in generated OpenAPI descriptions creates visual noise in generated docs and client stubs; Airflow reviewers enforce uniformity within a file",
+    "evidence": [
+      {
+        "pr": 62624,
+        "url": "https://github.com/apache/airflow/pull/62624#discussion_r3275294729",
+        "excerpt": "half descriptions end with '.' and half don't in the same file; pick one consistent with default error responses"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"
+    ]
+  },
+  {
+    "rule": "Do not use hasattr(state, 'value') guards on Airflow state enum types; all TerminalTIState, TerminalStateNonSuccess, and TaskInstanceState values always have .value",
+    "category": "correctness",
+    "trigger": "hasattr(some_state, 'value') pattern used with a variable typed as TerminalTIState, TerminalStateNonSuccess, or TaskInstanceState",
+    "rationale": "These are str enums in Airflow and always have .value; the guard is dead code that obscures intent and can mask incorrect type annotations",
+    "evidence": [
+      {
+        "pr": 63355,
+        "url": "https://github.com/apache/airflow/pull/63355#discussion_r2957813443",
+        "excerpt": "hasattr guards unnecessary; TerminalTIState/TaskInstanceState always have .value; simplify to str() comparison"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"
+    ]
+  },
+  {
+    "rule": "Remove TODO comments that document conclusions of already-completed investigations; if the conclusion is 'no easy way to achieve this', delete the comment rather than leaving it in code",
+    "category": "commit-hygiene",
+    "trigger": "# TODO: comment in execution_api routes where the investigation has already concluded it is infeasible",
+    "rationale": "Stale TODO comments clutter the code and suggest pending work that will never happen; reviewers explicitly request removal when investigation is complete",
+    "evidence": [
+      {
+        "pr": 54308,
+        "url": "https://github.com/apache/airflow/pull/54308#discussion_r2278416950",
+        "excerpt": "no easy way to achieve it based on current airflow design; let's remove the TODO"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/execution_api/routes/hitl.py"
+    ]
+  }
+]

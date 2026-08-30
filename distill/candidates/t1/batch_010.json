@@ -1,0 +1,213 @@
+[
+  {
+    "rule": "Use a bounded `asyncio.Queue` (non-zero `maxsize`) for per-subscriber queues in shared-stream triggers; never use `put_nowait` into an unbounded queue from a broadcast producer.",
+    "category": "async",
+    "trigger": "asyncio.Queue() with no maxsize argument inside a trigger subscribe/poll method, combined with put_nowait calls from a producer loop",
+    "rationale": "An unbounded queue grows silently when a slow subscriber cannot keep up with a high-frequency upstream (Kafka, SQS). The memory leak is invisible until OOM kills the scheduler process.",
+    "evidence": [
+      {
+        "pr": 66584,
+        "url": "https://github.com/apache/airflow/pull/66584#discussion_r3249347072",
+        "excerpt": "slow subscriber's queue grows without bound — memory leak invisible until OOM"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/triggers/"
+    ]
+  },
+  {
+    "rule": "When adding a new i18n key to `en/common.json`, also seed the same English string into every other locale's `common.json` so missing-key fallback is consistent.",
+    "category": "docs",
+    "trigger": "diff adds a key to airflow-core/src/airflow/ui/public/i18n/locales/en/common.json but does not touch any other locale's common.json",
+    "rationale": "The project convention (see PR #67540) is to seed the English string in all locale files so the missing-key fallback path is exercised uniformly across locales.",
+    "evidence": [
+      {
+        "pr": 67207,
+        "url": "https://github.com/apache/airflow/pull/67207#discussion_r3307234191",
+        "excerpt": "convention is to seed the English string into every locale's common.json"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/public/i18n/locales/"
+    ]
+  },
+  {
+    "rule": "New i18n keys must be placed under a namespace object matching the UI section (e.g. `taskGroup.documentation`), not as a flat top-level key (e.g. `taskGroupDocumentation`).",
+    "category": "naming",
+    "trigger": "diff adds a top-level key to a locale JSON file whose name concatenates an existing namespace with a sub-concept (e.g. fooBarBaz instead of foo.barBaz)",
+    "rationale": "Existing patterns use nested namespaces (`task.documentation`, `dagDetails.documentation`). Flat camel-case keys break the namespace convention and make future grouping harder.",
+    "evidence": [
+      {
+        "pr": 67207,
+        "url": "https://github.com/apache/airflow/pull/67207#discussion_r3307234191",
+        "excerpt": "existing pattern is namespaced; top-level taskGroupDocumentation breaks convention"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/public/i18n/locales/"
+    ]
+  },
+  {
+    "rule": "Acronyms in translation strings must be capitalised consistently with their English form (e.g. `JSON`, not `json`).",
+    "category": "docs",
+    "trigger": "diff introduces a locale JSON value where a well-known acronym (JSON, DAG, API, UI, ID) appears in all-lowercase",
+    "rationale": "The project enforces consistent acronym capitalisation across all locale strings; reviewers correct `json` → `JSON` in UI translation files.",
+    "evidence": [
+      {
+        "pr": 51233,
+        "url": "https://github.com/apache/airflow/pull/51233#discussion_r2255269968",
+        "excerpt": "collapseAllExtra: All extra JSON inklappen — JSON must be uppercase"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/public/i18n/locales/"
+    ]
+  },
+  {
+    "rule": "Prefer icons from the `react-icons` library over custom inline SVG icons in the Airflow UI; only add a custom icon if no suitable option exists in `react-icons`.",
+    "category": "api-design",
+    "trigger": "diff adds a new custom icon component (e.g. createIcon({...}) or raw <svg>) under airflow-core/src/airflow/ui/src/assets/ or components/",
+    "rationale": "The UI already depends on react-icons; adding bespoke SVG icons increases bundle size and maintenance burden when a library icon would suffice.",
+    "evidence": [
+      {
+        "pr": 62195,
+        "url": "https://github.com/apache/airflow/pull/62195#discussion_r2854581938",
+        "excerpt": "favor icons from react-icons library; we probably don't need additional custom ones"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/assets/",
+      "airflow-core/src/airflow/ui/src/components/"
+    ]
+  },
+  {
+    "rule": "Pass only the i18n namespaces actually used in the file to `useTranslation`; do not list unused namespaces.",
+    "category": "performance",
+    "trigger": "diff adds or modifies a useTranslation([...]) call with multiple namespace strings; check whether each listed namespace is actually referenced via the returned translate function in the same file",
+    "rationale": "Listing unused namespaces in useTranslation loads unnecessary translation bundles. The project convention is to declare only the namespaces consumed in that file.",
+    "evidence": [
+      {
+        "pr": 54640,
+        "url": "https://github.com/apache/airflow/pull/54640#discussion_r2322412298",
+        "excerpt": "we are not using these namespaces in this file"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/"
+    ]
+  },
+  {
+    "rule": "Response-shape normalization and field mapping must be done in the backend API, not in the frontend; the API must return a consistent response type.",
+    "category": "api-design",
+    "trigger": "diff in a frontend component manually re-shapes or re-maps fields from an API response (e.g. destructuring and rebuilding a response object to normalise its shape)",
+    "rationale": "Airflow's architecture places response-shape responsibility on the backend. Duplicating that logic in the frontend creates coupling and inconsistency across clients.",
+    "evidence": [
+      {
+        "pr": 63484,
+        "url": "https://github.com/apache/airflow/pull/63484#discussion_r3015895929",
+        "excerpt": "should be done on the backend; API should return a consistent response type"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/",
+      "airflow-core/src/airflow/api_fastapi/"
+    ]
+  },
+  {
+    "rule": "Use `react-hook-form`'s `useForm({ values: ... })` option to sync async-loaded data into form fields; do not use a `useEffect` + `reset`/`setValue` pattern for this purpose.",
+    "category": "api-design",
+    "trigger": "diff adds a useEffect that calls form.reset() or form.setValue() to populate form fields after an async data fetch completes",
+    "rationale": "useForm({ values }) is the idiomatic react-hook-form pattern that re-syncs automatically without an explicit effect, avoiding stale-closure bugs and extra render cycles.",
+    "evidence": [
+      {
+        "pr": 63884,
+        "url": "https://github.com/apache/airflow/pull/63884#discussion_r3155158552",
+        "excerpt": "useForm({ values }) is the idiomatic way to sync async-loaded data"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/"
+    ]
+  },
+  {
+    "rule": "An `/* eslint-disable max-lines */` comment must be accompanied by an inline justification explaining why the file legitimately exceeds the line limit.",
+    "category": "docs",
+    "trigger": "diff adds /* eslint-disable max-lines */ without a comment on the same line or the immediately following line explaining the reason",
+    "rationale": "The project convention requires a rationale alongside the suppression so reviewers can assess whether the exception is genuinely warranted.",
+    "evidence": [
+      {
+        "pr": 63884,
+        "url": "https://github.com/apache/airflow/pull/63884#discussion_r3155158563",
+        "excerpt": "previous version had a justification for the eslint-disable; worth keeping that"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/"
+    ]
+  },
+  {
+    "rule": "When a component mixes debounced and immediate calls to the same callback, cancel any pending debounced invocation before the immediate call to prevent stale-value race conditions.",
+    "category": "async",
+    "trigger": "diff adds code where both a debouncedX and a non-debounced X call the same underlying onChange/callback within the same event handler chain (e.g. onPaste calling onChange directly while an earlier onInput scheduled debouncedOnChange)",
+    "rationale": "A pending debounced call from a prior input event can fire after an immediate paste event and overwrite the pasted value with stale manual-entry data.",
+    "evidence": [
+      {
+        "pr": 66251,
+        "url": "https://github.com/apache/airflow/pull/66251#discussion_r3226615580",
+        "excerpt": "previously scheduled debouncedOnDateChange runs afterward with stale manual input value"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/components/"
+    ]
+  },
+  {
+    "rule": "DagVersion and BundleVersion concepts must be represented by visually distinct icons; do not share the same icon between them.",
+    "category": "api-design",
+    "trigger": "diff causes DagVersionIndicator and BundleVersionIndicator (or equivalent DAG-version and bundle-version UI components) to render the same icon",
+    "rationale": "DAG versions and Bundle versions are distinct Airflow concepts. Using the same icon (e.g. FiGitCommit) for both conflates them in the UI and confuses users.",
+    "evidence": [
+      {
+        "pr": 53216,
+        "url": "https://github.com/apache/airflow/pull/53216#discussion_r2556416435",
+        "excerpt": "DagVersionIndicator and BundleVersionIndicator should not use the same icon"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/components/ui/"
+    ]
+  },
+  {
+    "rule": "An 'All' / 'all' option in a state or status filter must reset the filter (omit the query parameter) rather than sending `state=all` to the API.",
+    "category": "correctness",
+    "trigger": "diff adds a filter option whose value is the string \"all\" (or equivalent) that gets passed as a query parameter to an Airflow API endpoint",
+    "rationale": "The Airflow API does not accept `state=all`; sending it produces an error. The 'all' option should clear the filter parameter entirely.",
+    "evidence": [
+      {
+        "pr": 56920,
+        "url": "https://github.com/apache/airflow/pull/56920#discussion_r2466397279",
+        "excerpt": "clicking 'all' state filter yields an error; should reset the filter"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/constants/",
+      "airflow-core/src/airflow/ui/src/"
+    ]
+  },
+  {
+    "rule": "Do not wrap a single-function delegation in `useCallback` with an empty dependency array when the Airflow UI project uses React Compiler; pass the stable function reference directly.",
+    "category": "performance",
+    "trigger": "diff adds useCallback(() => stableFn(arg), []) where stableFn is a module-level or otherwise stable function and the wrapper adds no logic",
+    "rationale": "The Airflow UI uses React Compiler, which handles memoization automatically. Manual useCallback with an empty deps array that only delegates adds unnecessary overhead and noise.",
+    "evidence": [
+      {
+        "pr": 64748,
+        "url": "https://github.com/apache/airflow/pull/64748#discussion_r3046244412",
+        "excerpt": "React Compiler handles memoization; empty deps wrapper adds nothing"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/"
+    ]
+  }
+]

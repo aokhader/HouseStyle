@@ -1,0 +1,274 @@
+[
+  {
+    "rule": "When attaching an OTel context token inside the task-SDK supervisor request handler, place otel_context.attach() inside the try block so the finally clause always detaches it",
+    "category": "correctness",
+    "trigger": "otel_context.attach(...) appears before a try block whose finally calls otel_context.detach(token) in supervisor.py or task_runner.py",
+    "rationale": "If any exception fires between attach() and the try, the token leaks un-detached, corrupting the OTel context chain for subsequent requests on the same thread",
+    "evidence": [
+      {
+        "pr": 66151,
+        "url": "https://github.com/apache/airflow/pull/66151#discussion_r3173543594",
+        "excerpt": "token would leak un-detached; move attach inside the try"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/supervisor.py"
+    ]
+  },
+  {
+    "rule": "Document force_flush(timeout_millis=…) call sites with a comment clarifying the value is an upper bound, not a fixed wait",
+    "category": "docs",
+    "trigger": "provider.force_flush(timeout_millis=...) added in task-SDK teardown without an explanatory comment",
+    "rationale": "Without the comment a future reader benchmarking task teardown may assume every supervisor exit costs the full timeout; force_flush returns as soon as the BSP drains",
+    "evidence": [
+      {
+        "pr": 66151,
+        "url": "https://github.com/apache/airflow/pull/66151#discussion_r3173543603",
+        "excerpt": "5000ms is an upper bound, not a fixed wait — force_flush returns when BSP drains"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/supervisor.py"
+    ]
+  },
+  {
+    "rule": "When wrapping a callable with an OTel detail_span, re-snapshot contextvars after entering the span so operator child spans nest under it rather than being siblings",
+    "category": "async",
+    "trigger": "contextvars.copy_context() called before a @detail_span or start_as_current_span wrapper in task_runner.py, with ctx.run() used inside the span",
+    "rationale": "The pre-span snapshot still holds the outer span as current; operator child spans parent to that outer span and appear as siblings of the wrapper span, defeating the telemetry hierarchy",
+    "evidence": [
+      {
+        "pr": 67877,
+        "url": "https://github.com/apache/airflow/pull/67877#discussion_r3337666148",
+        "excerpt": "ctx snapshotted before task.execute span; operator spans parent to _execute_task as siblings"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/task_runner.py"
+    ]
+  },
+  {
+    "rule": "When clear_on_success clears task state via a worker backend, also clear asset state accessors for the same task instance",
+    "category": "correctness",
+    "trigger": "context[\"task_state\"].clear() called under clear_on_success without a corresponding walk of context[\"asset_state\"] accessors",
+    "rationale": "Custom worker-side backends may persist asset state externally (e.g. S3); omitting asset_state.clear() leaves orphaned objects even though DB rows are cleared",
+    "evidence": [
+      {
+        "pr": 66859,
+        "url": "https://github.com/apache/airflow/pull/66859#discussion_r3270160482",
+        "excerpt": "clear_on_success clears task state but not asset state stored externally by custom backends"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/task_runner.py"
+    ]
+  },
+  {
+    "rule": "Yield one outlet-event record per partition_key rather than a single record with a partition_keys list",
+    "category": "api-design",
+    "trigger": "yield {\"dest_asset_key\": ..., \"partition_keys\": list(...)} in task_runner.py outlet-event iteration",
+    "rationale": "The repo is moving away from a plural partition_keys field to avoid ambiguity; each partition should produce its own event record",
+    "evidence": [
+      {
+        "pr": 65447,
+        "url": "https://github.com/apache/airflow/pull/65447#discussion_r3217188360",
+        "excerpt": "move away from partition_keys; yield one record per partition_key instead"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/task_runner.py"
+    ]
+  },
+  {
+    "rule": "Docstrings on task-SDK RPC helper methods must exactly match the method's own parameters and return type, not be copied from a sibling method",
+    "category": "docs",
+    "trigger": "A new @staticmethod in task_runner.py whose docstring refers to parameters or return values not present in its own signature",
+    "rationale": "Copy-pasted docstrings (e.g. get_dag_state reusing get_dagrun_state wording) mislead callers about what the method actually accepts and returns",
+    "evidence": [
+      {
+        "pr": 56955,
+        "url": "https://github.com/apache/airflow/pull/56955#discussion_r2949430771",
+        "excerpt": "docstring says 'Return state of the Dag run with the given Run ID' but method only takes dag_id"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/task_runner.py"
+    ]
+  },
+  {
+    "rule": "pytest.param ids must accurately describe the specific scenario under test, including whether parameters have defaults or not",
+    "category": "testing",
+    "trigger": "pytest.param(..., id=\"...\") where the id string claims a parameter property (e.g. 'without_default') that contradicts the actual lambda/function signature",
+    "rationale": "Misleading ids obscure which edge-case is being exercised and hide gaps where the intended scenario is never actually tested",
+    "evidence": [
+      {
+        "pr": 62174,
+        "url": "https://github.com/apache/airflow/pull/62174#discussion_r2934053394",
+        "excerpt": "ID says 'without_default' but all params after b=5 are also defaulted; edge case not exercised"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/tests/task_sdk/bases/test_decorator.py"
+    ]
+  },
+  {
+    "rule": "Tests for task-SDK decorator/operator behaviour must assert observable runtime behaviour, not just implementation internals",
+    "category": "testing",
+    "trigger": "A test in test_decorator.py or test_task_runner.py that only asserts on inspect.signature of the original callable or on internal state that was not modified by the fix",
+    "rationale": "Asserting on unmodified internals gives false confidence; the real invariant is whether the operator behaves correctly at call time (e.g. bind() succeeds or the fix-injected defaults take effect)",
+    "evidence": [
+      {
+        "pr": 62174,
+        "url": "https://github.com/apache/airflow/pull/62174#discussion_r2927160308",
+        "excerpt": "inspect.signature returns original callable's signature; fix modifies a local list, not the callable"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/tests/task_sdk/bases/test_decorator.py"
+    ]
+  },
+  {
+    "rule": "Include a regression test case using the exact context key names from the original bug report when fixing KNOWN_CONTEXT_KEYS-related decorator issues",
+    "category": "testing",
+    "trigger": "test_construction_succeeds parametrize cases added for a KNOWN_CONTEXT_KEYS bug fix without a case using actual context key names like start_date or end_date",
+    "rationale": "Without the exact scenario the regression test does not guard against re-introduction of the specific bug (#56128: foo(start_date, end_date) called with (None, None))",
+    "evidence": [
+      {
+        "pr": 62174,
+        "url": "https://github.com/apache/airflow/pull/62174#discussion_r2927160319",
+        "excerpt": "add a case using actual context key names as regression for issue #56128"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/tests/task_sdk/bases/test_decorator.py"
+    ]
+  },
+  {
+    "rule": "Use mock.create_autospec() when monkeypatching DAG or operator methods in task-SDK tests",
+    "category": "testing",
+    "trigger": "monkeypatch.setattr(DAG, \"...\", mock.MagicMock()) without spec= or autospec= in task-sdk tests",
+    "rationale": "Airflow's testing guidelines require autospecced mocks for DAG/operator methods to catch signature mismatches at test time",
+    "evidence": [
+      {
+        "pr": 64563,
+        "url": "https://github.com/apache/airflow/pull/64563#discussion_r3025276615",
+        "excerpt": "use create_autospec; aligns with Airflow's testing guidelines and catches signature mistakes"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/tests/task_sdk/definitions/test_dag.py"
+    ]
+  },
+  {
+    "rule": "Prefer the conf_vars context manager over unittest.mock.patch for overriding Airflow configuration values in tests",
+    "category": "testing",
+    "trigger": "with patch(\"airflow.sdk.configuration.conf.get\", ...) or patch(\"airflow.configuration.conf.get\", ...) in task-sdk tests",
+    "rationale": "conf_vars is the idiomatic Airflow mechanism for test-scoped config overrides; patch bypasses the config system and can break when the import path changes",
+    "evidence": [
+      {
+        "pr": 57744,
+        "url": "https://github.com/apache/airflow/pull/57744#discussion_r2537439828",
+        "excerpt": "why mocking this rather than using conf_vars context manager?"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/tests/task_sdk/execution_time/test_task_runner.py"
+    ]
+  },
+  {
+    "rule": "Remove unused test helper functions rather than leaving them as dead code in test modules",
+    "category": "testing",
+    "trigger": "A helper function defined in a test class or module in task-sdk/tests/ that is not called by any test in the same file",
+    "rationale": "Dead helpers increase cognitive load and make test intent harder to scan; reviewers must verify the helper is truly unused before trusting the test coverage",
+    "evidence": [
+      {
+        "pr": 63568,
+        "url": "https://github.com/apache/airflow/pull/63568#discussion_r3066479735",
+        "excerpt": "_make_provider_with_detail_level added but not used; increases noise and obscures test intent"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/tests/task_sdk/execution_time/test_task_runner.py"
+    ]
+  },
+  {
+    "rule": "Mark tests that rely on POSIX dup2 semantics with pytest.mark.skipif(os.name == 'nt', ...) to prevent Windows CI failures",
+    "category": "testing",
+    "trigger": "os.dup2(socket.fileno(), 0/1/2) used inside a test class in test_supervisor.py without a platform guard",
+    "rationale": "Windows sockets are not CRT file descriptors; dup2 onto stdio with a socket fails on Windows and would break cross-platform CI",
+    "evidence": [
+      {
+        "pr": 64874,
+        "url": "https://github.com/apache/airflow/pull/64874#discussion_r3066479546",
+        "excerpt": "add skipif(os.name=='nt'); dup2 socket onto stdio fails on Windows"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/tests/task_sdk/execution_time/test_supervisor.py"
+    ]
+  },
+  {
+    "rule": "In task-SDK signal-forwarding integration tests, use a short time.sleep (≤2s) so the test exits promptly on SIGTERM rather than waiting out the full supervisor watchdog window",
+    "category": "testing",
+    "trigger": "time.sleep(N) with N > 5 inside an execute() method of a test operator in a signal_forward_test.py or similar integration test DAG",
+    "rationale": "PEP 475 resumes sleep after a signal handler returns; a long sleep means the test blocks for the full watchdog period and only exits on SIGKILL",
+    "evidence": [
+      {
+        "pr": 61627,
+        "url": "https://github.com/apache/airflow/pull/61627#discussion_r3307553391",
+        "excerpt": "time.sleep(30) ties up the full watchdog window; drop to 2s so test exits on SIGTERM promptly"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/tests/task_sdk/dags/signal_forward_test.py"
+    ]
+  },
+  {
+    "rule": "OTel span tests in task-sdk must assert parent/child span relationships, not just that a named span exists",
+    "category": "testing",
+    "trigger": "Test in test_task_runner.py asserts 'task.execute' in [s.name for s in exporter.get_finished_spans()] without checking span.parent.span_id",
+    "rationale": "A suite that only checks span existence stays green even if the wrapping span ends up a sibling of operator child spans rather than their parent, hiding the telemetry nesting regression",
+    "evidence": [
+      {
+        "pr": 67877,
+        "url": "https://github.com/apache/airflow/pull/67877#discussion_r3337666151",
+        "excerpt": "suite stays green even if task.execute is a sibling; assert span.parent.span_id to catch nesting bugs"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/tests/task_sdk/execution_time/test_task_runner.py"
+    ]
+  },
+  {
+    "rule": "The TS-SDK log channel must buffer log records emitted before the coordinator socket is connected and flush them once connected, not drop or only write to stderr",
+    "category": "correctness",
+    "trigger": "LogChannel.write() or equivalent in ts-sdk returns early or writes only to stderr when connected===false, with no buffering logic",
+    "rationale": "Logs emitted during TS subprocess startup (before the comms socket handshake completes) are otherwise permanently lost; Go and Java SDKs both implement this pre-connection buffer",
+    "evidence": [
+      {
+        "pr": 69302,
+        "url": "https://github.com/apache/airflow/pull/69302#discussion_r3608252730",
+        "excerpt": "buffer logs at stage 2 before connected; Go and Java SDKs both handle this lifecycle"
+      }
+    ],
+    "scope_paths": [
+      "ts-sdk/src/coordinator/log-channel.ts"
+    ]
+  },
+  {
+    "rule": "TS-SDK TaskInstance public context must locate a task instance by the dag/run/task/map tuple, aligned with Go and Java SDK identity, rather than exposing a raw taskInstanceId",
+    "category": "api-design",
+    "trigger": "readonly taskInstanceId: string added to the public TaskInstance interface in ts-sdk/src/task.ts",
+    "rationale": "Neither the Go SDK (DagID/RunID/TaskID/MapIndex) nor the Java SDK exposes a raw TI id on the context; diverging breaks cross-SDK consistency for coordinator XCom addressing",
+    "evidence": [
+      {
+        "pr": 67908,
+        "url": "https://github.com/apache/airflow/pull/67908#discussion_r3414088221",
+        "excerpt": "Go and Java SDKs locate TI by dag/run/task/map tuple; taskInstanceId diverges from cross-SDK alignment"
+      }
+    ],
+    "scope_paths": [
+      "ts-sdk/src/task.ts"
+    ]
+  }
+]

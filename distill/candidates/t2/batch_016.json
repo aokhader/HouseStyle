@@ -1,0 +1,170 @@
+[
+  {
+    "rule": "Use `[error]` (not `[errors]`) for the error style tag in Breeze Rich console markup",
+    "category": "correctness",
+    "trigger": "Rich markup string using `[errors]` in any Breeze utility or command file",
+    "rationale": "The Breeze Rich theme defines the tag as `error`, not `errors`; using the wrong name causes a Rich markup/style parsing error at runtime",
+    "evidence": [
+      {
+        "pr": 63561,
+        "url": "https://github.com/apache/airflow/pull/63561#discussion_r2935264206",
+        "excerpt": "`[errors]` is not a valid style tag in the Breeze Rich theme"
+      }
+    ],
+    "scope_paths": ["dev/breeze/src/airflow_breeze/"]
+  },
+  {
+    "rule": "Exclude Python minor versions in `requires-python` using the wildcard form `!=3.x.*`, not the bare `!=3.x`, and align the excluded version with the workspace standard",
+    "category": "correctness",
+    "trigger": "`requires-python` specifier in any `pyproject.toml` that excludes a minor version without a wildcard (e.g. `!=3.14` instead of `!=3.14.*`)",
+    "rationale": "A bare `!=3.14` only excludes exactly 3.14.0; the whole 3.14.x series remains installable, contrary to intent. The workspace uses `!=3.15.*` as its standard exclusion.",
+    "evidence": [
+      {
+        "pr": 61422,
+        "url": "https://github.com/apache/airflow/pull/61422#discussion_r3120402046",
+        "excerpt": "bare `!=3.14` only excludes exactly Python 3.14.0, not the whole 3.14.x series"
+      }
+    ],
+    "scope_paths": ["dev/mypy/pyproject.toml", "providers/"]
+  },
+  {
+    "rule": "When adding a new provider base class to the registry `types.py` mapping, also add the corresponding entry to the `provider.yaml` validator's `base_class_resource_map` and its tuple of resource-type strings",
+    "category": "providers",
+    "trigger": "A new `(resource_name, base_class_fqn)` tuple added to `dev/registry/registry_tools/types.py` without a matching entry in the provider.yaml validator",
+    "rationale": "The provider.yaml validator keeps its own copy of the base-class mapping; omitting an entry lets a provider ship a subclass without declaring it and CI stays green, hiding discoverability gaps",
+    "evidence": [
+      {
+        "pr": 70499,
+        "url": "https://github.com/apache/airflow/pull/70499#discussion_r3668288769",
+        "excerpt": "provider can ship a RetryPolicy subclass, forget to declare it, and CI stays green"
+      }
+    ],
+    "scope_paths": ["dev/registry/registry_tools/types.py"]
+  },
+  {
+    "rule": "When an ADR is superseded in part by a later ADR, add a `Superseded in part by ADR NNNN` note in the Status section of the older ADR",
+    "category": "docs",
+    "trigger": "A new ADR is merged that changes decisions from an older ADR, but the older ADR's Status section is not updated",
+    "rationale": "Readers landing on a stale ADR without the supersession note will reason from the wrong artefact shape; earlier ADRs in the Airflow project (0001, 0002) set the precedent of noting supersession in Status",
+    "evidence": [
+      {
+        "pr": 67153,
+        "url": "https://github.com/apache/airflow/pull/67153#discussion_r3295554993",
+        "excerpt": "Status section doesn't mention that supersession the way ADRs 0001 and 0002 do"
+      }
+    ],
+    "scope_paths": ["go-sdk/adr/", "java-sdk/adr/"]
+  },
+  {
+    "rule": "Helm tests for `airflow.tplDict`-rendered annotations must include a case with two or more annotation key/value pairs to guard against YAML line-concatenation bugs",
+    "category": "testing",
+    "trigger": "A Helm test for a template that uses `airflow.tplDict` for annotations only asserts a single annotation key",
+    "rationale": "The `airflow.tplDict` helper has a known failure mode when rendering multiple annotations (YAML line concatenation); a single-annotation test passes even when the multi-annotation path is broken",
+    "evidence": [
+      {
+        "pr": 64763,
+        "url": "https://github.com/apache/airflow/pull/64763#discussion_r3066499352",
+        "excerpt": "add at least one test case that sets 2+ annotations and asserts both render correctly"
+      }
+    ],
+    "scope_paths": ["helm-tests/tests/helm_tests/"]
+  },
+  {
+    "rule": "Helm chart template tests must cover conditional rendering with a `null`/unset value and a boundary value (e.g. `0`) in addition to the happy path",
+    "category": "testing",
+    "trigger": "A Helm test for a conditionally rendered field (e.g. `ttlSecondsAfterFinished`) covers only the enabled/set case without testing `null`, unset, or `0`",
+    "rationale": "Testing only the happy path makes it easy to break conditional Helm templating logic without the test catching it; `null/unset` and `0` are the most common regression vectors",
+    "evidence": [
+      {
+        "pr": 64164,
+        "url": "https://github.com/apache/airflow/pull/64164#discussion_r2985262816",
+        "excerpt": "should also cover `null/unset` and `value = 0`; easy to break templating logic otherwise"
+      }
+    ],
+    "scope_paths": ["helm-tests/tests/helm_tests/"]
+  },
+  {
+    "rule": "When Helm chart tests migrate a component reference from `webserver` to `apiServer`, rename the test methods and parametrize IDs to reflect the new component name",
+    "category": "naming",
+    "trigger": "A Helm test method name or parameter ID still contains `webserver_config` after the chart has migrated the volume/config to the API server",
+    "rationale": "Stale test names referring to `webserver_config` cause confusion when webserver support is removed, since the volume is now `api-server-config`",
+    "evidence": [
+      {
+        "pr": 65866,
+        "url": "https://github.com/apache/airflow/pull/65866#discussion_r3143386204",
+        "excerpt": "test name still refers to 'webserver_config' even though the chart now mounts API server config"
+      }
+    ],
+    "scope_paths": ["helm-tests/tests/helm_tests/"]
+  },
+  {
+    "rule": "In the Java/Kotlin SDK, the task `execute` method parameter that provides runtime context must be named `context` (not `client`) to match Python SDK naming",
+    "category": "naming",
+    "trigger": "A Java or Kotlin `Task.execute()` method signature with a parameter named `client` instead of `context`",
+    "rationale": "The parameter provides the same concept as `context` in Python's `BaseOperator.execute(context)`; inconsistent naming across language SDKs increases cognitive load for multi-language Airflow authors",
+    "evidence": [
+      {
+        "pr": 65956,
+        "url": "https://github.com/apache/airflow/pull/65956#discussion_r3156580628",
+        "excerpt": "Why has the parameter in the task be named `client` and not `context` as we have it in Python?"
+      }
+    ],
+    "scope_paths": ["java-sdk/"]
+  },
+  {
+    "rule": "In the Java/Kotlin SDK, task execution errors must be reported through the structured logger (forwarded to the Airflow `--logs` channel), not via `e.printStackTrace()` to JVM stderr",
+    "category": "correctness",
+    "trigger": "`e.printStackTrace()` called in any Java/Kotlin SDK task execution path alongside a structured logger call that already captures the same exception",
+    "rationale": "`e.printStackTrace()` writes to JVM stderr rather than the `--logs` channel forwarded to Airflow, so the trace never appears in the task log; the structured `logger.error` already captures the full trace",
+    "evidence": [
+      {
+        "pr": 65956,
+        "url": "https://github.com/apache/airflow/pull/65956#discussion_r3324719012",
+        "excerpt": "`e.printStackTrace()` writes to JVM stderr rather than the `--logs` channel forwarded to Airflow"
+      }
+    ],
+    "scope_paths": ["java-sdk/sdk/src/main/kotlin/org/apache/airflow/sdk/execution/"]
+  },
+  {
+    "rule": "In the Java/Kotlin SDK Airflow logger adapters, capture exception stack traces via `stackTraceToString()`, not `thrown.toString()`, and accept `Throwable?` (nullable) to honour the JDK `System.Logger` contract",
+    "category": "correctness",
+    "trigger": "A `System.Logger` or logging-bridge implementation in the Java SDK stores an exception as `thrown.toString()` or declares the parameter as non-nullable `Throwable`",
+    "rationale": "Using `toString()` drops the stack trace while `--logs` channel readers expect full traces; a non-null Kotlin parameter NPEs on explicit-null callers permitted by the JDK contract",
+    "evidence": [
+      {
+        "pr": 68725,
+        "url": "https://github.com/apache/airflow/pull/68725#discussion_r3449593957",
+        "excerpt": "exception stored as `thrown.toString()` drops the stack trace; other providers capture full trace"
+      }
+    ],
+    "scope_paths": ["java-sdk/jpl/src/main/kotlin/org/apache/airflow/sdk/jpl/"]
+  },
+  {
+    "rule": "In the multiplexed Airflow coordinator protocol (Java/Kotlin SDK), an undecodable or unknown-type frame must not fail all in-flight requests; scope the failure to the offending frame ID or treat unknown types as non-fatal sentinels",
+    "category": "correctness",
+    "trigger": "A `catch (Throwable)` around `readFrame()`/`decode()` in the coordinator communication loop that calls `failAllWaiters(e)` unconditionally on any decode error",
+    "rationale": "Under multiplexing, one forward-incompatible or malformed frame with this pattern kills the entire coordinator connection rather than isolating the single bad exchange",
+    "evidence": [
+      {
+        "pr": 69254,
+        "url": "https://github.com/apache/airflow/pull/69254#discussion_r3533980025",
+        "excerpt": "one forward-incompatible / unknown message type kills the whole coordinator connection"
+      }
+    ],
+    "scope_paths": ["java-sdk/sdk/src/main/kotlin/org/apache/airflow/sdk/execution/Comm.kt"]
+  },
+  {
+    "rule": "Operator `execute_complete` callbacks (deferred/trigger pattern) must raise `AirflowException` or a subclass, not `RuntimeError` or other built-in exceptions",
+    "category": "api-design",
+    "trigger": "`raise RuntimeError(...)` inside an `execute_complete` method of an Airflow operator",
+    "rationale": "Raising `RuntimeError` from a deferred callback is inconsistent with Airflow operator failure semantics and prevents uniform failure handling across operators",
+    "evidence": [
+      {
+        "pr": 64051,
+        "url": "https://github.com/apache/airflow/pull/64051#discussion_r3066494712",
+        "excerpt": "Raising `RuntimeError` inconsistent with typical Airflow operator semantics; prefer `AirflowException`"
+      }
+    ],
+    "scope_paths": ["providers/"]
+  }
+]

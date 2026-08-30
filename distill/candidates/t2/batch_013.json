@@ -1,0 +1,343 @@
+[
+  {
+    "rule": "Add `assert_queries_count` guards in new FastAPI endpoint tests to catch N+1 query regressions from missing eager loads or explicit joins.",
+    "category": "testing",
+    "trigger": "A new pytest class or test function exercises a FastAPI route that fetches a collection (assets, DAGs, task-instances, etc.) but contains no `assert_queries_count` context manager.",
+    "rationale": "Without a query-count guard, forgetting an eager-load or an explicit join silently re-introduces N+1 queries that only show up under load in production.",
+    "evidence": [
+      {
+        "pr": 69940,
+        "url": "https://github.com/apache/airflow/pull/69940#discussion_r3646653604",
+        "excerpt": "add `assert_queries_count` guards to avoid N+1 queries problem"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/api_fastapi/core_api/routes/ui/",
+      "airflow-core/tests/unit/api_fastapi/core_api/routes/public/"
+    ]
+  },
+  {
+    "rule": "Task-node entries returned by dependency/graph API endpoints must include `dag_id` so that tasks with the same name across different DAGs can be distinguished.",
+    "category": "api-design",
+    "trigger": "A new or modified API serialiser/schema for task nodes omits a `dag_id` field while including `task_id` or `task` type.",
+    "rationale": "Task IDs are only unique within a single DAG; the UI dependency graph can show tasks from multiple DAGs and must include dag_id to avoid ambiguous node identity.",
+    "evidence": [
+      {
+        "pr": 58059,
+        "url": "https://github.com/apache/airflow/pull/58059#discussion_r2690928812",
+        "excerpt": "multiple tasks with the same name across different dags"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/",
+      "airflow-core/src/airflow/api_fastapi/core_api/serializers/"
+    ]
+  },
+  {
+    "rule": "When a shared pytest fixture mutates the execution API `lifespan.registry`, add explicit teardown (after `yield`) to remove the override and prevent test pollution.",
+    "category": "testing",
+    "trigger": "A pytest fixture (not scoped to a single test) calls `lifespan.registry.register_value(...)` without a corresponding cleanup after `yield`.",
+    "rationale": "The shared lifespan registry persists across the pytest session; an uncleared mock forces all later tests that do not override the same key to receive the stub value instead of the real object.",
+    "evidence": [
+      {
+        "pr": 60108,
+        "url": "https://github.com/apache/airflow/pull/60108#discussion_r2668795193",
+        "excerpt": "registers mock on shared lifespan.registry for rest of session without teardown"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/api_fastapi/execution_api/conftest.py"
+    ]
+  },
+  {
+    "rule": "Execution API TI state-transition tests must assert both the idempotent (same-state duplicate → 200) path and the conflict (different-state non-running → 409) path as separate, explicit test cases.",
+    "category": "testing",
+    "trigger": "A new test covers idempotent TI state update (SUCCESS→SUCCESS returns 200) but the same test file lacks an adjacent test asserting a different-state mismatch returns 409.",
+    "rationale": "The execution API contract is that only exact-state duplicates are idempotent; reviewers require an explicit sibling test to make the 200-vs-409 boundary unambiguous.",
+    "evidence": [
+      {
+        "pr": 63355,
+        "url": "https://github.com/apache/airflow/pull/63355#discussion_r2957813450",
+        "excerpt": "only same-state duplicates get 200, not all non-running transitions"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/api_fastapi/execution_api/versions/head/test_task_instances.py"
+    ]
+  },
+  {
+    "rule": "Heartbeat endpoint tests must not assert correctness by counting total UPDATE statements against `task_instance`; instead assert that the specific fast-path UPDATE fired (or that the fallback SELECT FOR UPDATE did not).",
+    "category": "testing",
+    "trigger": "A test for the heartbeat endpoint checks `update_count == N` where the count is derived from all SQLAlchemy UPDATE calls against the `task_instance` table.",
+    "rationale": "Any future legitimate ancillary column update on TaskInstance would break the count assertion even when the fallback path is correctly absent, making the test brittle.",
+    "evidence": [
+      {
+        "pr": 65029,
+        "url": "https://github.com/apache/airflow/pull/65029#discussion_r3066476433",
+        "excerpt": "brittle if endpoint later adds another legitimate TaskInstance update"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/api_fastapi/execution_api/versions/head/test_task_instances.py"
+    ]
+  },
+  {
+    "rule": "Concurrency tests for the AssetDagRunQueue (ADPR) advisory lock must deterministically force the conflict ordering (Session 2 blocks while Session 1 holds the lock) rather than relying on thread-scheduling randomness.",
+    "category": "testing",
+    "trigger": "A test for ADPR mutex behaviour uses bare thread start without synchronization primitives (e.g., `threading.Barrier` or `threading.Event`) to guarantee Session 2 attempts the lock while Session 1 still holds it.",
+    "rationale": "Without forced ordering, threads may complete sequentially (non-conflict path) and the mutex being tested is never actually exercised.",
+    "evidence": [
+      {
+        "pr": 59183,
+        "url": "https://github.com/apache/airflow/pull/59183#discussion_r2610609545",
+        "excerpt": "second order is what we want to test as session1 really blocks session2"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/assets/test_manager.py"
+    ]
+  },
+  {
+    "rule": "When test ordering within a class matters due to `conf_vars` interaction with provider config layers, use `pytest.mark.order` rather than relying on implicit execution order.",
+    "category": "testing",
+    "trigger": "A test class docstring or comment says tests must run in a specific order (e.g., \"tests using conf_vars must come AFTER …\") without a `pytest.mark.order` annotation.",
+    "rationale": "Airflow's provider config layer persists between tests when `conf_vars` restores values into the config-file layer; implicit class ordering is not guaranteed under parallel runs or reordering.",
+    "evidence": [
+      {
+        "pr": 64209,
+        "url": "https://github.com/apache/airflow/pull/64209#discussion_r2999882414",
+        "excerpt": "will be flaky on parallel runs or if tests are reordered; use pytest.mark.order"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/core/test_configuration.py"
+    ]
+  },
+  {
+    "rule": "DagBag/DagFileProcessorProcess tests that change how files are discovered must verify that files without a `.py` extension are still parsed (or document the intentional exclusion).",
+    "category": "testing",
+    "trigger": "A test or production change alters the DagBag file-discovery path in a way that adds or removes an extension filter, without a corresponding test asserting behaviour for extension-less files.",
+    "rationale": "Historically Airflow treated extension-less files as Python DAG files; silently dropping them is a behaviour regression for existing deployments.",
+    "evidence": [
+      {
+        "pr": 60127,
+        "url": "https://github.com/apache/airflow/pull/60127#discussion_r2668795193",
+        "excerpt": "files without explicit py extension should be assumed python and parsed"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/dag_processing/test_dagbag.py",
+      "airflow-core/src/airflow/dag_processing/"
+    ]
+  },
+  {
+    "rule": "Tests for `DagFileProcessorProcess` log-forwarding must exercise `_get_target_loggers` and `_create_log_forwarder` directly, not just mock `DagFileProcessorProcess.start` to assert kwarg forwarding.",
+    "category": "testing",
+    "trigger": "A test for DAG-processor log routing mocks `DagFileProcessorProcess.start` and only asserts the kwarg is present, without asserting logger bindings or name rewrites produced by `_get_target_loggers` / `_create_log_forwarder`.",
+    "rationale": "Mocking `start` only tests argument plumbing; the actual log-forwarding logic (bundle_name binding, task.→dag_processor. rename, relative_to(bundle_path)) is never exercised and regressions go undetected.",
+    "evidence": [
+      {
+        "pr": 65528,
+        "url": "https://github.com/apache/airflow/pull/65528#discussion_r3110465804",
+        "excerpt": "logic that actually ships the fix is untested; test narrower unit against DagFileProcessorProcess directly"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/dag_processing/test_manager.py",
+      "airflow-core/src/airflow/dag_processing/"
+    ]
+  },
+  {
+    "rule": "Use `session.execute(delete(Model).where(...).execution_options(synchronize_session=False))` for bulk deletes; never substitute `select()` for `delete()` in SQLAlchemy 2.x ORM delete patterns.",
+    "category": "database",
+    "trigger": "A diff replaces a legacy `Query.delete(synchronize_session=False)` with `session.execute(select(Model).where(...), execution_options={\"synchronize_session\": False})`.",
+    "rationale": "Using `select()` instead of `delete()` silently turns a delete into a no-op fetch; Airflow migrated to SQLAlchemy 2.x style which requires `delete(Model).where(...)` inside `session.execute()`.",
+    "evidence": [
+      {
+        "pr": 59823,
+        "url": "https://github.com/apache/airflow/pull/59823#discussion_r2648366961",
+        "excerpt": "attempting to delete records but using select() instead of delete()"
+      },
+      {
+        "pr": 59823,
+        "url": "https://github.com/apache/airflow/pull/59823#discussion_r2648366934",
+        "excerpt": "execution_options incorrect for select; must be part of delete operation"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/jobs/test_scheduler_job.py",
+      "airflow-core/src/airflow/"
+    ]
+  },
+  {
+    "rule": "Scheduler asset-activation tests that switch to CTE-based inputs must also include a regression assertion that guards against reintroducing a large tuple `(name, uri) IN (...)` bind expansion.",
+    "category": "performance",
+    "trigger": "A test changes asset_models collection from `session.scalars(select(AssetModel)).all()` to a `.cte()` but adds no assertion checking that the large-tuple IN path is not taken.",
+    "rationale": "Issue #61453 was caused by a huge tuple-IN bind expansion in scheduler asset activation; switching to CTE silently fixes it but without an explicit regression test the path can be reintroduced.",
+    "evidence": [
+      {
+        "pr": 62114,
+        "url": "https://github.com/apache/airflow/pull/62114#discussion_r2866047485",
+        "excerpt": "don't directly guard against reintroducing huge (name, uri) IN (...) path"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/jobs/test_scheduler_job.py",
+      "airflow-core/src/airflow/jobs/"
+    ]
+  },
+  {
+    "rule": "Do not use `random.randint` or unseeded randomness to control sleep delays in concurrency tests; use deterministic delays or explicit thread synchronization primitives.",
+    "category": "testing",
+    "trigger": "A test uses `random.randint(...)` as the argument to `time.sleep()` or similar timing mechanism to drive concurrent workloads.",
+    "rationale": "Non-deterministic delays produce intermittent failures on CI due to variable load, different scheduler iteration counts, or longer-than-expected runtimes.",
+    "evidence": [
+      {
+        "pr": 62501,
+        "url": "https://github.com/apache/airflow/pull/62501#discussion_r3025383482",
+        "excerpt": "randomized delays make test non-deterministic, leading to intermittent failures"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/jobs/test_scheduler_job.py"
+    ]
+  },
+  {
+    "rule": "Do not use `time.sleep()` to create timing windows in concurrency tests; coordinate threads deterministically with `threading.Barrier` or `threading.Event`.",
+    "category": "testing",
+    "trigger": "A test function calls `time.sleep(...)` to simulate concurrent access or race conditions.",
+    "rationale": "Sleep-based timing tests are inherently flaky on CI with variable DB load; explicit synchronization ensures the race is reliably reproduced without wall-clock dependency.",
+    "evidence": [
+      {
+        "pr": 62501,
+        "url": "https://github.com/apache/airflow/pull/62501#discussion_r3025383473",
+        "excerpt": "sleep-based timing tests are inherently flaky on CI"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/jobs/test_scheduler_job.py"
+    ]
+  },
+  {
+    "rule": "Keep imports at module scope; do not place standard-library or SQLAlchemy imports inside test functions or nested helper functions.",
+    "category": "testing",
+    "trigger": "A diff adds `import time`, `import random`, `from concurrent.futures import ...`, or `from sqlalchemy import ...` inside a function or nested def body in a test file.",
+    "rationale": "Airflow's convention keeps imports at module scope unless there is a specific reason (expensive import or circular dependency); inline imports inside tests obscure dependencies and violate project style.",
+    "evidence": [
+      {
+        "pr": 62501,
+        "url": "https://github.com/apache/airflow/pull/62501#discussion_r3066503443",
+        "excerpt": "Airflow generally keeps imports at module scope; move these to top of file"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/jobs/test_scheduler_job.py"
+    ]
+  },
+  {
+    "rule": "Scheduler tests for TI adopt-failure metrics must pass an explicit executor whose `try_adopt_task_instances` returns all TIs unresumed, not rely on whatever executor the environment wires up by default.",
+    "category": "testing",
+    "trigger": "A test for the scheduler `adopt_failure` metric constructs `SchedulerJobRunner(job=...)` without specifying an executor and without asserting `to_reset` is non-empty.",
+    "rationale": "If the default test environment executor ever implements successful adoption, the `to_reset` list becomes empty and the `adopt_failure` metric path is silently skipped.",
+    "evidence": [
+      {
+        "pr": 68068,
+        "url": "https://github.com/apache/airflow/pull/68068#discussion_r3373213727",
+        "excerpt": "default executor implementing adoption makes to_reset empty, test stops exercising adopt_failure"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/jobs/test_scheduler_job.py"
+    ]
+  },
+  {
+    "rule": "In triggerer async cancellation tests, assert exactly `asyncio.CancelledError` rather than a broad `Exception` to prevent `TimeoutError` from masking an uncancelled future.",
+    "category": "async",
+    "trigger": "A test uses `pytest.raises((asyncio.CancelledError, Exception))` or `pytest.raises(Exception)` around an `asyncio.wait_for` that is specifically checking task cancellation.",
+    "rationale": "A broad `Exception` catch accepts `TimeoutError` (raised by `wait_for` on timeout) as a passing assertion, hiding the case where the task was never actually cancelled.",
+    "evidence": [
+      {
+        "pr": 66412,
+        "url": "https://github.com/apache/airflow/pull/66412#discussion_r3190938879",
+        "excerpt": "TimeoutError is also Exception so test passes even if future is not cancelled"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/jobs/test_triggerer_job.py"
+    ]
+  },
+  {
+    "rule": "Migration tests must invoke Airflow's `upgradedb()`/`downgrade()` wrappers rather than raw `alembic.command.upgrade`/`downgrade` to preserve the global migration lock, MySQL metadata-lock handling, and FAB downgrade logic.",
+    "category": "database",
+    "trigger": "A test calls `alembic.command.upgrade(config, ...)` or `alembic.command.downgrade(config, ...)` directly instead of `airflow.utils.db.upgradedb(to_revision=...)` / `airflow.utils.db.downgrade(to_revision=...)`.",
+    "rationale": "Raw Alembic calls skip Airflow's migration lock, MySQL-specific connection-pool handling, and the FAB downgrade path needed for revisions < 2.10.3, causing backend-specific hangs and provider downgrade failures.",
+    "evidence": [
+      {
+        "pr": 64905,
+        "url": "https://github.com/apache/airflow/pull/64905#discussion_r3056860475",
+        "excerpt": "bypasses Airflow's upgradedb/downgrade wrappers: global lock, MySQL handling, FAB downgrade"
+      },
+      {
+        "pr": 64905,
+        "url": "https://github.com/apache/airflow/pull/64905#discussion_r3056860522",
+        "excerpt": "using upgradedb/downgrade wrappers avoids backend-specific hangs and provider downgrade failures"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/migrations/test_migration_utils.py",
+      "airflow-core/src/airflow/utils/db.py"
+    ]
+  },
+  {
+    "rule": "Use `DagRunState` / `TaskInstanceState` enum constants for run and task state values; never pass raw strings like `\"failed\"` or `\"success\"` to model constructors or `create_dagrun`.",
+    "category": "correctness",
+    "trigger": "A diff passes a raw lowercase string literal (`\"failed\"`, `\"success\"`, `\"running\"`, etc.) as the `state=` argument to `create_dagrun`, `DagRun(...)`, or `TaskInstance(...)` constructor.",
+    "rationale": "Using raw strings couples tests to the internal string representation of states; `DagRunState` / `TaskInstanceState` constants are the project-wide convention and guard against silent typos.",
+    "evidence": [
+      {
+        "pr": 64939,
+        "url": "https://github.com/apache/airflow/pull/64939#discussion_r3066477510",
+        "excerpt": "prefer DagRunState.FAILED constant; raw strings are brittle coupling to string values"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/models/test_backfill.py",
+      "airflow-core/tests/unit/models/",
+      "airflow-core/tests/unit/jobs/"
+    ]
+  },
+  {
+    "rule": "Tests for `dag.clear()` with `only_new=True` must cover the combined `only_new=True` + `task_ids=` parameter path to specify expected behaviour (error or precedence rule).",
+    "category": "testing",
+    "trigger": "A new test exercises `dag.clear(only_new=True, ...)` but no adjacent test passes both `only_new=True` and a non-empty `task_ids=` list.",
+    "rationale": "The interaction between `only_new` and `task_ids` is non-obvious; an explicit test pinning the contract prevents silent behavioural changes when either parameter's implementation is modified.",
+    "evidence": [
+      {
+        "pr": 59764,
+        "url": "https://github.com/apache/airflow/pull/59764#discussion_r2820442889",
+        "excerpt": "missing test for when both task_ids and only_new=True are provided to dag.clear()"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/models/test_cleartasks.py",
+      "airflow-core/src/airflow/models/dag.py"
+    ]
+  },
+  {
+    "rule": "When constructing mock cached-DAG entries for `DBDagBag` / `TTLCache` tests, use `MagicMock(spec=SerializedDAG)` rather than a bare `MagicMock()` to prevent interface mistakes from going undetected.",
+    "category": "testing",
+    "trigger": "A test for `DBDagBag` TTL expiry inserts a `MagicMock()` (without `spec=`) as a cached value instead of `MagicMock(spec=SerializedDAG)` or a real `SerializedDAG`.",
+    "rationale": "A specless MagicMock silently satisfies any attribute access, hiding cases where the cached value is used in a way incompatible with the real `SerializedDAG` interface.",
+    "evidence": [
+      {
+        "pr": 60804,
+        "url": "https://github.com/apache/airflow/pull/60804#discussion_r3067262376",
+        "excerpt": "MagicMock() without spec hides interface mistakes; prefer MagicMock(spec=SerializedDAG)"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/models/test_dagbag.py",
+      "airflow-core/src/airflow/models/dagbag.py"
+    ]
+  }
+]

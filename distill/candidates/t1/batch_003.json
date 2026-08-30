@@ -1,0 +1,308 @@
+[
+  {
+    "rule": "Extend an existing `is_authorized_*` method with an optional parameter rather than adding a parallel `is_authorized_*_for_<entity>` method to the `BaseAuthManager` interface.",
+    "category": "api-design",
+    "trigger": "new method added to BaseAuthManager whose name matches `is_authorized_.*_for_` pattern",
+    "rationale": "A separate method duplicates the whole auth-manager interface for every new entity type; an optional parameter keeps the interface consistent with all existing `is_authorized_*` methods.",
+    "evidence": [
+      {
+        "pr": 69790,
+        "url": "https://github.com/apache/airflow/pull/69790#discussion_r3614897655",
+        "excerpt": "method `is_authorized_view_for_team` feels wrong to me"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/auth/managers/"
+    ]
+  },
+  {
+    "rule": "Do not set `document.title` dynamically inside React components for Airflow UI pages; the global title is already defined in `index.html`.",
+    "category": "docs",
+    "trigger": "`document.title` assignment inside a `useEffect` hook in a `.tsx` file under the Airflow UI source tree",
+    "rationale": "Airflow is a self-hosted tool, not a public website; SEO-motivated title overrides are unnecessary and conflict with the global title already provided by `index.html`.",
+    "evidence": [
+      {
+        "pr": 53981,
+        "url": "https://github.com/apache/airflow/pull/53981#discussion_r2283234113",
+        "excerpt": "isn't the title already set in the index.html?"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/auth/managers/simple/ui/src/"
+    ]
+  },
+  {
+    "rule": "Re-use `resolve_user_from_token` (in `core_api/security.py`) instead of calling `get_auth_manager().get_user_from_token` directly in middleware or route code.",
+    "category": "api-design",
+    "trigger": "direct call to `get_auth_manager().get_user_from_token(` outside of `resolve_user_from_token`",
+    "rationale": "Centralising token-to-user resolution in one helper avoids duplicating error-handling logic and keeps auth middleware consistent.",
+    "evidence": [
+      {
+        "pr": 55506,
+        "url": "https://github.com/apache/airflow/pull/55506#discussion_r2384453316",
+        "excerpt": "better to leverage `resolve_user_from_token` here?"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/auth/middlewares/",
+      "airflow-core/src/airflow/api_fastapi/core_api/security.py"
+    ]
+  },
+  {
+    "rule": "Name JWT duration parameters `valid_for` (a relative duration), not `expiry` or `expires_at` (which imply an absolute timestamp).",
+    "category": "naming",
+    "trigger": "parameter named `expiry` or `expires_at` on a JWT-generation method that actually receives a TTL integer/timedelta",
+    "rationale": "The argument is a relative duration fed to `valid_for`, not an absolute expiry timestamp; using `expiry` misleads callers about the expected value.",
+    "evidence": [
+      {
+        "pr": 60108,
+        "url": "https://github.com/apache/airflow/pull/60108#discussion_r2694565105",
+        "excerpt": "should probably call this argument `valid_for` since that is what it is being used for"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/auth/tokens.py"
+    ]
+  },
+  {
+    "rule": "When cursor pagination encounters an unparseable cursor token (e.g. malformed UUID for a `Uuid` column), raise HTTP 400 rather than silently falling back to the original value.",
+    "category": "correctness",
+    "trigger": "`except (ValueError, Exception):` block inside `_coerce_value` or cursor-parsing code that returns the raw `value` instead of raising",
+    "rationale": "Silent fallback accepts the cursor but produces incorrect or empty results; an HTTP 400 communicates clearly that the token is invalid.",
+    "evidence": [
+      {
+        "pr": 64845,
+        "url": "https://github.com/apache/airflow/pull/64845#discussion_r3066478591",
+        "excerpt": "treat UUID parse failure as an invalid cursor token and raise HTTP 400"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/common/cursors.py"
+    ]
+  },
+  {
+    "rule": "Keyset cursor pagination over nullable sort columns must use null-aware comparisons (e.g. `IS NULL` tie-break or `COALESCE`) matching the ORDER BY null-ordering semantics; bare `col > NULL` comparisons silently break paging.",
+    "category": "database",
+    "trigger": "cursor `or_clauses.append(and_(*eq_conditions, col > value))` where `col` can be nullable without a corresponding `IS NULL` guard",
+    "rationale": "SQL comparisons against NULL evaluate to NULL/false, causing keyset-paginated queries over nullable sort keys to return empty or inconsistent result sets.",
+    "evidence": [
+      {
+        "pr": 64953,
+        "url": "https://github.com/apache/airflow/pull/64953#discussion_r3066487834",
+        "excerpt": "breaks when any cursor value is None, causing paging to return empty"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/common/cursors.py",
+      "airflow-core/src/airflow/api_fastapi/common/parameters.py"
+    ]
+  },
+  {
+    "rule": "Use `if/elif` (not sequential `if`) when filter parameter branches for mutually exclusive bound conditions (`lower_bound` vs `lower_bound_excluded`) to avoid emitting redundant SQL WHERE clauses.",
+    "category": "database",
+    "trigger": "two consecutive `if self.value and self.value.lower_bound` / `if self.value and self.value.lower_bound_excluded` blocks that should be mutually exclusive",
+    "rationale": "Sequential `if` statements emit two independent WHERE predicates to the DB; the second shadows the first at query time but adds unnecessary SQL complexity.",
+    "evidence": [
+      {
+        "pr": 54302,
+        "url": "https://github.com/apache/airflow/pull/54302#discussion_r2270372566",
+        "excerpt": "should be an if/else … no need to make the emitted sql query more complex"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/common/parameters.py"
+    ]
+  },
+  {
+    "rule": "Use `SerializedDAG` (imported under `TYPE_CHECKING` from `airflow.serialization.serialized_objects`) as the concrete type annotation for DAG-bearing attributes in API parameter/datamodel classes rather than `Any`.",
+    "category": "api-design",
+    "trigger": "property or attribute typed `None | Any` in a parameter/datamodel class where the value is a serialized DAG object",
+    "rationale": "Using `Any` discards type information; `SerializedDAG` is the correct concrete type and is safely importable under `TYPE_CHECKING` to avoid circular imports.",
+    "evidence": [
+      {
+        "pr": 58092,
+        "url": "https://github.com/apache/airflow/pull/58092#discussion_r2603117761",
+        "excerpt": "`SerializedDAG` can be imported from `airflow.serialization.serialized_objects` under `TYPE_CHECKING`"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/common/parameters.py"
+    ]
+  },
+  {
+    "rule": "Queries that use `_RegexParam` must be wrapped with `apply_regex_query_timeout`; document this obligation in the `_RegexParam` docstring.",
+    "category": "performance",
+    "trigger": "use of `_RegexParam` or `regex_param_factory` in a route without a corresponding `apply_regex_query_timeout` call, or a `_RegexParam` class/factory lacking a docstring warning about the timeout requirement",
+    "rationale": "Regex matching against large tables without a timeout can cause unbounded server-side CPU consumption; `paginated_select` should guard against this, and callsites outside that helper are also at risk.",
+    "evidence": [
+      {
+        "pr": 64610,
+        "url": "https://github.com/apache/airflow/pull/64610#discussion_r3544941059",
+        "excerpt": "caller query using this should time bound calling `apply_regex_query_timeout`"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/common/parameters.py"
+    ]
+  },
+  {
+    "rule": "In `SortParam.get_resolved_columns()`, derive `attr_name` after applying `to_replace` so that the resolved name matches the actual ORM attribute used in ORDER BY and cursor encoding.",
+    "category": "correctness",
+    "trigger": "`attr_name = lstriped_orderby` set before the `to_replace` mapping is applied in `SortParam`",
+    "rationale": "Setting `attr_name` before `to_replace` causes cursor tokens to encode `null` for sort fields that map to a different ORM attribute name, silently breaking keyset pagination.",
+    "evidence": [
+      {
+        "pr": 64963,
+        "url": "https://github.com/apache/airflow/pull/64963#discussion_r3066505927",
+        "excerpt": "attr_name is set before applying to_replace … cursor tokens will encode null"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/common/parameters.py"
+    ]
+  },
+  {
+    "rule": "When silently coercing an unrecognised stored value to `None` in a Pydantic validator (e.g. for `asset_expression`), emit a `log.warning` so that schema drift between the server and the DB remains observable.",
+    "category": "correctness",
+    "trigger": "`except ValidationError: return None` in a Pydantic validator without a preceding `log.warning` call when `value` is not `None`",
+    "rationale": "Silent coercion cannot distinguish a genuinely legacy row from a new shape the model does not yet cover; a warning keeps drift observable while still degrading gracefully.",
+    "evidence": [
+      {
+        "pr": 67725,
+        "url": "https://github.com/apache/airflow/pull/67725#discussion_r3475231024",
+        "excerpt": "log a warning when a non-None value is coerced away, so drift stays observable"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/datamodels/"
+    ]
+  },
+  {
+    "rule": "Boolean timetable properties used by the API (e.g. `is_backfillable`) must be persisted in `DagModel` via a DB migration rather than derived at runtime from `timetable_summary` string matching.",
+    "category": "database",
+    "trigger": "a `frozenset` of timetable summary strings used in a datamodel or route to derive a boolean DAG property instead of reading a `DagModel` column",
+    "rationale": "Hard-coded string sets diverge from the `.periodic` / `timetable_partitioned` attributes already stored on `DagModel`; a DB column stays consistent across serialization and avoids string-matching drift.",
+    "evidence": [
+      {
+        "pr": 64644,
+        "url": "https://github.com/apache/airflow/pull/64644#discussion_r3051411988",
+        "excerpt": "Is it possible to store that in the DagModel via a migration?"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/datamodels/dags.py"
+    ]
+  },
+  {
+    "rule": "When redacting a dict value (e.g. Trigger kwargs) in an API response serializer, keep it as a JSON-serialisable dict rather than wrapping it in `str()`.",
+    "category": "api-design",
+    "trigger": "`str(redact(value))` where `value` is a dict in a Pydantic response serializer or validator",
+    "rationale": "Applying `str()` to a dict produces Python's repr string instead of valid JSON, breaking API consumers that expect a structured object.",
+    "evidence": [
+      {
+        "pr": 67868,
+        "url": "https://github.com/apache/airflow/pull/67868#discussion_r3348146709",
+        "excerpt": "value is almost certainly a dict … relying on stringification of a python dict"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/datamodels/trigger.py"
+    ]
+  },
+  {
+    "rule": "Compare `DagRunType` enum members directly (e.g. `DagRunType.MANUAL`) rather than their `.value` attribute when checking membership in `dm.allowed_run_types`.",
+    "category": "correctness",
+    "trigger": "`DagRunType.<member>.value not in dm.allowed_run_types` (accessing `.value` before membership test)",
+    "rationale": "Airflow stores `DagRunType` enum members (not raw strings) in `allowed_run_types`; comparing via `.value` introduces an inconsistent access pattern and may silently fail if the field is typed.",
+    "evidence": [
+      {
+        "pr": 61833,
+        "url": "https://github.com/apache/airflow/pull/61833#discussion_r2815865992",
+        "excerpt": "accessing enum value through .value is not consistent"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/dag_run.py"
+    ]
+  },
+  {
+    "rule": "When multiple code paths implement partition-date-window localization with different interval conventions (inclusive vs half-open), add a cross-reference comment or consolidate to avoid silent drift.",
+    "category": "correctness",
+    "trigger": "inline `timetable.localize_partition_datetime` call in a route that duplicates the logic in `DagRun.apply_partition_date_window` with a different interval boundary",
+    "rationale": "Two localization conventions for partition date windows is a drift risk; a future reader may assume they match and introduce subtle off-by-one errors.",
+    "evidence": [
+      {
+        "pr": 68682,
+        "url": "https://github.com/apache/airflow/pull/68682#discussion_r3492589139",
+        "excerpt": "two partition-date localization conventions is a drift risk"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/dag_run.py"
+    ]
+  },
+  {
+    "rule": "Validate that a requested `try_number` actually exists in the DB before using it to generate extra links; return 404 for non-existent try numbers.",
+    "category": "correctness",
+    "trigger": "`ti.try_number = try_number` assignment in an extra-links route without a preceding DB check that the try number exists",
+    "rationale": "Without validation, callers can request links for try numbers that never existed, which should produce a 404 rather than silently generating links for phantom attempts.",
+    "evidence": [
+      {
+        "pr": 65661,
+        "url": "https://github.com/apache/airflow/pull/65661#discussion_r3131677676",
+        "excerpt": "no validation … you can get link generation for tries that do not exist"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/extra_links.py"
+    ]
+  },
+  {
+    "rule": "Do not use the name `task_instance` for a variable that may hold either a `TaskInstance` or a `TaskInstanceHistory`; use a neutral name (`row`, `entity`, `model`) to avoid type confusion.",
+    "category": "naming",
+    "trigger": "variable named `task_instance` assigned from a query that can return either `TI` or `TIH` ORM objects",
+    "rationale": "`TaskInstance` and `TaskInstanceHistory` are different models with different interfaces; a shared name implies the caller can always treat the result as a TI, which is incorrect.",
+    "evidence": [
+      {
+        "pr": 56760,
+        "url": "https://github.com/apache/airflow/pull/56760#discussion_r2577697914",
+        "excerpt": "those are not the same model and don't expose the same interface"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/hitl.py"
+    ]
+  },
+  {
+    "rule": "Place `_ImportPathCallbackDef` (and similar callback-definition objects) in the domain model module (e.g. `models/test_connection.py`) rather than directly in the route handler file.",
+    "category": "api-design",
+    "trigger": "`_ImportPathCallbackDef` or `ExecutorCallback` construction inlined inside a route handler function body",
+    "rationale": "Route files should not own domain model objects; moving the definition to the relevant model module improves reuse and keeps route handlers thin.",
+    "evidence": [
+      {
+        "pr": 62343,
+        "url": "https://github.com/apache/airflow/pull/62343#discussion_r2839712645",
+        "excerpt": "moving `_ImportPathCallbackDef` to `models.test_connection` module"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/connections.py"
+    ]
+  },
+  {
+    "rule": "Use `entity.name` (not `entity.pool` or other wrong attribute) when collecting pool names in bulk-action validation; verify attribute names against the actual Pydantic body class before building error lists.",
+    "category": "correctness",
+    "trigger": "`invalid_entities.append(entity.pool)` or similarly wrong attribute access on a `PoolBody` instance inside bulk-action validation",
+    "rationale": "`PoolBody` exposes `name`, not `pool`; using the wrong attribute raises `AttributeError` (500) instead of the intended HTTP 400 response.",
+    "evidence": [
+      {
+        "pr": 63994,
+        "url": "https://github.com/apache/airflow/pull/63994#discussion_r3066476755",
+        "excerpt": "entity.pool will likely raise AttributeError (500) instead of returning 400"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/pools.py"
+    ]
+  }
+]

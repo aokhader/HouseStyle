@@ -1,0 +1,325 @@
+[
+  {
+    "rule": "When implementing Kerberos auth resolution in a Spark provider hook, include the krb5ccache path alongside keytab/principal so REST calls to a Kerberized YARN RM always carry an Authorization header.",
+    "category": "correctness",
+    "trigger": "A method returns auth object based on `keytab` and `principal` connection fields but omits a branch for `_use_krb5ccache` or equivalent ccache flag.",
+    "rationale": "Without the ccache branch, `resolved_yarn_rm_auth` returns None for ccache users; the RM on a Kerberized cluster responds with 401 and polling fails.",
+    "evidence": [
+      {
+        "pr": 65991,
+        "url": "https://github.com/apache/airflow/pull/65991#discussion_r3340072332",
+        "excerpt": "REST calls to the RM go out with no Authorization header"
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/src/airflow/providers/apache/spark/hooks/"
+    ]
+  },
+  {
+    "rule": "Do not add module-level private constants to a provider module unless they are referenced in that module; dead constants must be wired in or removed.",
+    "category": "correctness",
+    "trigger": "A new `_SOME_CONF = \"...\"` constant is introduced at module level in a provider file but has no call-site reference within the same diff.",
+    "rationale": "An unreferenced constant implies configurable behaviour that is not actually wired in, misleading future contributors about what is and isn't controlled.",
+    "evidence": [
+      {
+        "pr": 67715,
+        "url": "https://github.com/apache/airflow/pull/67715#discussion_r3325824086",
+        "excerpt": "`_K8S_DELETE_ON_TERMINATION_CONF` isn't referenced anywhere. Either wire it in or drop it."
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/src/airflow/providers/apache/spark/hooks/"
+    ]
+  },
+  {
+    "rule": "Failures in Kubernetes driver-pod deletion must not propagate as task errors; wrap `_delete_driver_pod()` calls with `contextlib.suppress` or a flag that downgrades the error to a warning.",
+    "category": "correctness",
+    "trigger": "A call to `_delete_driver_pod()` or equivalent pod-cleanup method appears inline in a polling loop without error suppression or a configurable error-vs-warning flag.",
+    "rationale": "An unexpected exception during pod deletion forces a full job retry rather than treating deletion as a best-effort cleanup step.",
+    "evidence": [
+      {
+        "pr": 68067,
+        "url": "https://github.com/apache/airflow/pull/68067#discussion_r3400832777",
+        "excerpt": "unexpected exception when deleting driver pod forces retry of the whole job"
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/src/airflow/providers/apache/spark/hooks/"
+    ]
+  },
+  {
+    "rule": "Do not change the default value of an existing operator or hook parameter that affects pre-existing code paths; new code paths may enforce their own floor via `max()` but the legacy default must stay unchanged.",
+    "category": "api-design",
+    "trigger": "A diff changes the default of an `__init__` parameter (e.g. `status_poll_interval`) that was already used by a pre-existing execution path, not only by the newly introduced path.",
+    "rationale": "Changing a shared default silently degrades existing users (e.g. short-running YARN jobs now wait 10 s instead of 1 s) with no opt-out.",
+    "evidence": [
+      {
+        "pr": 65991,
+        "url": "https://github.com/apache/airflow/pull/65991#discussion_r3213029838",
+        "excerpt": "the default for the pre-existing codepath should stay at 1"
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/src/airflow/providers/apache/spark/operators/"
+    ]
+  },
+  {
+    "rule": "When calling the Spark Standalone REST submission API, check the `success` field before accessing `driverState`; raise with the response's `message` field on failure.",
+    "category": "correctness",
+    "trigger": "Code accesses `response.json()[\"driverState\"]` from a Spark Standalone REST response without first asserting `response.json()[\"success\"] is True`.",
+    "rationale": "When the submission ID is unrecognised, the master is in recovery, or an auth proxy intercepts, `success` is False and `driverState` may be missing or stale, causing KeyError or silent misreporting.",
+    "evidence": [
+      {
+        "pr": 67118,
+        "url": "https://github.com/apache/airflow/pull/67118#discussion_r3270206708",
+        "excerpt": "success: false with driverState missing or stale — KeyError or stale value"
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/src/airflow/providers/apache/spark/operators/"
+    ]
+  },
+  {
+    "rule": "Do not land unreachable code branches in a PR; either drop scaffolding branches or mark them with a TODO referencing the specific follow-up PR that will make them reachable.",
+    "category": "correctness",
+    "trigger": "A diff introduces `if self._hook._is_yarn:` or similar runtime-gated branches that are never reachable from any entry-point added in the same PR.",
+    "rationale": "Unreachable branches force reviewers to verify code that can never execute, increasing review burden and risk of accepting incorrect logic.",
+    "evidence": [
+      {
+        "pr": 67118,
+        "url": "https://github.com/apache/airflow/pull/67118#discussion_r3270207543",
+        "excerpt": "Reads as live branches a reviewer must verify, but they can never execute."
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/src/airflow/providers/apache/spark/operators/"
+    ]
+  },
+  {
+    "rule": "Spark provider REST calls must derive scheme (http/https) and port from Airflow connection extras rather than hardcoding `http://` and a fixed port number.",
+    "category": "providers",
+    "trigger": "A diff introduces a `requests.get(f\"http://{host}:<hardcoded_port>/...\")` call inside a Spark provider operator or hook.",
+    "rationale": "Enterprise deployments use TLS and configurable ports (`spark.master.rest.port`); hardcoded values prevent use on those clusters.",
+    "evidence": [
+      {
+        "pr": 67118,
+        "url": "https://github.com/apache/airflow/pull/67118#discussion_r3270207051",
+        "excerpt": "enterprise deployments with TLS can't use this path; read scheme from connection extras"
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/src/airflow/providers/apache/spark/operators/"
+    ]
+  },
+  {
+    "rule": "Transient HTTP calls inside provider status-polling loops must be wrapped with a retry strategy (e.g. `tenacity`) to avoid burning a task retry slot on a one-second network blip.",
+    "category": "providers",
+    "trigger": "A `requests.get(...)` or similar HTTP call appears inside a polling loop (e.g. inside `get_job_status`, `poll_until_complete`) with no retry/backoff wrapper.",
+    "rationale": "A transient network error during a status-check raises out of the polling method, falls through executor error handling, and consumes a Airflow task retry slot unnecessarily.",
+    "evidence": [
+      {
+        "pr": 67118,
+        "url": "https://github.com/apache/airflow/pull/67118#discussion_r3270207051",
+        "excerpt": "a one-second network blip will burn a retry slot"
+      }
+    ],
+    "scope_paths": [
+      "providers/apache/spark/src/airflow/providers/apache/spark/operators/",
+      "providers/apache/spark/src/airflow/providers/apache/spark/hooks/"
+    ]
+  },
+  {
+    "rule": "Provider changelogs must not include a release entry when only test files or non-functional pyproject.toml marker comments were modified in the PR.",
+    "category": "docs",
+    "trigger": "A diff to a provider's `docs/changelog.rst` adds a new version section for a PR whose only changed files are under `tests/` or contain only `# use next version` comments in `pyproject.toml`.",
+    "rationale": "The release tool may incorrectly flag a PR as a candidate for release; spurious changelog entries must be removed from the release plan.",
+    "evidence": [
+      {
+        "pr": 66424,
+        "url": "https://github.com/apache/airflow/pull/66424#discussion_r3190135388",
+        "excerpt": "PR modifies only test file; provider should not have been a release candidate"
+      }
+    ],
+    "scope_paths": [
+      "providers/celery/docs/",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "CLI commands in providers must raise `SystemExit` (not `AirflowConfigException`) for user-facing configuration errors, consistent with other CLI argument validation.",
+    "category": "correctness",
+    "trigger": "A `raise AirflowConfigException(...)` or `raise AirflowException(...)` appears inside a CLI command function (functions decorated or called from `airflow/cli/` or provider `cli/` modules).",
+    "rationale": "Raising a non-SystemExit exception prints a stack trace, which is confusing to users; other CLI argument errors use SystemExit for a clean error message.",
+    "evidence": [
+      {
+        "pr": 60675,
+        "url": "https://github.com/apache/airflow/pull/60675#discussion_r2744596079",
+        "excerpt": "raise SystemExit so we are aligned with other SystemExit exceptions for missing arguments"
+      }
+    ],
+    "scope_paths": [
+      "providers/celery/src/airflow/providers/celery/cli/"
+    ]
+  },
+  {
+    "rule": "ImportError compatibility shims for Task SDK symbols must carry a `>=X.Y.Z` version marker in a comment, referencing the minimum SDK/Airflow release that introduced the symbol.",
+    "category": "providers",
+    "trigger": "A `try: from airflow.sdk... except ImportError: Symbol = None` block is added without a comment specifying the minimum version that exports the symbol.",
+    "rationale": "Without a version marker, reviewers cannot determine when the shim can be removed and cannot schedule the deprecation correctly.",
+    "evidence": [
+      {
+        "pr": 60855,
+        "url": "https://github.com/apache/airflow/pull/60855#discussion_r2969527074",
+        "excerpt": "the marker can be for >=3.1.9"
+      }
+    ],
+    "scope_paths": [
+      "providers/celery/src/airflow/providers/celery/executors/"
+    ]
+  },
+  {
+    "rule": "When a broad `except Exception` handler wraps code that deliberately raises `AirflowException`, re-raise `AirflowException` unchanged before the generic handler to preserve the intended error message.",
+    "category": "correctness",
+    "trigger": "A diff introduces a specific `raise AirflowException(...)` inside a `try` block that also has a downstream `except Exception as e` that re-wraps or swallows the exception.",
+    "rationale": "The broad handler defeats the specific, user-readable error message and will also break tests that assert on the specific message.",
+    "evidence": [
+      {
+        "pr": 64767,
+        "url": "https://github.com/apache/airflow/pull/64767#discussion_r3066476663",
+        "excerpt": "broad except re-wraps as unknown Celery SSL Error, defeating the clearer error"
+      }
+    ],
+    "scope_paths": [
+      "providers/celery/src/airflow/providers/celery/executors/"
+    ]
+  },
+  {
+    "rule": "Prose notes and warnings in provider changelog RST files must use the RST `.. note::` or `.. warning::` directive, not plain prose, so they render correctly in the documentation site.",
+    "category": "docs",
+    "trigger": "A provider `docs/changelog.rst` diff adds a paragraph that reads as a note or warning without a leading `.. note::` or `.. warning::` RST directive.",
+    "rationale": "Plain prose in a changelog is not rendered as a callout block; the note/warning styling is lost in the generated docs.",
+    "evidence": [
+      {
+        "pr": 67137,
+        "url": "https://github.com/apache/airflow/pull/67137#discussion_r3265551422",
+        "excerpt": "should be under note/warning notion otherwise it won't render nicely"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/docs/"
+    ]
+  },
+  {
+    "rule": "Documentation claims about KubernetesPodOperator deduplication or ambiguity prevention must be scoped to the specific code path (e.g. `get_or_create_pod`) where the guarantee holds, not asserted end-to-end.",
+    "category": "docs",
+    "trigger": "A diff to a provider `docs/` RST file claims \"no possibility of ambiguity failure\" or equivalent absolute language for pod reconnect behaviour.",
+    "rationale": "`execute_sync` still calls `find_pod` unconditionally after reconnect, which raises `FoundMoreThanOnePodFailure` for duplicate orphan pods; the absolute claim is false.",
+    "evidence": [
+      {
+        "pr": 69914,
+        "url": "https://github.com/apache/airflow/pull/69914#discussion_r3621751120",
+        "excerpt": "execute_sync still calls find_pod unconditionally; ambiguity failure can still occur"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/docs/",
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/"
+    ]
+  },
+  {
+    "rule": "New parameters added to `KubernetesPodOperator.__init__` must have a matching docstring entry describing the parameter type; for `Callable` parameters the docstring must name each positional argument's meaning.",
+    "category": "docs",
+    "trigger": "A diff adds a new keyword argument to `KubernetesPodOperator.__init__` (or any `*Operator.__init__` in the cncf.kubernetes provider) without a corresponding `:param name:` entry in the class docstring.",
+    "rationale": "Users and IDE tooling rely on operator docstrings for parameter discovery; omitting entries for Callable parameters leaves the expected signature undocumented.",
+    "evidence": [
+      {
+        "pr": 53598,
+        "url": "https://github.com/apache/airflow/pull/53598#discussion_r2280748143",
+        "excerpt": "docstring of container_name_log_prefix_enabled and log_formatter is missing"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/"
+    ]
+  },
+  {
+    "rule": "XCom push guards in KubernetesPodOperator must use `if value is not None` rather than `if value` (or `if not value`) so that falsy values such as `0`, `False`, or empty string are persisted correctly.",
+    "category": "correctness",
+    "trigger": "A diff introduces `if not value:` or `if value:` as a guard before an XCom push call inside `KubernetesPodOperator` (or its mixins).",
+    "rationale": "A falsy value like `0` or `False` would silently not be pushed; downstream tasks that rely on the XCom receive nothing instead of the actual result.",
+    "evidence": [
+      {
+        "pr": 67226,
+        "url": "https://github.com/apache/airflow/pull/67226#discussion_r3283917687",
+        "excerpt": "if value evaluates to False would not persist; change to explicit NULL check"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/"
+    ]
+  },
+  {
+    "rule": "When persisting pod identity to the task state store, either verify the stored `uid` against the live pod on reconnect or omit `uid` from the stored payload so the schema does not imply verification that is not performed.",
+    "category": "correctness",
+    "trigger": "A diff stores `uid` alongside `name`/`namespace` in a task-state-store payload for pod identity, but the reconnect code only uses `name`/`namespace` without comparing `pod.metadata.uid` to the stored uid.",
+    "rationale": "A stored uid that is never checked is dead weight that misleads readers into thinking pod identity is verified; tests that store a uid without asserting on it expose the same gap.",
+    "evidence": [
+      {
+        "pr": 69914,
+        "url": "https://github.com/apache/airflow/pull/69914#discussion_r3606262083",
+        "excerpt": "persisted uid is currently dead weight; schema implies a check that isn't performed"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/"
+    ]
+  },
+  {
+    "rule": "When a parameter's behaviour is gated on a minimum Airflow version, its docstring must state the version constraint explicitly (e.g. \"Only available for Airflow 3.3+\").",
+    "category": "docs",
+    "trigger": "A new operator parameter is introduced whose full behaviour requires Airflow ≥X.Y but the `:param name:` docstring entry omits the version constraint.",
+    "rationale": "Users on older Airflow versions will enable the parameter expecting full behaviour; the constraint must be documented at the parameter level to prevent silent degradation.",
+    "evidence": [
+      {
+        "pr": 69914,
+        "url": "https://github.com/apache/airflow/pull/69914#discussion_r3587786228",
+        "excerpt": "Only available for Airflow 3.3+"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/"
+    ]
+  },
+  {
+    "rule": "When replacing a deprecated parameter with a new version-gated one, silently translate the deprecated parameter's value for users below the minimum required version rather than forcing them to change parameter names.",
+    "category": "api-design",
+    "trigger": "A diff deprecates parameter A and introduces replacement parameter B that only works on Airflow ≥X.Y, without fallback logic that makes B behave like A when the runtime version is below X.Y.",
+    "rationale": "Users below the minimum version should get the old behaviour transparently; forcing a parameter rename without a fallback is a breaking change for older deployments.",
+    "evidence": [
+      {
+        "pr": 69914,
+        "url": "https://github.com/apache/airflow/pull/69914#discussion_r3587795298",
+        "excerpt": "handle durable for Airflow<3.3; make it work as reattach_on_restart under the hood"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/"
+    ]
+  },
+  {
+    "rule": "Kubernetes field selectors using comma-separated `!=` expressions must be verified to produce the correct Boolean semantics (`NOT A AND NOT B`, not `NOT (A OR B)`) before merging.",
+    "category": "correctness",
+    "trigger": "A diff introduces a Kubernetes field selector string of the form `status.phase!=X,status.phase!=Y` where the intent is to exclude pods in either state X or state Y.",
+    "rationale": "The comma is logical AND: `status.phase!=X,status.phase!=Y` means NOT X AND NOT Y. If the intent is NOT (X OR Y) the logic is correct, but authors frequently misread it and the reviewer requires an explicit local-cluster verification.",
+    "evidence": [
+      {
+        "pr": 61110,
+        "url": "https://github.com/apache/airflow/pull/61110#discussion_r2733506619",
+        "excerpt": "NOT RUNNING AND NOT PENDING when I test the field selector locally"
+      }
+    ],
+    "scope_paths": [
+      "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/"
+    ]
+  }
+]

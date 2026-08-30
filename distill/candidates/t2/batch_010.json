@@ -1,0 +1,146 @@
+[
+  {
+    "rule": "When a shared-stream poll task dies, remove the group from SharedStreamManager._groups immediately (or mark it dead) so that late subscribers are not attached to a group whose _poll will never produce items",
+    "category": "async",
+    "trigger": "A _poll or equivalent coroutine fans out a failure sentinel to subscribers and returns without removing its group from the manager registry",
+    "rationale": "A late subscriber arriving between _PollFailure broadcast and the last unsubscribe gets a fresh queue that nothing ever fills; its _drain blocks on queue.get() forever with no log line and no recovery path",
+    "evidence": [
+      {
+        "pr": 66584,
+        "url": "https://github.com/apache/airflow/pull/66584#discussion_r3239998887",
+        "excerpt": "late subscriber joins a group whose poll task is already dead"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/triggers/shared_stream.py"
+    ]
+  },
+  {
+    "rule": "Never manually edit auto-generated OpenAPI client files (openapi-gen/); all changes must be produced by regenerating via the configured @hey-api/openapi-ts command",
+    "category": "api-design",
+    "trigger": "A diff modifies files under airflow-core/src/airflow/ui/openapi-gen/ without an accompanying update to the OpenAPI spec or generation script",
+    "rationale": "Manual edits to generated artifacts are silently overwritten by the next regeneration, making the change invisible and unreviewable as a spec change",
+    "evidence": [
+      {
+        "pr": 64610,
+        "url": "https://github.com/apache/airflow/pull/64610#discussion_r3027588818",
+        "excerpt": "ensure new field comes from regenerating OpenAPI client artifacts, not manual edits"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/openapi-gen/requests/types.gen.ts"
+    ]
+  },
+  {
+    "rule": "When using raw fetch() inside a React Query hook, attach the HTTP status code to any thrown Error so the global QueryClient retry guard (which checks error.status) can skip retries on 4xx responses",
+    "category": "correctness",
+    "trigger": "A useQuery queryFn calls fetch() directly and throws a plain Error (without a .status property) on non-OK responses",
+    "rationale": "queryClient.ts retry logic checks error.status to suppress retries for 4xx; a plain Error has status=undefined, causing spurious retries on 401/403 for every task-instance page load",
+    "evidence": [
+      {
+        "pr": 63477,
+        "url": "https://github.com/apache/airflow/pull/63477#discussion_r2927554578",
+        "excerpt": "error.status is undefined here, it'll retry 3 times for 401/403 responses"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/hooks/useHITLReviewTabs.ts"
+    ]
+  },
+  {
+    "rule": "Guard plugin-specific React Query hooks with an enabled check that verifies the relevant plugin tab is present before firing any network request",
+    "category": "performance",
+    "trigger": "A useQuery hook for an optional plugin feature (e.g. HITL review) sets enabled only from an outer boolean, without also checking whether the plugin's tab exists in the tabs array",
+    "rationale": "Most Airflow deployments do not install optional plugins; firing a fetch on every task-instance page load for an absent plugin wastes network traffic at scale",
+    "evidence": [
+      {
+        "pr": 63477,
+        "url": "https://github.com/apache/airflow/pull/63477#discussion_r2927554568",
+        "excerpt": "skip the request entirely when the tab doesn't exist; most Airflow deployments don't use HITL"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/hooks/useHITLReviewTabs.ts"
+    ]
+  },
+  {
+    "rule": "A new translation locale must have an identified translation owner approved via the dev list before merge, and must include a locale-specific guide file at .github/skills/airflow-translations/locales/<code>.md",
+    "category": "docs",
+    "trigger": "A PR adds a new locale directory under airflow-core/src/airflow/ui/public/i18n/locales/ without a corresponding .github/skills/airflow-translations/locales/<code>.md file",
+    "rationale": "The i18n process requires approved ownership and a locale guide to keep translation quality consistent and to provide instructions for future LLM-assisted or human contributors",
+    "evidence": [
+      {
+        "pr": 65630,
+        "url": "https://github.com/apache/airflow/pull/65630#discussion_r3120408457",
+        "excerpt": "enforce that each new language creates a .github/skills/airflow-translations/locales/<code>.md file"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/public/i18n/README.md"
+    ]
+  },
+  {
+    "rule": "i18next plural key sets must be fully consistent with how the key is consumed in code; if only the _one suffix is used directly, the plural form must either be added to the codebase or the extra key removed",
+    "category": "correctness",
+    "trigger": "A locale JSON file adds both _one and _other plural variants for a key but the TypeScript/TSX consumer references only one of the variants directly as a string literal",
+    "rationale": "Unused plural keys indicate a mismatch between i18n data and the calling code; the pluralisation feature only works when the caller passes a count parameter via the i18next translate() API",
+    "evidence": [
+      {
+        "pr": 56229,
+        "url": "https://github.com/apache/airflow/pull/56229#discussion_r2401527604",
+        "excerpt": "we don't use anything other than error_one directly, which is probably wrong itself"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/public/i18n/locales/el/components.json"
+    ]
+  },
+  {
+    "rule": "i18n keys for input placeholders must carry a Placeholder suffix (e.g. runIdFilterPlaceholder) to match existing key conventions and enable key reuse across locales",
+    "category": "naming",
+    "trigger": "A locale JSON file adds filter or input-hint keys without a Placeholder suffix",
+    "rationale": "The Airflow i18n convention groups placeholder strings under keys with a Placeholder suffix; omitting it creates duplicates and breaks reuse of already-translated strings",
+    "evidence": [
+      {
+        "pr": 54049,
+        "url": "https://github.com/apache/airflow/pull/54049#discussion_r2263622518",
+        "excerpt": "Those should also have 'Placeholder' suffix; we might want to regroup them"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/public/i18n/locales/en/browse.json"
+    ]
+  },
+  {
+    "rule": "Do not pass a non-datetime string literal to the Airflow UI <Time datetime={...}> component; use a real ISO timestamp or leave the prop null/undefined and drive visual state from count fields",
+    "category": "correctness",
+    "trigger": "A TSX file assigns a string literal (e.g. 'received') to a property that is passed as the datetime prop of <Time>",
+    "rationale": "The <Time> component renders its datetime value as a formatted date; passing an arbitrary string produces an invalid date display or runtime error",
+    "evidence": [
+      {
+        "pr": 64571,
+        "url": "https://github.com/apache/airflow/pull/64571#discussion_r3066486600",
+        "excerpt": "Passing 'received' as a datetime will likely render an invalid date/time"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/components/AssetProgressCell.tsx"
+    ]
+  },
+  {
+    "rule": "Use Chakra UI numeric token values (e.g. height={5}) instead of CSS pixel strings (e.g. height=\"20px\") for sizing props in Airflow UI components",
+    "category": "api-design",
+    "trigger": "A Chakra UI component in the Airflow UI receives a size prop expressed as a quoted pixel string rather than a numeric token",
+    "rationale": "The Airflow UI uses Chakra's design-token scale throughout; mixing raw CSS strings breaks visual consistency and bypasses the token system",
+    "evidence": [
+      {
+        "pr": 56344,
+        "url": "https://github.com/apache/airflow/pull/56344#discussion_r2402415990",
+        "excerpt": "height and width should use Chakra numeric tokens, not pixel strings"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/ui/src/components/ui/ResizableWrapper.tsx"
+    ]
+  }
+]

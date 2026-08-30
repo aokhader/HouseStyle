@@ -1,0 +1,203 @@
+[
+  {
+    "rule": "Use dynamic imports for heavy UI dependencies (e.g. Mermaid) in the Airflow React UI so they are not included in the main bundle when unused",
+    "category": "performance",
+    "trigger": "A module in airflow-core/src/airflow/ui/ statically imports a large library (e.g. `import mermaid`) at module load rather than inside the render path that actually needs it",
+    "rationale": "ReactMarkdown is used across multiple UI surfaces; eager-loading Mermaid pulls its full dependency tree into the main bundle even when no Mermaid blocks are present, increasing initial load cost for all users",
+    "evidence": [
+      {
+        "pr": 66809,
+        "url": "https://github.com/apache/airflow/pull/66809#discussion_r3228269152",
+        "excerpt": "this likely pulls Mermaid into the main bundle even when no Mermaid blocks present"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/src/"]
+  },
+  {
+    "rule": "Log e2e teardown failures at `console.warn` level (not `console.debug`) so CI logs surface residual state that can cause flaky follow-on runs",
+    "category": "testing",
+    "trigger": "An e2e teardown file downgrades a failure log from `console.warn` to `console.debug`",
+    "rationale": "Hiding teardown failures in CI logs makes it harder to diagnose residual state and flaky follow-on test runs; warn-level keeps them visible while still allowing message wording to be adjusted",
+    "evidence": [
+      {
+        "pr": 64540,
+        "url": "https://github.com/apache/airflow/pull/64540#discussion_r3025328801",
+        "excerpt": "switching to console.debug may effectively hide teardown failures in CI logs"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/tests/e2e/"]
+  },
+  {
+    "rule": "Playwright Page Object helper methods must not swallow errors by catching exceptions and returning false; let assertions propagate so test failures are actionable",
+    "category": "testing",
+    "trigger": "A Playwright page-object method wraps an `isVisible()`, `isEnabled()`, or similar assertion in a try/catch that returns `false` on error, or uses `.catch(() => false)`",
+    "rationale": "Swallowing errors produces 'Expected: true, Received: false' messages with no diagnostic information; tests can silently pass without actually testing anything because the error is hidden",
+    "evidence": [
+      {
+        "pr": 59791,
+        "url": "https://github.com/apache/airflow/pull/59791#discussion_r2649672306",
+        "excerpt": "catch errors and return false makes debugging difficult; tests can silently pass"
+      },
+      {
+        "pr": 60738,
+        "url": "https://github.com/apache/airflow/pull/60738#discussion_r2793925426",
+        "excerpt": "This will silently return in case of an actual issue, we should not even use it"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/tests/e2e/pages/"]
+  },
+  {
+    "rule": "Do not use `page.waitForLoadState('networkidle')` in Playwright e2e tests; wait for explicit UI conditions such as `expect(...).toBeVisible()` or `waitForSelector` instead",
+    "category": "testing",
+    "trigger": "A Playwright test or page-object calls `waitForLoadState('networkidle')`",
+    "rationale": "Playwright's own guidance discourages networkidle waits as they lead to flaky tests; waiting for a concrete UI element is more stable and predictable",
+    "evidence": [
+      {
+        "pr": 60738,
+        "url": "https://github.com/apache/airflow/pull/60738#discussion_r2735507029",
+        "excerpt": "using networkidle is generally discouraged as it can lead to flaky tests"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/tests/e2e/"]
+  },
+  {
+    "rule": "Use Playwright web-first assertions (`expect(element).toBeHidden()`) to await conditionally-rendered overlays rather than try/catch visibility checks",
+    "category": "testing",
+    "trigger": "A Playwright page object uses try/catch around `.isVisible()` to handle a conditionally-rendered overlay or loading indicator instead of `expect(overlay).toBeHidden()`",
+    "rationale": "`expect().toBeHidden()` passes when the element is absent from the DOM, cleanly handles conditional rendering, and produces actionable failure messages unlike swallowed visibility checks",
+    "evidence": [
+      {
+        "pr": 64189,
+        "url": "https://github.com/apache/airflow/pull/64189#discussion_r3025333560",
+        "excerpt": "use a web-first assertion like expect(overlay).toBeHidden(...) which passes when element is absent"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/tests/e2e/pages/"]
+  },
+  {
+    "rule": "Set shared e2e test timeouts in `testInfo.setTimeout()` inside `beforeEach` rather than repeating `test.setTimeout()` in every individual test",
+    "category": "testing",
+    "trigger": "Multiple tests in the same `describe` block each call `test.setTimeout()` with the same value",
+    "rationale": "Centralising the timeout in `beforeEach` via `testInfo.setTimeout` avoids repetition and ensures all tests in the suite use the same timeout consistently",
+    "evidence": [
+      {
+        "pr": 59374,
+        "url": "https://github.com/apache/airflow/pull/59374#discussion_r2623901004",
+        "excerpt": "Is there a way to set this for all 3 tests here (maybe in the beforeEach?)"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/tests/e2e/specs/"]
+  },
+  {
+    "rule": "E2e tests must verify actual functional behaviour (e.g. sort order changes), not merely that a UI control is visible or opens",
+    "category": "testing",
+    "trigger": "An e2e spec for a sort, filter, or pagination feature only asserts that the control is visible or clickable without asserting the resulting data order or content changes",
+    "rationale": "A test that only verifies a dropdown opens does not catch regressions in the underlying sort/filter logic and gives false confidence",
+    "evidence": [
+      {
+        "pr": 59374,
+        "url": "https://github.com/apache/airflow/pull/59374#discussion_r2645742625",
+        "excerpt": "doesn't verify that sorting actually works; consider verifying sort behavior"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/ui/tests/e2e/specs/"]
+  },
+  {
+    "rule": "Prefer `Select.where()` over `Select.filter()` when building SQLAlchemy queries in Airflow's database utilities",
+    "category": "database",
+    "trigger": "A `Select` object in `db_cleanup.py` or similar SQLAlchemy query builders calls `.filter()` instead of `.where()`",
+    "rationale": "`where()` is the canonical method on the `Select` class per SQLAlchemy docs; `filter()` is an ORM-layer alias that is less idiomatic when working directly with Core `Select` objects",
+    "evidence": [
+      {
+        "pr": 59918,
+        "url": "https://github.com/apache/airflow/pull/59918#discussion_r2668439741",
+        "excerpt": "`where()` is better since the query comes from the Select class"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/db_cleanup.py"]
+  },
+  {
+    "rule": "Do not call `session.commit()` in the caller of `_cleanup_table()` if that function already commits internally; keep commit responsibility in one place",
+    "category": "database",
+    "trigger": "A function calls `session.commit()` immediately after delegating to a helper that already commits the session internally",
+    "rationale": "Redundant commits make transaction boundaries harder to reason about and can cause issues if the inner function's commit semantics change",
+    "evidence": [
+      {
+        "pr": 65239,
+        "url": "https://github.com/apache/airflow/pull/65239#discussion_r3204634915",
+        "excerpt": "_cleanup_table() already commits internally; extra commit makes boundaries harder to reason about"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/db_cleanup.py"]
+  },
+  {
+    "rule": "GC freeze applied before forking for worker processes must be paired with unfreeze in the parent process only; verify GC is not permanently disabled in the forked task process",
+    "category": "correctness",
+    "trigger": "Code in `gc_utils.py` or the scheduler fork path calls `gc.freeze()` without confirming that GC is re-enabled inside the spawned subprocess",
+    "rationale": "The intent of freeze/unfreeze is to prevent COW page dirtying from the parent's objects; if the child process inherits the freeze state, GC is silently disabled for the entire task execution lifecycle",
+    "evidence": [
+      {
+        "pr": 58365,
+        "url": "https://github.com/apache/airflow/pull/58365#discussion_r2539043674",
+        "excerpt": "doesn't this mean there is no GC at all running in the task process itself?"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/gc_utils.py"]
+  },
+  {
+    "rule": "When a Pydantic model is already in scope, serialise it with `model.model_dump_json()` rather than manually constructing an equivalent JSON dict",
+    "category": "api-design",
+    "trigger": "Code manually builds a `dict` with the same fields as an existing Pydantic model and calls `json.dumps()` on it instead of using `model.model_dump_json()`",
+    "rationale": "Using the model's own serialisation method ensures the output stays in sync with the schema definition and avoids duplicating field names",
+    "evidence": [
+      {
+        "pr": 55035,
+        "url": "https://github.com/apache/airflow/pull/55035#discussion_r2309708353",
+        "excerpt": "use the similar way to return logs: yield f\"{state_message.model_dump_json()}\\n\""
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/log/log_reader.py"]
+  },
+  {
+    "rule": "A custom SQLAlchemy clause element that sets `inherit_cache = True` must also define traversal metadata so that its mutable state (e.g. constructor arguments) is included in the cache key",
+    "category": "database",
+    "trigger": "A class subclassing a SQLAlchemy `ClauseElement` sets `inherit_cache = True` but does not define `inherit_cache`-compatible cache key fields or `_traverse_internals` for its instance attributes",
+    "rationale": "Without traversal metadata, different argument values can reuse the same cached compiled statement, producing incorrect SQL silently; the safe fallback is `inherit_cache = False`",
+    "evidence": [
+      {
+        "pr": 64611,
+        "url": "https://github.com/apache/airflow/pull/64611#discussion_r3025291579",
+        "excerpt": "inherit_cache=True without traversal metadata can cause incorrect SQL compilation caching"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/sqlalchemy.py"]
+  },
+  {
+    "rule": "Do not prematurely name a DAG-file AST checker module 'static_checker'; keep the name scoped to 'dag_stability' until a third distinct check type justifies a generic framework",
+    "category": "naming",
+    "trigger": "A new module or class in airflow-core performing AST analysis of DAG files is named with a generic term like `static_checker` or `StaticCheckerResult` when it only performs DAG-stability/runtime-varying-value checks",
+    "rationale": "There are many possible static checks; generalising the name prematurely implies a shared framework that does not yet exist and makes future contributors expect broader scope than intended",
+    "evidence": [
+      {
+        "pr": 59430,
+        "url": "https://github.com/apache/airflow/pull/59430#discussion_r2644095699",
+        "excerpt": "naming it 'static checks' now is too early; it's purely about 'Dag stability'"
+      }
+    ],
+    "scope_paths": ["airflow-core/src/airflow/utils/static_checker.py", "airflow-core/src/airflow/utils/dag_stability_checker.py"]
+  },
+  {
+    "rule": "When testing SQLite-specific `OperationalError` handling, pass a real `sqlite3.OperationalError` instance as `e.orig` so that `.args[0]` string checks work correctly",
+    "category": "testing",
+    "trigger": "A test mocks `sqlalchemy.exc.OperationalError` with a plain string as the `orig` argument where the implementation accesses `e.orig.args[0]`",
+    "rationale": "Plain strings have no `.args` attribute; the condition is never met, the exception propagates unhandled, and the test does not actually exercise the error-handling branch it intends to cover",
+    "evidence": [
+      {
+        "pr": 67900,
+        "url": "https://github.com/apache/airflow/pull/67900#discussion_r3349772615",
+        "excerpt": "mock passes plain string for e.orig but implementation checks e.orig.args[0]; condition never met"
+      }
+    ],
+    "scope_paths": ["airflow-core/tests/unit/api_fastapi/core_api/routes/public/test_backfills.py"]
+  }
+]

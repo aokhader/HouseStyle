@@ -1,0 +1,195 @@
+[
+  {
+    "rule": "When parametrizing OTEL protocol resolution tests, include a case where OTEL_EXPORTER_OTLP_TRACES_PROTOCOL overrides the generic OTEL_EXPORTER_OTLP_PROTOCOL to verify type-specific env vars take precedence",
+    "category": "testing",
+    "trigger": "parametrize block for OTEL exporter protocol resolution that lacks a case combining both OTEL_EXPORTER_OTLP_PROTOCOL and OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
+    "rationale": "The Airflow OTEL integration must honour the OpenTelemetry precedence rule that signal-specific env vars override the generic one; omitting this case leaves a silent regression risk in the tracer/metrics setup code",
+    "evidence": [
+      {
+        "pr": 56150,
+        "url": "https://github.com/apache/airflow/pull/56150#discussion_r2774274065",
+        "excerpt": "None of the test cases cover OTEL_EXPORTER_OTLP_TRACES_PROTOCOL overriding generic OTEL_EXPORTER_OTLP_PROTOCOL"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/observability/traces/test_otel_tracer.py"
+    ]
+  },
+  {
+    "rule": "Use the sentinel pattern from AirflowConfigParser to distinguish a user-explicitly-set Airflow config value from a default, rather than comparing against OTel env vars directly",
+    "category": "api-design",
+    "trigger": "code that reads an Airflow OTEL/observability config key and then checks whether an OTel env var is also set, without using a sentinel fallback",
+    "rationale": "There is no way to know if the user set the Airflow config versus accepted the default; the AirflowConfigParser sentinel pattern (see airflow/_shared/configuration/parser.py) is the established Airflow mechanism to detect this and is required to emit correct deprecation warnings",
+    "evidence": [
+      {
+        "pr": 56150,
+        "url": "https://github.com/apache/airflow/pull/56150#discussion_r2745043758",
+        "excerpt": "Would it be possible to add sentinel as fallback and log warnings if OTel envs are set?"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/observability/traces/otel_tracer.py",
+      "task-sdk/src/airflow/sdk/observability/traces/otel_tracer.py"
+    ]
+  },
+  {
+    "rule": "Do not assert a hard-coded total plugin count in plugin-manager tests; assert the specific deduplication or presence behaviour instead",
+    "category": "testing",
+    "trigger": "assert len(plugins) == <integer literal> in plugin manager tests",
+    "rationale": "The total count changes whenever any provider adds or removes a plugin, making the assertion brittle and unrelated to the behaviour under test (deduplication of entrypoint provider plugins)",
+    "evidence": [
+      {
+        "pr": 57610,
+        "url": "https://github.com/apache/airflow/pull/57610#discussion_r2761728630",
+        "excerpt": "Brittle: changes whenever any provider adds/removes a plugin, doesn't verify deduplication"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/plugins/test_plugins_manager.py"
+    ]
+  },
+  {
+    "rule": "Assert serialization truncation output using the exported TRUNCATE_PREFIX and TRUNCATE_SUFFIX constants rather than a loose substring check",
+    "category": "testing",
+    "trigger": "assert '...' in result or assert 'Truncated' in result used to verify serialize_template_field truncation output",
+    "rationale": "A loose 'in' check passes even when the format regresses (missing suffix, wrong prefix, extra content); the helpers module exports TRUNCATE_PREFIX and TRUNCATE_SUFFIX for exact regression assertions",
+    "evidence": [
+      {
+        "pr": 61878,
+        "url": "https://github.com/apache/airflow/pull/61878#discussion_r2850721560",
+        "excerpt": "Assert exact output using TRUNCATE_PREFIX + TRUNCATE_SUFFIX to make the regression test precise"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/serialization/test_helpers.py"
+    ]
+  },
+  {
+    "rule": "Wrap config-dependent tests that call resolve_state_backend() (or similar config-reading functions) in a conf_vars context manager to prevent non-deterministic failures from global config state",
+    "category": "testing",
+    "trigger": "call to resolve_state_backend() or other Airflow config-reading functions in a test without a conf_vars({...}) context manager",
+    "rationale": "Without conf_vars isolation a test passes by accident against config.yml defaults and fails non-deterministically when a prior test modifies global config without cleanup",
+    "evidence": [
+      {
+        "pr": 65759,
+        "url": "https://github.com/apache/airflow/pull/65759#discussion_r3153690865",
+        "excerpt": "Depends on global config state; if previous test sets state.backend and forgets cleanup, fails non-deterministically"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/state/test_metastore.py"
+    ]
+  },
+  {
+    "rule": "Use `with create_session() as session:` and pass the session explicitly; never call create_session().__enter__() without a matching __exit__()",
+    "category": "correctness",
+    "trigger": "create_session().__enter__() used without a corresponding __exit__() call or without a with-statement",
+    "rationale": "create_session is a generator-based context manager in utils/session.py; calling __enter__() alone leaves the generator suspended at its yield so the commit() and session.close() in the finally block only run on garbage collection, silently relying on internal commits and scoped-session semantics",
+    "evidence": [
+      {
+        "pr": 68218,
+        "url": "https://github.com/apache/airflow/pull/68218#discussion_r3376037146",
+        "excerpt": "Leaves create_session generator suspended; commit/session.close only run on GC"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/tests/unit/utils/test_db_cleanup.py"
+    ]
+  },
+  {
+    "rule": "All code comments in tests must be written in English",
+    "category": "docs",
+    "trigger": "non-English comment in any test file under airflow-ctl/ or airflow-core/",
+    "rationale": "The Airflow project requires English for all code comments; non-English comments (e.g. Chinese) prevent reviewers and contributors from understanding the test's intent",
+    "evidence": [
+      {
+        "pr": 64586,
+        "url": "https://github.com/apache/airflow/pull/64586#discussion_r3024072251",
+        "excerpt": "I would love to understand but I cannot; either delete or translate into English"
+      }
+    ],
+    "scope_paths": [
+      "airflow-ctl/tests/airflow_ctl/api/test_client.py"
+    ]
+  },
+  {
+    "rule": "Use 'override' (not 'overwrite') when describing Helm values files passed via -f or --set, consistent with the chart's mergeOverwrite helper naming",
+    "category": "docs",
+    "trigger": "the word 'overwrite' used in Helm chart documentation to describe values file or --set flag precedence",
+    "rationale": "'override' is already used throughout the chart Helm docs and aligns with the mergeOverwrite/mustMergeOverwrite helper names; 'overwrite' is a different concept and is not used elsewhere in the chart",
+    "evidence": [
+      {
+        "pr": 62544,
+        "url": "https://github.com/apache/airflow/pull/62544#discussion_r2874679520",
+        "excerpt": "'override' used in many helm docs places; 'overwrite' only in mergeOverwrite helper name"
+      }
+    ],
+    "scope_paths": [
+      "chart/docs/adding-connections-and-variables.rst"
+    ]
+  },
+  {
+    "rule": "In Helm pod-template-file fallback chains, use `or` rather than `| default` so that the global fallback value (e.g. .Values.containerLifecycleHooks) is included, consistent with every other fallback chain in the chart",
+    "category": "correctness",
+    "trigger": "| default used in pod-template-file.kubernetes-helm-yaml for a value that should fall back through workers.kubernetes.<key> -> workers.<key> -> global <key>",
+    "rationale": "| default stops at two levels and misses the global .Values.containerLifecycleHooks fallback that the rest of the chart provides via `or`; this silently drops the global default for kerberos init container settings",
+    "evidence": [
+      {
+        "pr": 60677,
+        "url": "https://github.com/apache/airflow/pull/60677#discussion_r2838336511",
+        "excerpt": "Use `or` for fallback consistency with rest of chart + adding .Values.containerLifecycleHooks global fallback"
+      }
+    ],
+    "scope_paths": [
+      "chart/files/pod-template-file.kubernetes-helm-yaml"
+    ]
+  },
+  {
+    "rule": "Use `hasKey` to distinguish an unset new Helm key from an explicitly empty value; do not use `| default` to fall back to a deprecated key, because `| default` treats an empty map as falsy and silently ignores an intentional empty override",
+    "category": "correctness",
+    "trigger": "| default .Values.<deprecated-key> used in Helm templates to fall back from a new workers.kubernetes.<key> to an old workers.<key>",
+    "rationale": "| default on a map treats {} (explicitly set to empty) as falsy and falls back to the deprecated key, preventing users from intentionally clearing annotations/lifecycle-hooks while still having the legacy key set; hasKey correctly distinguishes 'not provided' from 'set to empty'",
+    "evidence": [
+      {
+        "pr": 65027,
+        "url": "https://github.com/apache/airflow/pull/65027#discussion_r3066478444",
+        "excerpt": "Explicitly empty workers.kubernetes.podAnnotations: {} falls back to deprecated workers.podAnnotations; use hasKey to distinguish unset from empty"
+      }
+    ],
+    "scope_paths": [
+      "chart/files/pod-template-file.kubernetes-helm-yaml"
+    ]
+  },
+  {
+    "rule": "A new feature belongs in the Helm chart only if more than ~80% of production users will need it; apply the Pareto principle alongside the existing 'required to run Airflow' criterion",
+    "category": "api-design",
+    "trigger": "addition of a new Helm chart component or value that is optional or serves a minority use-case",
+    "rationale": "The chart CONTRIBUTING guide explicitly states the Pareto principle: components used by fewer than ~80% of users belong in kustomize overlays, not the core chart, to keep the chart lean",
+    "evidence": [
+      {
+        "pr": 65897,
+        "url": "https://github.com/apache/airflow/pull/65897#discussion_r3149196920",
+        "excerpt": "Pareto principle applies: >80% must need and use this function for productive use"
+      }
+    ],
+    "scope_paths": [
+      "chart/kustomize-overlays/CONTRIBUTING.rst"
+    ]
+  },
+  {
+    "rule": "In Breeze / kustomize-overlays developer documentation, use `breeze k8s deploy-cluster --rebuild-base-image` rather than the separate `build-k8s-image` + `upload-k8s-image` two-step sequence",
+    "category": "docs",
+    "trigger": "breeze k8s build-k8s-image followed by breeze k8s upload-k8s-image in documentation or scripts",
+    "rationale": "The combined deploy-cluster command already encapsulates build + upload; repeating the two-step sequence throughout docs creates maintenance overhead and diverges from the canonical Breeze workflow",
+    "evidence": [
+      {
+        "pr": 67012,
+        "url": "https://github.com/apache/airflow/pull/67012#discussion_r3307323502",
+        "excerpt": "breeze k8s deploy-cluster --rebuild-base-image covers both steps; seen this split 4 times already"
+      }
+    ],
+    "scope_paths": [
+      "chart/kustomize-overlays/CONTRIBUTING.rst"
+    ]
+  }
+]
