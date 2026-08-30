@@ -118,3 +118,15 @@ build/
 # DO NOT REMOVE ABOVE PATTERNS
 # Add project-specific patterns below
 # ============================================
+# ============================================
+# HOUSE STYLE - PROJECT-SPECIFIC
+# ============================================
+
+# Raw harvested data - never committed
+data/
+
+# uv virtual environment
+.venv/
+
+# Python build artefacts (belt-and-suspenders)
+*.egg-info/

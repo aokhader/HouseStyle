@@ -1,0 +1,28 @@
+# uv-managed Python project — House Style
+
+[project]
+name = "house-style"
+version = "0.1.0"
+description = "Mine code-review conventions from merged PR history and emit them as a Bob Skill."
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["harvest", "distill"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["harvest/tests", "distill/tests"]
