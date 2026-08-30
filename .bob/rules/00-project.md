@@ -29,6 +29,19 @@ These rules apply to every mode and every phase of the project.
   unless the developer explicitly decides otherwise.
 - Everything under `.bob/` (rules, skills, mode AGENTS files) is **committed** and version-controlled.
 
+## Filtering philosophy
+
+Apply destructive filters only for definite noise (bots, LGTM-class responses, self-review,
+maintainer-to-maintainer shorthand). For everything else, assign a `signal_strength` tier
+(`strong`, `medium`, `weak`) and defer the decision to the distillation phase.
+
+- `strong` — thread was marked resolved or outdated by a reviewer (`isResolved` or `isOutdated`).
+- `medium` — thread has at least one reply (≥ 2 comments in the thread).
+- `weak` — standalone comment with no resolution signal.
+
+A rule must have at least one `strong` comment in its evidence before being promoted from
+CANDIDATE to RULE.
+
 ## Evidence requirements for rules
 
 - Every generated rule file must carry an `## Evidence` section listing:
@@ -38,6 +51,8 @@ These rules apply to every mode and every phase of the project.
   **candidate rule** (prefix the file or section with `CANDIDATE:`), not an enforceable rule.
 - "Independent" means from different PR authors or reviewers (by pseudonymised hash), not just
   different comments in the same review thread.
+- At least one supporting comment must have `signal_strength: strong` for the pattern to be
+  promoted from CANDIDATE to RULE.
 
 ## Rule file format
 
