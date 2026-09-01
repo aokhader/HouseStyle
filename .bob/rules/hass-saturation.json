@@ -1,0 +1,13 @@
+[
+  {
+    "tranche": 1,
+    "batches": 20,
+    "comments_seen": 500,
+    "candidates_in": 375,
+    "clusters": 270,
+    "rules_before": 0,
+    "rules_after": 27,
+    "new_rules": 27,
+    "new_rule_rate": 1.0
+  }
+]

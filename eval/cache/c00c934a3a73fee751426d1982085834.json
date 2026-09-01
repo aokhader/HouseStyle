@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding asks for a changelog entry for the behaviour flip; the human asks for a log line preserving the rejecting user's attribution.",
+  "judge": "agent"
+}

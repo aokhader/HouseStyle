@@ -1,0 +1,23 @@
+{"pr": 71387,
+ "findings": [
+   {"path": "providers/apache/iceberg/src/airflow/providers/apache/iceberg/triggers/iceberg.py",
+    "line": 29,
+    "category": "providers",
+    "message": "The pre-3.0 branch aliases BaseTrigger to BaseEventTrigger, but event-driven scheduling (Asset/AssetWatcher) only exists on Airflow 3.0+, so on Airflow 2 this class imports cleanly and then cannot be used for anything. Either drop the compat shim and require 3.0+ for this module, or make the unsupported case fail loudly instead of silently producing a trigger nothing can watch."},
+   {"path": "providers/apache/iceberg/src/airflow/providers/apache/iceberg/triggers/iceberg.py",
+    "line": 116,
+    "category": "performance",
+    "message": "A fresh IcebergHook is built on every poll, which re-fetches the connection and re-creates the catalog client each cycle; with a 60s default and many watched tables that is a connection lookup per table per minute in the triggerer. Please hold the hook (or the loaded catalog) in a cached_property and reuse it across polls."},
+   {"path": "providers/apache/iceberg/src/airflow/providers/apache/iceberg/triggers/iceberg.py",
+    "line": 143,
+    "category": "correctness",
+    "message": "Discriminating the multi-asset case by substring-matching the exception text ties this provider to an error message in core that nobody is obliged to keep stable. When core rewords it, a legitimately shared trigger will raise instead of degrading and the watcher dies. Can we key off the exception type (or an attribute on it) instead, and if core does not expose one, raise that as a core issue?"},
+   {"path": "providers/apache/iceberg/src/airflow/providers/apache/iceberg/triggers/iceberg.py",
+    "line": 161,
+    "category": "correctness",
+    "message": "The watermark is persisted before the event is yielded, so if the triggerer dies between the store.set and the event being recorded, the resumed trigger reads back the new snapshot id and never re-emits it - the commit is silently dropped. Persisting after the yield (on the next loop iteration) makes this at-least-once, which is the safer failure mode for scheduling."},
+   {"path": "providers/apache/iceberg/tests/system/apache/iceberg/example_iceberg_table_snapshot_watcher.py",
+    "line": 19,
+    "category": "docs",
+    "message": "The START/END howto markers are not referenced by any docs page in this PR, so the snippet is never rendered. A new user-facing trigger needs a page under docs/apache-airflow-providers-apache-iceberg/ that exampleinclude's this block, plus the usual changelog/newsfragment entry."}
+ ]}

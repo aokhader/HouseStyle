@@ -1,0 +1,260 @@
+[
+  {
+    "rule": "A snapshot_platform test for a platform that contains entities with entity_registry_enabled_default=False must apply @pytest.mark.usefixtures(\"entity_registry_enabled_by_default\"), because snapshot_platform asserts disabled_by is None for every entity.",
+    "category": "testing",
+    "trigger": "A new or edited test calls snapshot_platform(hass, entity_registry, snapshot, entry.entry_id) for a platform whose entity descriptions include entity_registry_enabled_default=False, without the entity_registry_enabled_by_default fixture.",
+    "rationale": "The shared snapshot helper asserts every registry entry is enabled, so a disabled-by-default entity silently fails the snapshot test rather than being captured.",
+    "evidence": [
+      {
+        "pr": 169771,
+        "url": "https://github.com/home-assistant/core/pull/169771#discussion_r3367854569",
+        "excerpt": "snapshot_platform helper asserts entity_entry.disabled_by is None for every entity"
+      }
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Syrupy .ambr snapshot files must be produced by running pytest --snapshot-update; never hand-edit them or hand-append snapshot blocks.",
+    "category": "testing",
+    "trigger": "A diff adds or modifies lines inside a tests/components/*/snapshots/*.ambr file in a way that deviates from generator output, e.g. a duplicated '# ---' divider or a manually written EntityRegistryEntrySnapshot block.",
+    "rationale": "Deviations from the canonical generator output prove the snapshot was written by hand rather than captured from real entity state, so the snapshot no longer proves anything about the integration.",
+    "evidence": [
+      {
+        "pr": 175300,
+        "url": "https://github.com/home-assistant/core/pull/175300#discussion_r3508683656",
+        "excerpt": "regenerate with pytest --snapshot-update so the file matches canonical output"
+      },
+      {
+        "pr": 175300,
+        "url": "https://github.com/home-assistant/core/pull/175300#discussion_r3508683628",
+        "excerpt": "This extra line indicates the snapshot was hand-edited rather than produced by tooling"
+      }
+    ],
+    "scope_paths": ["tests/components/vesync/snapshots/", "tests/components/"]
+  },
+  {
+    "rule": "An entity registry snapshot whose 'aliases' field renders as list([None]) must be investigated as an entity-registration bug; aliases must be an empty set or a set of non-null strings.",
+    "category": "correctness",
+    "trigger": "A new .ambr snapshot contains \"'aliases': list([\\n None,\\n ])\" inside an EntityRegistryEntrySnapshot.",
+    "rationale": "Aliases are a set of strings in the entity registry; a None alias means the entity or its fixture is registering a null alias, and accepting the snapshot enshrines the bug.",
+    "evidence": [
+      {
+        "pr": 173411,
+        "url": "https://github.com/home-assistant/core/pull/173411#discussion_r3404212814",
+        "excerpt": "Entity aliases should be a set of strings, but snapshot shows list containing None"
+      },
+      {
+        "pr": 172831,
+        "url": "https://github.com/home-assistant/core/pull/172831#discussion_r3341223632",
+        "excerpt": "Having None in aliases suggests a bug in how the entity is registered"
+      }
+    ],
+    "scope_paths": ["tests/components/whirlpool/snapshots/", "tests/components/xthings_cloud/snapshots/", "tests/components/"]
+  },
+  {
+    "rule": "A test that patches an API call to raise an authentication exception must assert that the reauth flow actually started (e.g. config_entry_reauth.assert_called_once()), not merely reference the mock.",
+    "category": "testing",
+    "trigger": "A test injects an authentication exception via side_effect and references a reauth mock without calling an assertion method on it.",
+    "rationale": "Without invoking the assertion the test passes even when reauth is never triggered, so the auth-failure path is untested.",
+    "evidence": [
+      {
+        "pr": 169572,
+        "url": "https://github.com/home-assistant/core/pull/169572#discussion_r3177052721",
+        "excerpt": "otherwise the test can pass even when reauth is never triggered"
+      }
+    ],
+    "scope_paths": ["tests/components/uptimerobot/", "tests/components/"]
+  },
+  {
+    "rule": "Reconfigure-flow tests that submit only a subset of the config entry fields must assert that the omitted optional fields (credentials, tokens) are preserved on the entry.",
+    "category": "testing",
+    "trigger": "A test_config_flow.py reconfigure test calls async_configure with a dict omitting CONF_USERNAME/CONF_PASSWORD or other optional entry keys and only asserts the flow result type.",
+    "rationale": "A reconfigure flow that rewrites entry data can silently clear credentials the user never re-entered; only an explicit assertion catches that.",
+    "evidence": [
+      {
+        "pr": 168997,
+        "url": "https://github.com/home-assistant/core/pull/168997#discussion_r3133913012",
+        "excerpt": "ensure reconfigure does not unintentionally clear existing credentials when those optional fields are omitted"
+      }
+    ],
+    "scope_paths": ["tests/components/victron_gx/test_config_flow.py", "tests/components/"]
+  },
+  {
+    "rule": "When firing async_fire_time_changed to trigger a coordinator refresh, capture the base time after the config entries are set up (or add a margin / use fire_all=True); a time captured before setup can land before the timer the entity scheduled.",
+    "category": "testing",
+    "trigger": "A test assigns now = dt_util.now()/utcnow() before async_setup_component or hass.config_entries.async_setup, then calls async_fire_time_changed(hass, now + <scan interval>) and asserts on refresh call counts.",
+    "rationale": "The coordinator's next-refresh timer is only scheduled once an entity registers its listener, so a pre-setup timestamp makes the fired time earlier than the scheduled tick and the assertion flaky.",
+    "evidence": [
+      {
+        "pr": 163923,
+        "url": "https://github.com/home-assistant/core/pull/163923#discussion_r2850667539",
+        "excerpt": "coordinator's next refresh timer is scheduled later, making this assertion flaky"
+      }
+    ],
+    "scope_paths": ["tests/components/vizio/test_init.py", "tests/components/"]
+  },
+  {
+    "rule": "A new mocked device/appliance fixture must configure every library accessor the integration's base entity reads, including the availability accessor, matching the sibling fixtures in the same conftest.",
+    "category": "testing",
+    "trigger": "A conftest.py adds a Mock(spec=<device class>) fixture that sets some *.return_value attributes but omits one that existing fixtures for the same integration set (e.g. get_online.return_value = True).",
+    "rationale": "The base entity derives availability from that accessor, so an unconfigured Mock returns a Mock object and the new device behaves differently from every other device in the same tests.",
+    "evidence": [
+      {
+        "pr": 162110,
+        "url": "https://github.com/home-assistant/core/pull/162110#discussion_r2840823984",
+        "excerpt": "missing get_online return value, used by base WhirlpoolEntity class to determine entity availability"
+      }
+    ],
+    "scope_paths": ["tests/components/whirlpool/conftest.py", "tests/components/"]
+  },
+  {
+    "rule": "Config entry migration tests must be named (and their docstring worded) for the exact version transition exercised, e.g. test_migrate_minor_version_1_to_2 rather than test_migrate_to_1_1.",
+    "category": "naming",
+    "trigger": "A test in tests/components/*/test_init.py exercises async_migrate_entry / minor_version or version bumps but its name does not state the source and target version.",
+    "rationale": "Entry version and minor_version are distinct axes; an ambiguous name hides which migration path is actually covered as more migrations accumulate.",
+    "evidence": [
+      {
+        "pr": 169210,
+        "url": "https://github.com/home-assistant/core/pull/169210#discussion_r3143908376",
+        "excerpt": "Rename this test to reflect the actual minor-version migration being exercised"
+      }
+    ],
+    "scope_paths": ["tests/components/workday/test_init.py", "tests/components/"]
+  },
+  {
+    "rule": "Fixtures that build a MockConfigEntry must derive its title, data and options from the parametrizable config fixture rather than hard-coding literals.",
+    "category": "testing",
+    "trigger": "A conftest.py fixture constructs MockConfigEntry(domain=DOMAIN, title=\"<literal>\", ...) while a sibling get_config/mock_config fixture supplies the same value and can be overridden by tests.",
+    "rationale": "Tests that override the config fixture then get an entry whose title disagrees with its options, making entity IDs and device names diverge from the configuration under test.",
+    "evidence": [
+      {
+        "pr": 169000,
+        "url": "https://github.com/home-assistant/core/pull/169000#discussion_r3134158522",
+        "excerpt": "Derive the MockConfigEntry title from get_config[CONF_TIME_ZONE] instead of hard-coding it"
+      }
+    ],
+    "scope_paths": ["tests/components/worldclock/conftest.py", "tests/components/"]
+  },
+  {
+    "rule": "Tests must address entities by their hard-coded entity ID (as captured in the snapshot) instead of looking the ID up dynamically from the entity registry.",
+    "category": "testing",
+    "trigger": "A test calls er.async_entries_for_config_entry(...) and filters by domain/platform just to recover a single entity_id for a service call or state assertion.",
+    "rationale": "Home Assistant's testing conventions favor the literal entity ID: it is shorter, it is already pinned by the snapshot, and the registry fixture plus explanatory comment become unnecessary.",
+    "evidence": [
+      {
+        "pr": 174276,
+        "url": "https://github.com/home-assistant/core/pull/174276#discussion_r3487549101",
+        "excerpt": "Per the repo's testing conventions, hardcoding the entity ID is fine and clearer"
+      }
+    ],
+    "scope_paths": ["tests/components/yardian/test_button.py", "tests/components/"]
+  },
+  {
+    "rule": "Test docstrings must state only the behavior under test; do not narrate device model history, the prior bug, or the PR description in them.",
+    "category": "docs",
+    "trigger": "A new test's docstring spans multiple paragraphs describing a specific device firmware quirk, the exception it used to raise, or the regression history.",
+    "rationale": "The setup, assertions and PR description already carry that context, so the narrative duplicates them and goes stale.",
+    "evidence": [
+      {
+        "pr": 176234,
+        "url": "https://github.com/home-assistant/core/pull/176234#discussion_r3561611612",
+        "excerpt": "Shorten this docstring to state only the behavior under test"
+      }
+    ],
+    "scope_paths": ["tests/components/vesync/test_fan.py", "tests/components/"]
+  },
+  {
+    "rule": "Behavioral tests for a trigger must exercise every entity domain the trigger implementation accepts, not just one of them.",
+    "category": "testing",
+    "trigger": "New tests for a zone/state/entity trigger parametrize over a single domain (e.g. \"person\") while the trigger's implementation also handles device_tracker or other domains.",
+    "rationale": "Domain filtering and in_zones handling differ per domain, so regressions in the untested domain go unnoticed.",
+    "evidence": [
+      {
+        "pr": 171751,
+        "url": "https://github.com/home-assistant/core/pull/171751#discussion_r3282905197",
+        "excerpt": "trigger implementation explicitly supports both person and device_tracker, but tests only exercise person"
+      }
+    ],
+    "scope_paths": ["tests/components/zone/test_trigger.py", "tests/helpers/test_trigger.py"]
+  },
+  {
+    "rule": "Changes to shared trigger/helper base classes must add coverage for subclasses that intentionally target STATE_UNKNOWN/STATE_UNAVAILABLE before excluding those states globally.",
+    "category": "testing",
+    "trigger": "A diff makes an EntityTriggerBase-style helper skip unavailable/unknown states in match logic, and the accompanying tests only use an implementation whose is_valid_state() rejects those states.",
+    "rationale": "BEHAVIOR_FIRST/BEHAVIOR_LAST semantics differ for triggers that legitimately fire on unknown or unavailable, and a blanket exclusion silently breaks them.",
+    "evidence": [
+      {
+        "pr": 168224,
+        "url": "https://github.com/home-assistant/core/pull/168224#discussion_r3081490742",
+        "excerpt": "confirm the new exclusion logic doesn't break BEHAVIOR_FIRST/BEHAVIOR_LAST for triggers targeting those states"
+      }
+    ],
+    "scope_paths": ["tests/helpers/test_trigger.py", "homeassistant/helpers/trigger.py"]
+  },
+  {
+    "rule": "A fix for an async race must ship a regression test that actually drives both concurrent call paths; asserting a new private flag (e.g. script_obj._unloaded) does not substitute for reproducing the race.",
+    "category": "testing",
+    "trigger": "A PR adds unload/teardown guard state to a helper and its test only asserts the private attribute instead of starting a run while the unload is in progress.",
+    "rationale": "Unload and start requests originate from independent async call points, so the race is simulable; without that test the guard's observable contract (no raise, no stale hass.data entry) stays unverified.",
+    "evidence": [
+      {
+        "pr": 169562,
+        "url": "https://github.com/home-assistant/core/pull/169562#discussion_r3169938867",
+        "excerpt": "Add a regression test that exercises the reported unload race"
+      },
+      {
+        "pr": 169562,
+        "url": "https://github.com/home-assistant/core/pull/169562#discussion_r3186421792",
+        "excerpt": "unload and start requests can originate from different async call points"
+      }
+    ],
+    "scope_paths": ["tests/helpers/test_script.py", "homeassistant/helpers/script.py"]
+  },
+  {
+    "rule": "Test cases added to the custom pylint quality-scale checkers must encode a rule the checker deliberately enforces; incidental matches produced by the implementation should be dropped or the implementation adjusted.",
+    "category": "testing",
+    "trigger": "A new parametrized case in tests/pylint/quality_scale/ asserts a diagnostic on code whose flagged condition cannot occur in practice (e.g. _attr_unique_id assignment after a raise in __init__).",
+    "rationale": "Locking in a side effect of the checker implementation turns an accident into a contract; the reviewers ask whether the case reflects an intended rule before it is enshrined in tests.",
+    "evidence": [
+      {
+        "pr": 172815,
+        "url": "https://github.com/home-assistant/core/pull/172815#discussion_r3342313387",
+        "excerpt": "If catching this just a sideeffect of your implementation, I would remove the test"
+      }
+    ],
+    "scope_paths": ["tests/pylint/quality_scale/", "pylint/plugins/"]
+  },
+  {
+    "rule": "Changes to the split_tests fixture-hashing logic must add coverage proving the hash changes when a shared helper module above or beside the chosen root is edited, not only for conftest.py files.",
+    "category": "testing",
+    "trigger": "A diff modifies fixture-hash computation in script/split_tests and its tests only cover conftest.py edits and same-directory scope.",
+    "rationale": "Stale cached test counts after a shared-helper edit produce wrong subtree splits, and only an ancestor-helper case catches that invalidation gap.",
+    "evidence": [
+      {
+        "pr": 171780,
+        "url": "https://github.com/home-assistant/core/pull/171780#discussion_r3290524853",
+        "excerpt": "ensure subtree runs invalidate cached counts correctly"
+      },
+      {
+        "pr": 171780,
+        "url": "https://github.com/home-assistant/core/pull/171780#discussion_r3289988635",
+        "excerpt": "asserts the descendant test file's fixture hash changes, to prevent stale cache hits"
+      }
+    ],
+    "scope_paths": ["tests/script/test_split_tests.py", "script/split_tests.py"]
+  },
+  {
+    "rule": "End-to-end frontend tests must assert on the element of the specific step under test, not on the outer shell component that renders before its API call resolves.",
+    "category": "testing",
+    "trigger": "A Playwright spec asserts only expect(page.locator(\"ha-onboarding\")).toBeVisible() (or another shell element) after navigating, without waiting for the concrete step element.",
+    "rationale": "The shell renders a loading card before /api/onboarding resolves, so the assertion passes even when the API request fails.",
+    "evidence": [
+      {
+        "pr": 176520,
+        "url": "https://github.com/home-assistant/core/pull/176520#discussion_r3581995363",
+        "excerpt": "ha-onboarding renders a visible loading card before /api/onboarding resolves"
+      }
+    ],
+    "scope_paths": ["tests/e2e/"]
+  }
+]

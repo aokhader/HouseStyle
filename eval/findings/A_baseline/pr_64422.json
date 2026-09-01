@@ -1,0 +1,15 @@
+{"pr": 64422,
+ "findings": [
+   {"path": "providers/git/src/airflow/providers/git/hooks/git.py",
+    "line": 151,
+    "category": "security",
+    "message": "The guard accepts \"http://\" as well as \"https://\", so a GitHub App installation token would be pushed over cleartext HTTP via GIT_ASKPASS. The error message right below it already says \"requires an HTTPS repository URL\" — please drop \"http://\" from the tuple so the check matches the message."},
+   {"path": "providers/git/src/airflow/providers/git/hooks/git.py",
+    "line": 268,
+    "category": "correctness",
+    "message": "This mutates the process-wide os.environ, not just self.env, so the askpass script path leaks into every other subprocess and thread in the dag processor for the duration of the fetch, and two bundles refreshing concurrently will clobber each other's save/restore. self.env is already threaded through to the git invocation — please set GIT_ASKPASS/GIT_TERMINAL_PROMPT there only. (Note the finally block also restores os.environ[\"LC_ALL\"], which the try block never sets.)"},
+   {"path": "providers/git/src/airflow/providers/git/hooks/git.py",
+    "line": 353,
+    "category": "correctness",
+    "message": "This dispatches on `is not None`, while __init__ validates the same pair with any()/all() truthiness. A connection whose extra carries empty strings (which is exactly what the UI field placeholders suggest) passes __init__ validation untouched and then takes the GitHub App branch here, failing deep inside PyGithub with an unrelated error. Use the same truthiness test in both places, or normalise the empty strings to None in __init__."}
+ ]}

@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding asks for negative test cases covering the new rejection branches; the human reports that the None-in-tuple gate wrongly raises for every non-GitHub-App connection.",
+  "judge": "agent"
+}

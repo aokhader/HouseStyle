@@ -1,0 +1,361 @@
+[
+  {
+    "rule": "Filesystem traversal in media_source search must stream lazily and stop at the result cap instead of materializing or sorting the whole tree.",
+    "category": "performance",
+    "trigger": "A diff calls sorted(path.rglob(\"*\")) or otherwise builds a complete list of filesystem entries before a result limit such as MAX_SEARCH_RESULTS is applied.",
+    "rationale": "Eagerly listing and sorting every file under the configured media dirs defeats the result cap and makes search cost scale with the whole library rather than with the number of hits returned.",
+    "evidence": [
+      {
+        "pr": 175485,
+        "url": "https://github.com/home-assistant/core/pull/175485#discussion_r3519613776",
+        "excerpt": "Remove the eager sorted(rglob(...)) to avoid materializing the full file list"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/media_source/"]
+  },
+  {
+    "rule": "Coordinators must read configuration values off the config entry they already receive (entry.data[CONF_*]) instead of accepting the same values as extra constructor parameters.",
+    "category": "api-design",
+    "trigger": "A DataUpdateCoordinator subclass __init__ takes values such as latitude, longitude or host as parameters while also being handed the ConfigEntry those values come from.",
+    "rationale": "The coordinator already holds the entry, so duplicating entry data in the signature forces every caller to unpack values the coordinator can read itself and creates two sources of truth.",
+    "evidence": [
+      {
+        "pr": 164558,
+        "url": "https://github.com/home-assistant/core/pull/164558#discussion_r2870941011",
+        "excerpt": "So longitude and latitude isn't needed in constructor params."
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/meteo_france/coordinator.py",
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "Library calls added to a coordinator's periodic update path must handle transient errors the same way the sibling calls around them do, so one failed poll does not propagate out of _async_update_data.",
+    "category": "correctness",
+    "trigger": "A new device/API command is added inside a coordinator method that runs every update interval, without the error suppression (e.g. suppress_errors=True) that the adjacent calls use.",
+    "rationale": "An unsuppressed transient library error becomes a HomeAssistantError raised out of _async_update_data, which the coordinator logs with a full traceback on every cycle.",
+    "evidence": [
+      {
+        "pr": 177042,
+        "url": "https://github.com/home-assistant/core/pull/177042#discussion_r3626165705",
+        "excerpt": "this `IDENTITY` call has no `suppress_errors=True`, and it's now in the every-10s path"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/mikrotik/coordinator.py",
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "Value callables declared on custom EntityDescription subclasses must be typed with StateType (extended with datetime where needed) rather than a hand-narrowed return union.",
+    "category": "api-design",
+    "trigger": "A SensorEntityDescription/EntityDescription subclass declares a value or value_fn field typed as Callable[..., str | float | None] or another partial state union.",
+    "rationale": "Hand-written unions leave out valid state types, so descriptions whose functions return e.g. an int no longer match the signature the platform declares.",
+    "evidence": [
+      {
+        "pr": 175214,
+        "url": "https://github.com/home-assistant/core/pull/175214#discussion_r3519517223",
+        "excerpt": "Broaden the value callback type to StateType | datetime so int-returning sensors match"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/mikrotik/sensor.py",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "Every translation key added to strings.json must be referenced by the integration's code, and every new error key must actually be raised on some code path; unreferenced keys have to be removed.",
+    "category": "docs",
+    "trigger": "A diff adds exception or error keys to strings.json while no code in the same integration raises them via translation_key, or adds a raise path guarded by a condition nothing can reach.",
+    "rationale": "Dead keys are user-facing strings translators must maintain for nothing, and a declared error that no code raises means the documented failure can never reach the user or be asserted in a test.",
+    "evidence": [
+      {
+        "pr": 175448,
+        "url": "https://github.com/home-assistant/core/pull/175448#discussion_r3518006606",
+        "excerpt": "Remove them to avoid dead translation strings."
+      },
+      {
+        "pr": 176347,
+        "url": "https://github.com/home-assistant/core/pull/176347#discussion_r3686082575",
+        "excerpt": "Nothing in the integration raises the new `unsupported_parameter` translation key"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/mikrotik/strings.json",
+      "homeassistant/components/music_assistant/services.py",
+      "homeassistant/components/*/strings.json"
+    ]
+  },
+  {
+    "rule": "A new integration's initial quality_scale.yaml must already list the silver, gold and platinum rules, not just the bronze tier.",
+    "category": "docs",
+    "trigger": "A newly added quality_scale.yaml contains only bronze-tier rule entries.",
+    "rationale": "Listing the higher tiers from the start lets the integration record which of those items are already done or exempt rather than rediscovering them later.",
+    "evidence": [
+      {
+        "pr": 167472,
+        "url": "https://github.com/home-assistant/core/pull/167472#discussion_r3041870712",
+        "excerpt": "you should already add the silver/gold/platinum quality scale components in your initial file"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/quality_scale.yaml"]
+  },
+  {
+    "rule": "MQTT command templates must be rendered with the same object that is supplied as the `value` template variable; do not pass a pre-serialized payload alongside the raw variables.",
+    "category": "correctness",
+    "trigger": "A call through MqttCommandTemplate/async_render passes json_dumps(x) as the payload while also supplying {\"value\": x} as template variables.",
+    "rationale": "Templates then see one type while template exceptions and debug logs report the other, so reported template errors point at a payload the template never received.",
+    "evidence": [
+      {
+        "pr": 166794,
+        "url": "https://github.com/home-assistant/core/pull/166794#discussion_r3006331631",
+        "excerpt": "Avoid overriding the `value` template variable with a different type than the payload"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/mqtt/"]
+  },
+  {
+    "rule": "Config-flow steps must not add a separate connectivity probe when an API call already made in that step proves the service is reachable and the user's selection is valid.",
+    "category": "api-design",
+    "trigger": "A config flow step adds an _async_test_connection()-style call after another call in the same step already queried the same API to validate user input.",
+    "rationale": "Fetching the data needed to populate the step already satisfies test-before-configure, so the extra round trip only slows the flow without covering a new failure mode.",
+    "evidence": [
+      {
+        "pr": 156846,
+        "url": "https://github.com/home-assistant/core/pull/156846#discussion_r2631765512",
+        "excerpt": "why do we do this call? By fetching the stops by line we already verified"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/mta/config_flow.py",
+      "homeassistant/components/*/config_flow.py"
+    ]
+  },
+  {
+    "rule": "Entities that expose technical or diagnostic data must set _attr_entity_category = EntityCategory.DIAGNOSTIC, satisfying the entity-category quality-scale rule.",
+    "category": "api-design",
+    "trigger": "A new entity carrying technical information (feed status, last update time, upstream ids) is added with no entity_category, while the integration's quality_scale.yaml still lists entity-category as todo.",
+    "rationale": "Reviewers tie this directly to the entity-category quality-scale rule so technical entities are presented apart from the primary ones users care about.",
+    "evidence": [
+      {
+        "pr": 156846,
+        "url": "https://github.com/home-assistant/core/pull/156846#discussion_r2540332489",
+        "excerpt": "Consider adding entity category for diagnostic information"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/mta/sensor.py",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "Service parameters that require a newer backend must check the connected server's schema_version and raise the translated ServiceValidationError before the parameter is used.",
+    "category": "providers",
+    "trigger": "A service handler reads a newly added parameter and forwards it to the library without an explicit version guard on server_info.schema_version or an equivalent capability field.",
+    "rationale": "Without the guard an older server silently receives an unsupported parameter and the translated unsupported_parameter error the integration declares can never be produced.",
+    "evidence": [
+      {
+        "pr": 176347,
+        "url": "https://github.com/home-assistant/core/pull/176347#discussion_r3686082575",
+        "excerpt": "Add an explicit schema-version guard before validating the username"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/music_assistant/services.py",
+      "homeassistant/components/*/services.py"
+    ]
+  },
+  {
+    "rule": "Optional service and config values validated with cv.string must be tested with `is not None`, never for truthiness, because the empty string is accepted input.",
+    "category": "correctness",
+    "trigger": "A handler writes `if call.data.get(ATTR_X):` (or a bare truthiness check) for a key whose voluptuous schema is cv.string.",
+    "rationale": "cv.string accepts \"\", so a truthiness check skips the compatibility and value validation while still forwarding the empty value on to the library.",
+    "evidence": [
+      {
+        "pr": 176347,
+        "url": "https://github.com/home-assistant/core/pull/176347#discussion_r3566694139",
+        "excerpt": "`cv.string` accepts `\"\"`, so the truthiness check skips compatibility and username validation"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/music_assistant/services.py",
+      "homeassistant/components/*/services.py"
+    ]
+  },
+  {
+    "rule": "Entity capability flags must be set through the _attr_supported_features class attribute (or assigned in __init__), not returned from a @property.",
+    "category": "api-design",
+    "trigger": "A platform entity defines `@property def supported_features(self) -> ...Feature:` returning a constant flag combination.",
+    "rationale": "The framework's entity pattern expects the _attr_ form; recomputing a constant flag set on every access is slower and diverges from how every other integration declares features.",
+    "evidence": [
+      {
+        "pr": 163937,
+        "url": "https://github.com/home-assistant/core/pull/163937#discussion_r2846338127",
+        "excerpt": "supported_features should be set as a class attribute using `_attr_supported_features`"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/myneomitis/climate.py",
+      "homeassistant/components/"
+    ]
+  },
+  {
+    "rule": "Code comments must describe the code as it stands; the reason a change was made belongs in the pull request, not in a comment left behind in the source.",
+    "category": "docs",
+    "trigger": "A diff adds a comment that narrates the edit itself, e.g. explaining what an older dependency version used to render or why an existing value is being preserved.",
+    "rationale": "After merge such a comment documents the change rather than the code, and GitHub already carries the context behind a change.",
+    "evidence": [
+      {
+        "pr": 169735,
+        "url": "https://github.com/home-assistant/core/pull/169735#discussion_r3188201521",
+        "excerpt": "it now adds value to the change, not to the code"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/netatmo/button.py",
+      "homeassistant/components/"
+    ]
+  },
+  {
+    "rule": "Pull requests must fill in the `## Proposed change` section and tick a `## Type of change` box, particularly when the diff alters config-flow behaviour.",
+    "category": "commit-hygiene",
+    "trigger": "PR body leaves the template's Proposed change section empty or has no Type of change checkbox selected, while the diff changes user-visible setup behaviour.",
+    "rationale": "Reviewers need the problem statement, the linked issue and the change type to judge whether behavioural changes such as unique-id or single-instance handling are intended.",
+    "evidence": [
+      {
+        "pr": 176079,
+        "url": "https://github.com/home-assistant/core/pull/176079#discussion_r3550948607",
+        "excerpt": "the `## Proposed change` section is empty and no `## Type of change` checkbox"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/netatmo/config_flow.py",
+      "homeassistant/components/"
+    ]
+  },
+  {
+    "rule": "When a successful update no longer contains a measurement, clear the cached native value and restore availability before writing state, so the entity reports unknown instead of the previous reading.",
+    "category": "correctness",
+    "trigger": "An update callback calls async_write_ha_state() on a branch that returns early because a value is missing, without resetting _attr_native_value or _attr_available first.",
+    "rationale": "A successful publisher update that skips the reset republishes the stale reading, and can keep _attr_available False left over from an earlier unreachable update.",
+    "evidence": [
+      {
+        "pr": 176444,
+        "url": "https://github.com/home-assistant/core/pull/176444#discussion_r3576876247",
+        "excerpt": "writing state without resetting `_attr_native_value` republishes the previous reading"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/netatmo/sensor.py",
+      "homeassistant/components/"
+    ]
+  },
+  {
+    "rule": "Once an integration defines a `type XConfigEntry = ConfigEntry[RuntimeData]` alias, every function that takes that entry must be annotated with the alias rather than plain ConfigEntry.",
+    "category": "api-design",
+    "trigger": "A diff introduces a ConfigEntry type alias but leaves async_setup_entry/async_unload_entry or helper functions annotated with the bare ConfigEntry type.",
+    "rationale": "Consistent use of the alias is what keeps runtime_data typed across the whole integration instead of only where the alias happens to be applied.",
+    "evidence": [
+      {
+        "pr": 169087,
+        "url": "https://github.com/home-assistant/core/pull/169087#discussion_r3140835892",
+        "excerpt": "Use the new NFAndroidTVConfigEntry type alias for the config entry parameters"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/nfandroidtv/",
+      "homeassistant/components/"
+    ]
+  },
+  {
+    "rule": "Entity state properties must tolerate missing upstream data and return None instead of raising; returning False from `available` does not stop Home Assistant from reading them.",
+    "category": "correctness",
+    "trigger": "A native_value, entity_picture or similar property indexes into a list, or looks a device up by id, with no guard for the entry being absent or removed.",
+    "rationale": "State restoration and ordinary updates still access these properties while available is False, so an IndexError or failed lookup surfaces as an entity error rather than an unknown state.",
+    "evidence": [
+      {
+        "pr": 161882,
+        "url": "https://github.com/home-assistant/core/pull/161882#discussion_r2971420467",
+        "excerpt": "`available` becomes `False` but `_get_warning_data()` will still raise `IndexError`"
+      },
+      {
+        "pr": 155786,
+        "url": "https://github.com/home-assistant/core/pull/155786#discussion_r2690877665",
+        "excerpt": "calls `get_player` every time it's accessed without any error handling"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/nina/sensor.py",
+      "homeassistant/components/nintendo_parental_controls/sensor.py"
+    ]
+  },
+  {
+    "rule": "Diagnostics output must redact an identifier everywhere it can appear, including nested structures such as override target ids, not only in the collection that primarily lists it.",
+    "category": "security",
+    "trigger": "A diagnostics payload wraps one collection in async_redact_data but returns a sibling structure verbatim that can echo the same serials or ids.",
+    "rationale": "The downloaded diagnostics still expose the very identifiers that were redacted elsewhere, which defeats the redaction users are relying on when they share the file.",
+    "evidence": [
+      {
+        "pr": 176514,
+        "url": "https://github.com/home-assistant/core/pull/176514#discussion_r3581555979",
+        "excerpt": "the diagnostics download can still expose them through active overrides"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/nobo_hub/diagnostics.py",
+      "homeassistant/components/*/diagnostics.py"
+    ]
+  },
+  {
+    "rule": "Timing behaviour introduced by a fix must be covered by a test that patches the module's asyncio.sleep and asserts the delay, not only by tests counting calls.",
+    "category": "testing",
+    "trigger": "A diff adds an inter-command delay, pause or retry backoff while the accompanying tests only assert how many commands were sent.",
+    "rationale": "Without asserting that the delay is awaited between sends, the central part of the bugfix can regress silently while the suite stays green.",
+    "evidence": [
+      {
+        "pr": 171717,
+        "url": "https://github.com/home-assistant/core/pull/171717#discussion_r3281506256",
+        "excerpt": "the current test suite only asserts command counts and never verifies that `asyncio.sleep()`"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/novy_cooker_hood/",
+      "tests/components/novy_cooker_hood/"
+    ]
+  },
+  {
+    "rule": "Coordinator subclasses must not re-annotate the inherited config_entry attribute; pass config_entry=None to super().__init__ and leave the base class type intact.",
+    "category": "api-design",
+    "trigger": "A DataUpdateCoordinator subclass body declares `config_entry: None` or otherwise narrows the annotation of config_entry.",
+    "rationale": "The narrowed annotation conflicts with the base definition ConfigEntry | None | UndefinedType and adds nothing beyond the constructor argument already being passed.",
+    "evidence": [
+      {
+        "pr": 164940,
+        "url": "https://github.com/home-assistant/core/pull/164940#discussion_r2894885477",
+        "excerpt": "narrows the `DataUpdateCoordinator.config_entry` attribute type in a way that can conflict"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/nsw_fuel_station/coordinator.py",
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "Service helpers that resolve a config entry from a device id must confirm the entry is loaded before touching runtime_data, raising ServiceValidationError rather than letting AttributeError escape.",
+    "category": "correctness",
+    "trigger": "Code calls hass.config_entries.async_get_entry(entry_id) inside a service call path and reads entry.runtime_data without checking the entry's loaded state.",
+    "rationale": "Services stay registered after an entry is unloaded, so an unloaded entry has no runtime_data and the user sees an AttributeError instead of the intended validation error.",
+    "evidence": [
+      {
+        "pr": 167028,
+        "url": "https://github.com/home-assistant/core/pull/167028#discussion_r3020235710",
+        "excerpt": "accessing entry.runtime_data will raise AttributeError instead of producing the intended ServiceValidationError"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/octoprint/__init__.py",
+      "homeassistant/components/"
+    ]
+  }
+]

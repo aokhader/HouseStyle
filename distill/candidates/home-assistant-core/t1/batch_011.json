@@ -1,0 +1,287 @@
+[
+  {
+    "rule": "Do not change the unique_id format of entities that already shipped; leave existing suffixes untouched and only apply a new scheme to newly added entities.",
+    "category": "api-design",
+    "trigger": "A diff edits the f-string that builds `_attr_unique_id` for an entity class that already exists in a released integration.",
+    "rationale": "Changing a unique_id orphans the registry entry, so it is a breaking change for every user who already has the entity.",
+    "evidence": [
+      {
+        "pr": 175188,
+        "url": "https://github.com/home-assistant/core/pull/175188#discussion_r3520957264",
+        "excerpt": "we can keep the existing emitter one untouched, to avoid a breaking change"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Polling and update-interval constants must match the cadence stated in the integration's README, inline comments and the PR description; change the constant or the documentation so they agree.",
+    "category": "docs",
+    "trigger": "A diff adds or changes a `*_UPDATE_DELAY` / `MIN_TIME_BETWEEN_UPDATES` / `SCAN_INTERVAL` constant to a value different from the interval documented for that integration.",
+    "rationale": "Reviewers check the constant against the documented cadence because a mismatch leaves users with unexpectedly stale values and future changes drift further.",
+    "evidence": [
+      {
+        "pr": 161722,
+        "url": "https://github.com/home-assistant/core/pull/161722#discussion_r2869887697",
+        "excerpt": "PR description says ... 15-minute interval, but `STORAGE_DATA_UPDATE_DELAY` is set to 4 hours"
+      },
+      {
+        "pr": 167371,
+        "url": "https://github.com/home-assistant/core/pull/167371#discussion_r3292032668",
+        "excerpt": "developer README describes SRP processing as a ~4-hour cadence, but the new minimum update interval"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "An entity factory must not return None for arbitrary unknown description keys; restrict the skip to the intended conditional entities and log or raise for keys that are missing from the mapping.",
+    "category": "correctness",
+    "trigger": "A create_sensor/create_entity helper gains a broad `if key not in self.services: return None` guard in front of the mapping lookup.",
+    "rationale": "A silent None makes typos in the entity-description tables disappear as missing entities with no error, instead of failing loudly during development.",
+    "evidence": [
+      {
+        "pr": 161722,
+        "url": "https://github.com/home-assistant/core/pull/161722#discussion_r2880907315",
+        "excerpt": "That can mask real mapping/typo bugs in `SENSOR_TYPES` (entities would just disappear"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "When a device response is missing the key backing an entity state, report unknown (return None) rather than defaulting to the off/false state.",
+    "category": "correctness",
+    "trigger": "A state property does `return result.get(\"SomeKey\") == \"0\"` or `bool(data.get(key, False))` so an absent key becomes a definite OFF.",
+    "rationale": "An incomplete device response is not evidence that the feature is off; collapsing it to OFF reports an incorrect initial state.",
+    "evidence": [
+      {
+        "pr": 167956,
+        "url": "https://github.com/home-assistant/core/pull/167956#discussion_r3089515106",
+        "excerpt": "unknown/unavailable) instead of implicitly mapping it to OFF; this avoids reporting an incorrect initial state"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Sanitize any user-provided value used as a statistic_id prefix (slugify or replace separators such as '-'), do not merely lowercase it, before calling async_add_external_statistics.",
+    "category": "database",
+    "trigger": "A coordinator builds a statistic_id from config entry data with `.lower()` or direct interpolation and passes it to async_add_external_statistics / async_import_statistics.",
+    "rationale": "The recorder rejects ids containing characters like '-' with an Invalid statistic_id error, and the value comes straight from user configuration.",
+    "evidence": [
+      {
+        "pr": 167371,
+        "url": "https://github.com/home-assistant/core/pull/167371#discussion_r3036034158",
+        "excerpt": "a '-' will cause async_add_external_statistics to raise an \"Invalid statistic_id\" error"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Integration service handlers must raise ServiceValidationError when the config entry they need is missing or not loaded, instead of failing with a generic or unhandled error.",
+    "category": "correctness",
+    "trigger": "A service handler resolves a config entry (or requires a loaded entry) and raises HomeAssistantError, asserts, or proceeds without a ServiceValidationError path.",
+    "rationale": "Calling a service against an unloaded entry is a user input error, and HA surfaces ServiceValidationError as an actionable message.",
+    "evidence": [
+      {
+        "pr": 175472,
+        "url": "https://github.com/home-assistant/core/pull/175472#discussion_r3519559027",
+        "excerpt": "raise a proper validation error when called without a loaded config entry"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Every reason passed to async_abort in a config flow or subentry flow must have a key in that flow's `abort` block in strings.json; keys defined only under `error` are not used for aborts.",
+    "category": "docs",
+    "trigger": "A flow calls `self.async_abort(reason=\"cannot_connect\")` (or similar) while strings.json defines that key only under `config_subentries.<type>.error` / `config.error`.",
+    "rationale": "Abort reasons are looked up in the abort section, so a missing key makes the frontend show the raw reason string to the user.",
+    "evidence": [
+      {
+        "pr": 175048,
+        "url": "https://github.com/home-assistant/core/pull/175048#discussion_r3487028593",
+        "excerpt": "Abort reasons are looked up in the `abort` section, so the frontend will display the raw reason"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Register the teardown of any connection or resource opened in async_setup_entry with entry.async_on_unload (or close it in the failure path) before calling async_config_entry_first_refresh.",
+    "category": "correctness",
+    "trigger": "async_setup_entry opens a client/connection, then calls async_config_entry_first_refresh, with the close registered only in async_unload_entry.",
+    "rationale": "A failing first refresh raises ConfigEntryNotReady and async_unload_entry never runs, so every setup retry leaks another connection.",
+    "evidence": [
+      {
+        "pr": 176166,
+        "url": "https://github.com/home-assistant/core/pull/176166#discussion_r3555020787",
+        "excerpt": "Close the opened connection if the first refresh fails, otherwise it leaks on every setup retry"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Test fixtures must mock the real shape of the vendor library's objects (typed objects, not dict stand-ins), so attribute-versus-item access mismatches fail in tests.",
+    "category": "testing",
+    "trigger": "Integration code accesses a library value one way (e.g. `d[\"unique_id\"]`) while tests/components/<domain>/ supply a plain dict/MagicMock that tolerates both shapes.",
+    "rationale": "A fixture that does not match the library type lets a TypeError-producing access pass tests and only fail for real users.",
+    "evidence": [
+      {
+        "pr": 168074,
+        "url": "https://github.com/home-assistant/core/pull/168074#discussion_r3070742281",
+        "excerpt": "update the scene mock in tests to match the real library object shape"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/", "tests/components/"]
+  },
+  {
+    "rule": "Diagnostics code must use Home Assistant's shared redaction helpers and REDACTED constant rather than hard-coding a redaction marker string.",
+    "category": "api-design",
+    "trigger": "A diagnostics.py module writes a literal like `\"**REDACTED**\"` in a custom scrubbing function instead of importing the constant used by async_redact_data.",
+    "rationale": "Using the shared constant keeps redaction output consistent across integrations if the canonical marker ever changes.",
+    "evidence": [
+      {
+        "pr": 168074,
+        "url": "https://github.com/home-assistant/core/pull/168074#discussion_r3071364985",
+        "excerpt": "Avoid hard-coding the redaction marker string. Home Assistant's diagnostics helpers typically expose a shared constant"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Device- or feature-specific trigger logic added to a shared entity class must be gated on the entity description key / event type it belongs to, not applied to every instance of the class.",
+    "category": "correctness",
+    "trigger": "A shared entity's _async_update_attrs stops consulting `self._event` (or the description key) and keys off a device-specific field such as `doorbell_seq` for all instances.",
+    "rationale": "The class backs several entity types, so unconditional device-specific behavior makes unrelated entities fire wrong events.",
+    "evidence": [
+      {
+        "pr": 168098,
+        "url": "https://github.com/home-assistant/core/pull/168098#discussion_r3072622818",
+        "excerpt": "makes the entity ignore `self._event` entirely and unconditionally trigger a `ring`"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "A configuration entity whose value can be changed outside Home Assistant and receives no push updates must be disabled by default and set _attr_should_poll with a long SCAN_INTERVAL, mirroring the existing pattern in the integration.",
+    "category": "api-design",
+    "trigger": "A new EntityCategory.CONFIG number/select entity is added with neither _attr_should_poll/SCAN_INTERVAL nor entity_registry_enabled_default=False, while sibling config entities in the same integration set both.",
+    "rationale": "Without polling the state is frozen after setup; without the opt-in it becomes an always-on entity that polls the device forever.",
+    "evidence": [
+      {
+        "pr": 169603,
+        "url": "https://github.com/home-assistant/core/pull/169603#discussion_r3173357352",
+        "excerpt": "disabled by default + `_attr_should_poll = True` with a long `SCAN_INTERVAL`, e.g. 7 days"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Entity names in strings.json must use sentence case, matching the surrounding entries.",
+    "category": "naming",
+    "trigger": "A strings.json diff adds an entity `name` with title-cased words (e.g. \"Sync Date and Time\") while neighbouring names are sentence case.",
+    "rationale": "Sentence case is the project-wide convention for entity names in the UI and translations.",
+    "evidence": [
+      {
+        "pr": 161808,
+        "url": "https://github.com/home-assistant/core/pull/161808#discussion_r2824281292",
+        "excerpt": "other button entity names here use sentence case (e.g., \"Next image\", \"Previous image\")"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Changing which device types map to which entity descriptions requires tests that assert the exact entities created for each affected device type, not just that setup does not crash.",
+    "category": "testing",
+    "trigger": "A diff edits a SENSOR_DESCRIPTIONS_BY_DEVICE_TYPES-style mapping (adding or removing a device type) with only a smoke/regression test that setup succeeds.",
+    "rationale": "Without per-device-type assertions a refactor can silently reintroduce the missing-key crash or drop the expected entity.",
+    "evidence": [
+      {
+        "pr": 165241,
+        "url": "https://github.com/home-assistant/core/pull/165241#discussion_r2909073853",
+        "excerpt": "there isn't a targeted assertion that (1) `Circulator Fan` results in zero sensor entities"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/", "tests/components/"]
+  },
+  {
+    "rule": "Constants shared by more than one module of an integration belong in that integration's const.py and must not be duplicated across __init__.py and services.py.",
+    "category": "api-design",
+    "trigger": "A diff adds a service constant or command map to __init__.py that already exists in services.py (or vice versa).",
+    "rationale": "Duplicated maps drift apart over time; the integration's const.py is the single place shared constants live.",
+    "evidence": [
+      {
+        "pr": 171761,
+        "url": "https://github.com/home-assistant/core/pull/171761#discussion_r3283425697",
+        "excerpt": "Prefer moving shared service constants into a single place (commonly `const.py`)"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Entity-registry migrations that match legacy unique_ids must derive the legacy prefix from the exact value that originally built those ids, and the tests must cover the case where that value differs from the config entry host.",
+    "category": "correctness",
+    "trigger": "A migration filters entity registry entries with `entity_entry.unique_id.startswith(config_entry.data[CONF_HOST])` when the old unique_id was built from a different source (API hostname, serial, etc.).",
+    "rationale": "CONF_HOST is usually an IP while the old ids used the device hostname, so the migration skips every existing entry and the new entities are added as duplicates.",
+    "evidence": [
+      {
+        "pr": 171799,
+        "url": "https://github.com/home-assistant/core/pull/171799#discussion_r3651388653",
+        "excerpt": "this condition skips existing entries and UUID-based entities are then added as duplicates"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/", "tests/components/"]
+  },
+  {
+    "rule": "value_fn lambdas in entity descriptions must match the signature of the helper they call; do not rely on the platform's TypeError handling in native_value to absorb a mismatch.",
+    "category": "correctness",
+    "trigger": "An entity description passes `value=lambda data, k=...: helper(data, k)` while the helper is declared to take a different argument (e.g. a single typed object).",
+    "rationale": "native_value catches TypeError, so a signature mismatch silently degrades the sensor to None instead of failing visibly.",
+    "evidence": [
+      {
+        "pr": 171807,
+        "url": "https://github.com/home-assistant/core/pull/171807#discussion_r3286288078",
+        "excerpt": "This will raise `TypeError` and result in `None` sensor values due to the `TypeError` handling"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Do not override async_toggle on light entities; rely on the default ToggleEntity implementation that calls async_turn_on/async_turn_off.",
+    "category": "api-design",
+    "trigger": "A light platform defines `async def async_toggle` that forwards to a device/library toggle call.",
+    "rationale": "The default implementation preserves brightness and other state handling for dimmable lights and is the HA convention for light entities.",
+    "evidence": [
+      {
+        "pr": 163710,
+        "url": "https://github.com/home-assistant/core/pull/163710#discussion_r2837774427",
+        "excerpt": "The default implementation is sufficient and follows Home Assistant conventions for light entities."
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Code that reads coordinator data must match the payload shape actually stored in coordinator.data (as shown by the diagnostics snapshots); convert payloads into typed objects consistently before storing them rather than assuming attributes on raw dicts.",
+    "category": "correctness",
+    "trigger": "A helper iterates `self.data[\"...\"].values()` and accesses attributes (`zone_data.ac_power`) on entries the coordinator stores as raw API dicts.",
+    "rationale": "The mismatch raises AttributeError at runtime while the existing snapshots show the payload is a dict; the coordinator should store one consistent shape.",
+    "evidence": [
+      {
+        "pr": 160723,
+        "url": "https://github.com/home-assistant/core/pull/160723#discussion_r3067755414",
+        "excerpt": "appears to be a dict payload, not an object with attributes ... will raise `AttributeError` at runtime"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Never call a synchronous vendor-library method directly from async code; wrap it in hass.async_add_executor_job (or expose it as a non-async accessor), especially when the same call is already treated as blocking elsewhere in the integration.",
+    "category": "async",
+    "trigger": "An `async def` method returns or awaits the result of a sync library call such as `self._tado.rate_limit_info()` with no executor job.",
+    "rationale": "Blocking calls on the event loop stall all of Home Assistant, and the config flow already routes this same API through async_add_executor_job.",
+    "evidence": [
+      {
+        "pr": 164132,
+        "url": "https://github.com/home-assistant/core/pull/164132#discussion_r3029251715",
+        "excerpt": "avoid calling a synchronous PyTado method directly on the event loop"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  }
+]

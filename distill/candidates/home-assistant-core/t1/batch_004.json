@@ -1,0 +1,351 @@
+[
+  {
+    "rule": "An exception translation key in strings.json must describe only the failure it is raised for; when one key is reused for several distinct exception types, either broaden the message to cover all of them or split it into separate keys.",
+    "category": "docs",
+    "trigger": "A new key under the \"exceptions\" block of strings.json whose message names one specific failure mode, while the matching raise site in coordinator.py/__init__.py uses that translation_key for more than one exception class.",
+    "rationale": "The message is shown verbatim to users; if one key covers both a connection error and an HTTP error, the text users see does not match what actually went wrong.",
+    "evidence": [
+      {
+        "pr": 170445,
+        "url": "https://github.com/home-assistant/core/pull/170445#discussion_r3229146248",
+        "excerpt": "Broaden this exception message (or split into separate keys) so it accurately covers both"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/fritzbox/strings.json",
+      "homeassistant/components/*/strings.json"
+    ]
+  },
+  {
+    "rule": "Values assigned to context[\"title_placeholders\"] in a discovery config-flow step must not repeat punctuation already supplied by the flow_title template; add a separate placeholder rather than embedding a parenthesised name inside {name}.",
+    "category": "docs",
+    "trigger": "A discovery step (bluetooth/zeroconf/dhcp) sets self.context[\"title_placeholders\"] to an f-string containing parentheses while strings.json defines flow_title as \"{name} ({address})\".",
+    "rationale": "The placeholder is substituted into both flow_title and the confirm description, so pre-parenthesised names render as nested parentheses and produce hard-to-read discovery entries in the UI.",
+    "evidence": [
+      {
+        "pr": 173442,
+        "url": "https://github.com/home-assistant/core/pull/173442#discussion_r3420523825",
+        "excerpt": "This value is then substituted into the `flow_title` template"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/gardena_bluetooth/config_flow.py",
+      "homeassistant/components/*/config_flow.py"
+    ]
+  },
+  {
+    "rule": "A config flow must validate the connection by calling the same third-party library client the coordinator uses; it must not re-implement API paths, endpoints or response parsing inline.",
+    "category": "api-design",
+    "trigger": "config_flow.py builds a URL path, issues aiohttp/requests calls or parses the API JSON payload itself instead of instantiating the integration's client class and calling its method.",
+    "rationale": "Protocol details belong in the library; duplicating them means test-before-configure can pass while the runtime coordinator fails, so the flow and runtime drift apart.",
+    "evidence": [
+      {
+        "pr": 175085,
+        "url": "https://github.com/home-assistant/core/pull/175085#discussion_r3490326658",
+        "excerpt": "Protocol details should live in the library, and `test-before-configure` should validate using the same client"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/gatus/config_flow.py",
+      "homeassistant/components/*/config_flow.py"
+    ]
+  },
+  {
+    "rule": "manifest.json must list only keys the integration actually uses; empty placeholder keys such as \"requirements\": [], \"ssdp\": [], \"zeroconf\": [], \"homekit\" or \"dependencies\" must be deleted rather than left empty.",
+    "category": "api-design",
+    "trigger": "A new or edited manifest.json contains a key whose value is an empty list or empty object.",
+    "rationale": "Empty discovery/requirement keys imply capabilities the integration does not have; the manifest is expected to carry only the fields in use.",
+    "evidence": [
+      {
+        "pr": 175085,
+        "url": "https://github.com/home-assistant/core/pull/175085#discussion_r3489058014",
+        "excerpt": "Empty manifest keys should be removed."
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/gatus/manifest.json",
+      "homeassistant/components/*/manifest.json"
+    ]
+  },
+  {
+    "rule": "Integration API wrappers must not add their own HTTP status-code branches for 4xx, 429 or 5xx responses when the shared Home Assistant helper layer already maps those responses onto ConfigEntryAuthFailed / ConfigEntryNotReady.",
+    "category": "api-design",
+    "trigger": "api.py or a session/auth helper inspects ex.status ranges (400 <= status < 500, TOO_MANY_REQUESTS, 5xx) on a ClientResponseError and raises a config-entry exception that the framework already raises.",
+    "rationale": "Those responses are already translated by the Home Assistant specific exceptions handled above, so the duplicate branch only adds a second, divergent code path.",
+    "evidence": [
+      {
+        "pr": 165371,
+        "url": "https://github.com/home-assistant/core/pull/165371#discussion_r3001924657",
+        "excerpt": "4xx, 429 and 5xx response errors are handled by the Home Assistant specific exceptions"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/google_mail/api.py",
+      "homeassistant/components/*/api.py"
+    ]
+  },
+  {
+    "rule": "Set entity translation keys through _attr_translation_key or an EntityDescription; never assign a bare class attribute named translation_key on an entity class.",
+    "category": "api-design",
+    "trigger": "An entity class body contains `translation_key = \"...\"` without the `_attr_` prefix and outside an EntityDescription.",
+    "rationale": "Entity.translation_key is a cached_property on the base class, so shadowing it with a plain class attribute overrides the framework's descriptor and can break entity translation behaviour.",
+    "evidence": [
+      {
+        "pr": 169169,
+        "url": "https://github.com/home-assistant/core/pull/169169#discussion_r3148119965",
+        "excerpt": "the latter overrides `Entity.translation_key` (a `cached_property`) and can break entity translation behavior"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/gree/climate.py",
+      "homeassistant/components/*/climate.py",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "async_get_config_entry_diagnostics must expose the runtime coordinator data (redacted), not just the redacted config entry, when the integration claims the diagnostics quality-scale rule.",
+    "category": "api-design",
+    "trigger": "A new diagnostics.py returns only async_redact_data({\"config_entry\": config_entry.as_dict()}, TO_REDACT) while quality_scale.yaml marks diagnostics as done and runtime_data holds coordinator state.",
+    "rationale": "Diagnostics exist so maintainers can see device/coordinator state from a bug report; a dump of the config entry alone does not deliver what the quality-scale claim promises.",
+    "evidence": [
+      {
+        "pr": 165923,
+        "url": "https://github.com/home-assistant/core/pull/165923#discussion_r2956438853",
+        "excerpt": "the current implementation only returns the redacted config entry"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/growatt_server/diagnostics.py",
+      "homeassistant/components/*/diagnostics.py"
+    ]
+  },
+  {
+    "rule": "The PR description must match what the diff actually does; when a described removal or added payload is not carried out (a compatibility shim keeps the field, or diagnostics omit the promised data), either change the code or correct the description and any quality-scale claim before merge.",
+    "category": "commit-hygiene",
+    "trigger": "A PR description announces removing a key from hass.data, adding data to a payload, or satisfying a quality-scale rule, but the diff keeps the key via a compatibility layer or omits the payload.",
+    "rationale": "Descriptions feed release notes and breaking-change communication, so a description that overstates a removal misinforms users and downstream integrations.",
+    "evidence": [
+      {
+        "pr": 165923,
+        "url": "https://github.com/home-assistant/core/pull/165923#discussion_r2956438853",
+        "excerpt": "adjust the PR description/quality-scale claim to match the actual output"
+      },
+      {
+        "pr": 164413,
+        "url": "https://github.com/home-assistant/core/pull/164413#discussion_r2881685536",
+        "excerpt": "Either update the PR description to reflect that this compatibility layer keeps `addons` present"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/hassio/coordinator.py",
+      "homeassistant/components/growatt_server/diagnostics.py",
+      "homeassistant/components/"
+    ]
+  },
+  {
+    "rule": "When a coroutine is converted to a plain def helper, its docstring must stop describing it as a coroutine.",
+    "category": "docs",
+    "trigger": "A diff changes `async def` to `def` (or adds a `def` helper) whose docstring still begins with wording such as \"Init coroutine to ...\" and the body never awaits.",
+    "rationale": "Home Assistant reviewers rely on the docstring to tell sync helpers apart from event-loop coroutines; a stale 'coroutine' docstring mis-signals whether the call must be awaited.",
+    "evidence": [
+      {
+        "pr": 166400,
+        "url": "https://github.com/home-assistant/core/pull/166400#discussion_r2984216560",
+        "excerpt": "docstring to reflect that it's a synchronous helper (not a coroutine)"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/hassio/addon_panel.py",
+      "homeassistant/components/"
+    ]
+  },
+  {
+    "rule": "A targeted refresh path that updates one object's state must also update every shared hass.data key derived from it that other coordinators read, not only the coordinator's own data.",
+    "category": "correctness",
+    "trigger": "A force/partial refresh helper writes to a coordinator's own data or a single DATA_* key while another coordinator in the same integration keys its work off a different DATA_* list that the helper leaves stale.",
+    "rationale": "The stats coordinator decides which add-ons are started from DATA_ADDONS_LIST, so entities backed by the stale list stay unavailable until the next periodic full refresh.",
+    "evidence": [
+      {
+        "pr": 168847,
+        "url": "https://github.com/home-assistant/core/pull/168847#discussion_r3171498886",
+        "excerpt": "the stats coordinator uses DATA_ADDONS_LIST to decide which add-ons are started"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/hassio/coordinator.py",
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "system_health_info must never raise on unexpected API payload types: coerce values fetched from Supervisor or another external API before formatting them and skip the field on ValueError/TypeError.",
+    "category": "correctness",
+    "trigger": "system_health.py applies a numeric format spec (f\"{value:.0f}\", arithmetic, rounding) directly to a value read out of an external info dict with .get().",
+    "rationale": "System health is the page users open when something is already broken; an unexpected string from the API must not stop the whole panel from rendering.",
+    "evidence": [
+      {
+        "pr": 171804,
+        "url": "https://github.com/home-assistant/core/pull/171804#discussion_r3285534749",
+        "excerpt": "so system health never fails to render due to unexpected API payload types"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/hassio/system_health.py",
+      "homeassistant/components/*/system_health.py"
+    ]
+  },
+  {
+    "rule": "A fan async_turn_on must always leave the fan running: treat percentage == 0 as if no percentage were supplied and fall through to the default speed instead of mapping it to the off mode.",
+    "category": "api-design",
+    "trigger": "async_turn_on branches on `percentage is not None` and forwards the value to async_set_percentage, which maps 0 to an OFF mode.",
+    "rationale": "turn_on with percentage=0 would otherwise return with the device still off, violating the fan platform contract that a turn-on service call results in a running fan.",
+    "evidence": [
+      {
+        "pr": 172736,
+        "url": "https://github.com/home-assistant/core/pull/172736#discussion_r3335646320",
+        "excerpt": "Consider treating `percentage == 0` the same as no percentage"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/helty/fan.py",
+      "homeassistant/components/*/fan.py"
+    ]
+  },
+  {
+    "rule": "CoordinatorEntity properties and EntityDescription value_fn callbacks must handle coordinator.data being None, returning None rather than dereferencing it unconditionally.",
+    "category": "correctness",
+    "trigger": "A native_value/is_on/available property calls self.entity_description.value_fn(self.coordinator.data) or attribute-accesses self.coordinator.data without a None guard, while value_fn is typed for the non-optional data class.",
+    "rationale": "coordinator.data is None before the first successful refresh and after update failures, so the unguarded call raises at runtime in exactly the situations the coordinator exists to absorb.",
+    "evidence": [
+      {
+        "pr": 172813,
+        "url": "https://github.com/home-assistant/core/pull/172813#discussion_r3339590630",
+        "excerpt": "`self.coordinator.data` can be `None` (e.g., before the first successful refresh or after update failures)"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/helty/sensor.py",
+      "homeassistant/components/*/sensor.py",
+      "homeassistant/components/*/entity.py"
+    ]
+  },
+  {
+    "rule": "Use Core and Supervisor terminology precisely in docstrings and user-facing text: a repair is a Core concept, while the Supervisor raises an issue and a suggestion; do not attribute a repair to the Supervisor.",
+    "category": "docs",
+    "trigger": "A docstring, comment, log line or string says the Supervisor raises/creates a repair, or otherwise mixes Core repair vocabulary with Supervisor issue/suggestion vocabulary.",
+    "rationale": "Repairs, issues and suggestions are distinct objects owned by different components; blurring them makes the code and the user-facing wording confusing to maintainers.",
+    "evidence": [
+      {
+        "pr": 172929,
+        "url": "https://github.com/home-assistant/core/pull/172929#discussion_r3420401545",
+        "excerpt": "Repair is a Core concept. It is hair splitting, but it just makes things"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/homeassistant_hardware/util.py",
+      "homeassistant/components/homeassistant_hardware/",
+      "homeassistant/components/hassio/"
+    ]
+  },
+  {
+    "rule": "Brand names in strings.json must be capitalised consistently across every message in the integration; when a PR adds strings using a different capitalisation than the existing ones, normalise them in the same PR.",
+    "category": "docs",
+    "trigger": "New entries in strings.json spell the brand differently from neighbouring pre-existing entries in the same file (for example Homee alongside homee).",
+    "rationale": "All these messages surface in the same UI surfaces, so mixed capitalisation of the brand reads as sloppy to users.",
+    "evidence": [
+      {
+        "pr": 171995,
+        "url": "https://github.com/home-assistant/core/pull/171995#discussion_r3293447413",
+        "excerpt": "Brand capitalization is inconsistent between messages (`Homee` vs `homee`)"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/homee/strings.json",
+      "homeassistant/components/*/strings.json"
+    ]
+  },
+  {
+    "rule": "A unique-id migration map must supply every field the migration helper needs for each legacy class, including an explicit channel for single-channel devices, so no entry causes the helper to return None and leave entities unmigrated.",
+    "category": "correctness",
+    "trigger": "Entries are added to a UNIQUE_ID_MIGRATION_MAP (or similar) omitting a field that the _migrate_unique_id helper requires to build the new unique id, so the helper's fallback returns None.",
+    "rationale": "An unmigrated entity keeps its legacy unique id and silently loses its history and customisations, which is invisible until users report it.",
+    "evidence": [
+      {
+        "pr": 166580,
+        "url": "https://github.com/home-assistant/core/pull/166580#discussion_r2993697631",
+        "excerpt": "so `_migrate_unique_id` can migrate legacy unique_ids instead of returning None and leaving entities unmigrated"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/homematicip_cloud/__init__.py",
+      "homeassistant/components/*/__init__.py"
+    ]
+  },
+  {
+    "rule": "A light async_turn_on must preserve the current brightness when the call supplies only other attributes such as effect or hs_color; default to full brightness only for a bare turn-on with no attributes.",
+    "category": "api-design",
+    "trigger": "async_turn_on initialises brightness to a constant (for example 255) and overwrites it only when ATTR_BRIGHTNESS is present in kwargs.",
+    "rationale": "A light.turn_on carrying only a colour or effect would otherwise jump an already-on light to full intensity, turning a colour change into an unwanted brightness change.",
+    "evidence": [
+      {
+        "pr": 161841,
+        "url": "https://github.com/home-assistant/core/pull/161841#discussion_r2814114190",
+        "excerpt": "use the current channel brightness as the default and reserve `255` for the no-args turn-on"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/homematicip_cloud/light.py",
+      "homeassistant/components/*/light.py"
+    ]
+  },
+  {
+    "rule": "Optional values must be omitted from config entry data rather than stored as None; build the data dict conditionally instead of always writing the key.",
+    "category": "api-design",
+    "trigger": "async_create_entry (or async_update_entry) passes a data dict that always includes an optional key such as CONF_PASSWORD whose value may be None.",
+    "rationale": "A None stored in the entry is round-tripped through serialization and read back by setup code that expects the key to be absent when unset.",
+    "evidence": [
+      {
+        "pr": 160416,
+        "url": "https://github.com/home-assistant/core/pull/160416#discussion_r2691428214",
+        "excerpt": "Consider filtering out None values from the data dictionary, or only include CONF_PASSWORD if"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/homevolt/config_flow.py",
+      "homeassistant/components/*/config_flow.py"
+    ]
+  },
+  {
+    "rule": "Helpers in const.py (or any integration module) that are imported by other modules or by the tests must be given public names; do not export underscore-prefixed functions across module boundaries.",
+    "category": "naming",
+    "trigger": "A new `def _name(...)` in const.py or a shared module is imported from coordinator.py, an entity platform, or tests/.",
+    "rationale": "The underscore marks the helper private, which contradicts its use as a cross-module utility and normalises private-API creep within the integration.",
+    "evidence": [
+      {
+        "pr": 171850,
+        "url": "https://github.com/home-assistant/core/pull/171850#discussion_r3288711179",
+        "excerpt": "Using a leading underscore suggests it's private, which conflicts with it being a cross-module utility"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/homewizard/const.py",
+      "homeassistant/components/*/const.py"
+    ]
+  },
+  {
+    "rule": "State flags that gate issue-registry calls must be initialised to their real starting value (False), not None, so the first coordinator refresh does not treat the initial state as a transition and call async_delete_issue for an issue that was never created.",
+    "category": "correctness",
+    "trigger": "A coordinator declares a tracking attribute as `bool | None = None` and compares it against the freshly computed boolean to decide between async_create_issue and async_delete_issue.",
+    "rationale": "With a None sentinel, False != None on the first refresh, so every startup fires a pointless issue-registry delete for a repair that does not exist.",
+    "evidence": [
+      {
+        "pr": 171850,
+        "url": "https://github.com/home-assistant/core/pull/171850#discussion_r3288865609",
+        "excerpt": "makes the first coordinator refresh treat `False != None` as a transition and call `async_delete_issue`"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/homewizard/coordinator.py",
+      "homeassistant/components/*/coordinator.py"
+    ]
+  }
+]

@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding objects to http:// being accepted by the scheme guard, while the human's concern is that the GitHub App PEM is stored in the SSH key_file/private_key fields and leaked into GIT_SSH_COMMAND.",
+  "judge": "agent"
+}

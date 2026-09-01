@@ -1,0 +1,15 @@
+{"pr": 71113,
+ "findings": [
+   {"path": "airflow-core/src/airflow/api_fastapi/core_api/security.py",
+    "line": 411,
+    "category": "security",
+    "message": "`_authorize_backfill_in_path` re-implements the `DagDetails`/`get_team_name`/`is_authorized_dag` sequence that `requires_access_dag` already performs, so the two authorization paths can silently drift apart the next time `requires_access_dag` gains a check. Consider delegating to `requires_access_dag` and translating its 403 into the 404 you want, rather than keeping a parallel copy."},
+   {"path": "airflow-core/src/airflow/api_fastapi/core_api/security.py",
+    "line": 455,
+    "category": "security",
+    "message": "When the path carries a `backfill_id` that this adapter rejects, control still falls through to the body/query branch, so a route that names a backfill in its path ends up authorized against a caller-supplied `dag_id`. That is the same shape of issue this PR closes, and it is only harmless as long as the handler's parser stays exactly as strict. Better to fail closed here: if `backfill_id_raw` is present but unparseable, raise rather than reaching the body path."},
+   {"path": "airflow-core/tests/unit/api_fastapi/core_api/routes/public/test_backfills.py",
+    "line": 85,
+    "category": "testing",
+    "message": "This fixture reaches into `auth_manager._get_token_signer()` and patches `RevokedToken.is_revoked` to mint a viewer token by hand. If there is an existing helper for building a role-scoped test client, prefer it — a private-API test fixture will break the next time the token plumbing is refactored."}
+ ]}

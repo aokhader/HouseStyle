@@ -1,0 +1,319 @@
+[
+  {
+    "rule": "Hand-written lists inside `.github/` that mirror repository state (the provider inventory in issue templates, locale/namespace inventories in agent SKILL.md files) must be generated or validated by a prek/pre-commit hook rather than maintained by hand",
+    "category": "commit-hygiene",
+    "trigger": "A PR adds a manually enumerated list of providers, locales, or i18n namespaces to `.github/ISSUE_TEMPLATE/*.yml` or `.github/skills/**/SKILL.md` without a corresponding hook entry in `.pre-commit-config.yaml`",
+    "rationale": "The set of providers and locales expands and shrinks over time, so a hand-kept copy silently goes stale; reviewers prefer defining the tooling once as a static check over re-prompting every contributor for the same data",
+    "evidence": [
+      {
+        "pr": 64240,
+        "url": "https://github.com/apache/airflow/pull/64240#discussion_r3010516349",
+        "excerpt": "We should add a pre-commit for managing this list"
+      },
+      {
+        "pr": 62059,
+        "url": "https://github.com/apache/airflow/pull/62059#discussion_r2817589230",
+        "excerpt": "I prefer using pre-commit(prek) to ensure consistency, as this is one of the static checks"
+      }
+    ],
+    "scope_paths": [
+      ".github/ISSUE_TEMPLATE/",
+      ".github/skills/",
+      ".pre-commit-config.yaml"
+    ]
+  },
+  {
+    "rule": "A new pre-commit hook's `files:` pattern must be narrowed to exactly the distributions and subpackages the rule applies to; never a bare `\\.py$` or a whole-distribution glob",
+    "category": "commit-hygiene",
+    "trigger": "A new `- id:` block in `.pre-commit-config.yaml` uses `files: \\.py$` or a broad `^providers/<dist>/(src|tests)/.*\\.py$` for a check that only holds in part of that tree",
+    "rationale": "Broad patterns produce false positives - the checker script itself gets flagged by its own rule, and distributions that mix client and server code get matched where the rule is wrong",
+    "evidence": [
+      {
+        "pr": 55416,
+        "url": "https://github.com/apache/airflow/pull/55416#discussion_r3043768236",
+        "excerpt": "Maybe we should limit it so the affected distributions?"
+      },
+      {
+        "pr": 67367,
+        "url": "https://github.com/apache/airflow/pull/67367#discussion_r3292437802",
+        "excerpt": "That check willr aise false-positives. Edge containes both client and server sides."
+      }
+    ],
+    "scope_paths": [
+      ".pre-commit-config.yaml",
+      "scripts/ci/prek/"
+    ]
+  },
+  {
+    "rule": "Treat `providers/edge3/.../worker_api/` and `.../plugins/` as the server side and `.../cli/` as the client side: server-only imports such as FastAPI, and checks that assume server context, must not reach the `cli` subtree",
+    "category": "providers",
+    "trigger": "A path-scoped check, import rule, or FastAPI/server-side import applies to all of `providers/edge3/` rather than excluding `providers/edge3/src/airflow/providers/edge3/cli/`",
+    "rationale": "Edge3 ships both halves of the edge worker in one distribution; a FastAPI import in the CLI half would be wrong and any blanket rule over the distribution fires falsely on it",
+    "evidence": [
+      {
+        "pr": 67367,
+        "url": "https://github.com/apache/airflow/pull/67367#discussion_r3292437802",
+        "excerpt": "cli is is the client (where the FastAPI import will be wrong!)"
+      }
+    ],
+    "scope_paths": [
+      "providers/edge3/src/airflow/providers/edge3/",
+      ".pre-commit-config.yaml"
+    ]
+  },
+  {
+    "rule": "Classify a change to the serialized structure of triggerer context data as a breaking provider change, alongside behaviour changes in `execute()`/`poke()`/`get_conn()` and xcom/connection/asset schema changes",
+    "category": "providers",
+    "trigger": "A provider PR alters the fields or shape of data a Trigger serializes into triggerer context, and the changelog or documentation classifies it as a feature or bugfix rather than breaking",
+    "rationale": "Task instances that are already running deserialize the old structure after the provider is upgraded, so a shape change fails live tasks mid-flight",
+    "evidence": [
+      {
+        "pr": 65882,
+        "url": "https://github.com/apache/airflow/pull/65882#discussion_r3143841604",
+        "excerpt": "tasks would fail if the structure changes across version upgrade for running instances"
+      }
+    ],
+    "scope_paths": [
+      ".github/skills/prepare-providers-documentation/SKILL.md",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "Locale guideline files under `.github/skills/airflow-translations/locales/` must use the same heading format as the existing ones - the language name plus the locale code only, e.g. `# Thai (th)`",
+    "category": "docs",
+    "trigger": "A new `locales/<code>.md` file opens with a descriptive heading such as `# Thai (th) Translation Guidelines for Apache Airflow` instead of `# Thai (th)`",
+    "rationale": "The locale skill files are read as a set by translation contributors and tooling; a divergent title breaks the consistency the other locale files already establish",
+    "evidence": [
+      {
+        "pr": 62170,
+        "url": "https://github.com/apache/airflow/pull/62170#discussion_r2840457804",
+        "excerpt": "should we follow the same title format as other locale skill files"
+      }
+    ],
+    "scope_paths": [
+      ".github/skills/airflow-translations/locales/"
+    ]
+  },
+  {
+    "rule": "A locale guideline file adapted from another locale's document must carry over every glossary term from the source, including deliberately untranslated ones such as `Dag ID`",
+    "category": "docs",
+    "trigger": "A new or updated `locales/<code>.md` glossary omits terms that the locale document it was derived from lists",
+    "rationale": "These files are taken over wholesale between locales, so a dropped row leaves the term undefined for that language and translators diverge on it",
+    "evidence": [
+      {
+        "pr": 65115,
+        "url": "https://github.com/apache/airflow/pull/65115#discussion_r3106970931",
+        "excerpt": "Dag ID is missing from the take-over of the other document"
+      }
+    ],
+    "scope_paths": [
+      ".github/skills/airflow-translations/locales/"
+    ]
+  },
+  {
+    "rule": "In translation guidelines, the keep-in-English term list applies only to CamelCase code/class identifiers quoted verbatim as code (`TaskInstance`, `DagRun`, `Triggerer`); when the same concepts appear as UI labels they must follow the wording already in that locale's `i18n/locales/<code>/*.json`",
+    "category": "docs",
+    "trigger": "A locale guideline file lists `TaskInstance`, `DagRun` or similar CamelCase identifiers under a blanket keep-in-English rule without distinguishing code identifiers from UI labels",
+    "rationale": "The established UI translations for those concepts already ship in the locale's JSON files, so a blanket keep-in-English rule contradicts the strings users actually see",
+    "evidence": [
+      {
+        "pr": 62083,
+        "url": "https://github.com/apache/airflow/pull/62083#discussion_r2862611606",
+        "excerpt": "clarifying this rule to apply only to code/class identifiers (camelcase) when they appear verbatim"
+      }
+    ],
+    "scope_paths": [
+      ".github/skills/airflow-translations/locales/",
+      "airflow-core/src/airflow/ui/public/i18n/locales/"
+    ]
+  },
+  {
+    "rule": "Write the term as `Dag`/`Dags` in user-facing prose - release notes, changelog entries and UI strings - never `DAG`/`DAGs`; the casing is treated as case-sensitive",
+    "category": "docs",
+    "trigger": "A new bullet in `RELEASE_NOTES.rst`, a changelog entry, or a translated UI string spells the term `DAG` or `DAGs`",
+    "rationale": "Airflow standardised the user-facing spelling on `Dag`; release notes and translation glossaries are held to that casing explicitly",
+    "evidence": [
+      {
+        "pr": 61160,
+        "url": "https://github.com/apache/airflow/pull/61160#discussion_r2745044731",
+        "excerpt": "Fix asset scheduling for stale Dags (#59337) (#60022) (#61106)"
+      },
+      {
+        "pr": 62083,
+        "url": "https://github.com/apache/airflow/pull/62083#discussion_r2862611606",
+        "excerpt": "Keep these terms **in English unchanged** (case-sensitive) in UI strings"
+      }
+    ],
+    "scope_paths": [
+      "RELEASE_NOTES.rst",
+      ".github/skills/airflow-translations/locales/"
+    ]
+  },
+  {
+    "rule": "Every provider extra added to the root `pyproject.toml` must pin a minimum provider version (`apache-airflow-providers-<name>>=X.Y.Z`), matching the surrounding extras",
+    "category": "providers",
+    "trigger": "A new entry is added to the extras tables in `pyproject.toml` as a bare `\"apache-airflow-providers-foo\"` with no version specifier while neighbouring extras carry `>=` bounds",
+    "rationale": "Without a floor the extra resolves to whatever pre-release build exists, and the extras block becomes internally inconsistent",
+    "evidence": [
+      {
+        "pr": 57610,
+        "url": "https://github.com/apache/airflow/pull/57610#discussion_r2761636724",
+        "excerpt": "The new `informatica` extra does not pin a minimum provider version"
+      }
+    ],
+    "scope_paths": [
+      "pyproject.toml"
+    ]
+  },
+  {
+    "rule": "`uv.lock` changes in a PR must match that PR's code diff; regenerate the lockfile against fresh `main` to strip rebase artefacts such as unrelated extras or dependency removals",
+    "category": "commit-hygiene",
+    "trigger": "A PR's `uv.lock` diff adds or removes dependencies (e.g. dropping `langchain-openai` from an extra) that nothing in the PR's source changes touches",
+    "rationale": "An unrelated lockfile change silently alters dependency resolution and misleads the next person bisecting a regression into the wrong PR",
+    "evidence": [
+      {
+        "pr": 67235,
+        "url": "https://github.com/apache/airflow/pull/67235#discussion_r3277765811",
+        "excerpt": "Regenerate `uv.lock` against fresh `main` before merging so the lockfile diff matches"
+      }
+    ],
+    "scope_paths": [
+      "uv.lock"
+    ]
+  },
+  {
+    "rule": "Any query whose rows are dereferenced through an ORM relationship inside the scheduler loop must eagerly load that relationship (e.g. `joinedload(DatasetEvent.dataset)`); default lazy loading is not acceptable there",
+    "category": "performance",
+    "trigger": "Scheduler-loop code builds a set or log line by accessing `event.dataset.uri`, `record.dag.<attr>` or similar on rows from a query carrying no `joinedload`/`selectinload` option",
+    "rationale": "Each dereference fires its own SELECT, so with many events per Dag this multiplies into hundreds of extra queries on every scheduler loop iteration",
+    "evidence": [
+      {
+        "pr": 63546,
+        "url": "https://github.com/apache/airflow/pull/63546#discussion_r2984707207",
+        "excerpt": "fires a lazy SELECT per event since `DatasetEvent.dataset` uses default lazy loading"
+      }
+    ],
+    "scope_paths": [
+      "airflow/jobs/scheduler_job_runner.py",
+      "airflow-core/src/airflow/jobs/"
+    ]
+  },
+  {
+    "rule": "In GitHub Actions steps do not `source .venv/bin/activate` after `uv venv`; uv commands pick up the project virtualenv on their own",
+    "category": "correctness",
+    "trigger": "A workflow `run:` block contains `uv venv` followed by `source .venv/bin/activate` before `uv pip install`",
+    "rationale": "uv activates the environment itself for its own commands, so the activation line is dead weight in the workflow and only works on shells that support it",
+    "evidence": [
+      {
+        "pr": 55458,
+        "url": "https://github.com/apache/airflow/pull/55458#discussion_r2338321557",
+        "excerpt": "There is no need to activate the venv. `uv` automatically activates the env"
+      }
+    ],
+    "scope_paths": [
+      ".github/workflows/"
+    ]
+  },
+  {
+    "rule": "When dropping a `needs:` gate to parallelise a release workflow, split the publish/sync steps into a job that still `needs:` the gating job instead of discarding the ordering guarantee outright",
+    "category": "performance",
+    "trigger": "A job in a release workflow has its `needs:` replaced (e.g. `needs: [publish-docs-to-s3, build-info]` becomes `needs: [build-info, build-ci-image]`) while it still contains sync or publish steps that must not land before the gating job",
+    "rationale": "The expensive part of the job (image build, Sphinx docs) is what lengthens the release manager's wait; the cheap publish steps can stay gated at no wall-clock cost, keeping ordering without making the job the critical path",
+    "evidence": [
+      {
+        "pr": 70618,
+        "url": "https://github.com/apache/airflow/pull/70618#discussion_r3669136964",
+        "excerpt": "those two steps could move into a job that needs `publish-docs-to-s3`"
+      }
+    ],
+    "scope_paths": [
+      ".github/workflows/publish-docs-to-s3.yml"
+    ]
+  },
+  {
+    "rule": "The version dropdown in `.github/ISSUE_TEMPLATE/1-airflow_bug_report.yml` must list only currently released, non-yanked versions; a yanked release is rolled back until `main` is bumped to its replacement",
+    "category": "docs",
+    "trigger": "A PR adds or leaves a version string in the bug report template's `options:` list for a release that has been yanked or not yet cut",
+    "rationale": "The template drives which versions bug reporters can select, and its own CI check fails while a yanked release is listed",
+    "evidence": [
+      {
+        "pr": 53770,
+        "url": "https://github.com/apache/airflow/pull/53770#discussion_r2311832800",
+        "excerpt": "the PR started to fail after 3.0.5 has been yanked"
+      }
+    ],
+    "scope_paths": [
+      ".github/ISSUE_TEMPLATE/"
+    ]
+  },
+  {
+    "rule": "Adding a new UI locale - a `locales/<code>/` line in `.github/CODEOWNERS` plus its translation files - requires reaching out on the dev@airflow.apache.org mailing list to establish and confirm that locale's owners",
+    "category": "commit-hygiene",
+    "trigger": "A PR adds a new `airflow-core/src/airflow/ui/public/i18n/locales/<code>/` entry to `.github/CODEOWNERS`, or a new locale directory, with no reference to a dev-list thread",
+    "rationale": "Locale ownership is a standing community commitment rather than a file edit; the project settles it by announcing on the dev list, and prior locale/translation threads are the template to follow",
+    "evidence": [
+      {
+        "pr": 56353,
+        "url": "https://github.com/apache/airflow/pull/56353#discussion_r2436715183",
+        "excerpt": "search history for similar messages about locals and translations before sending the email"
+      }
+    ],
+    "scope_paths": [
+      ".github/CODEOWNERS",
+      "airflow-core/src/airflow/ui/public/i18n/locales/"
+    ]
+  },
+  {
+    "rule": "Do not add hand-written documentation pages that enumerate REST API endpoints or their schemas; the auto-generated `stable-rest-api-ref` page already publishes them",
+    "category": "docs",
+    "trigger": "A new `.rst` file under `airflow-core/docs/` documents an API surface (endpoints, request/response shapes) that is already generated from the OpenAPI spec",
+    "rationale": "The generated reference is the single source of truth and stays in sync with the code; a parallel prose page duplicates it and drifts",
+    "evidence": [
+      {
+        "pr": 67299,
+        "url": "https://github.com/apache/airflow/pull/67299#discussion_r3321801899",
+        "excerpt": "I am not sure of the value of a separate API page here"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/administration-and-deployment/"
+    ]
+  },
+  {
+    "rule": "A new provider-governance policy section in `PROVIDERS.rst` must state its applicability to already-existing providers - either that it applies only to providers created after the governing AIP's approval date, or how existing providers are transitioned",
+    "category": "docs",
+    "trigger": "A PR adds a governance section (stewardship, lifecycle, ownership requirements) to `PROVIDERS.rst` stating requirements without scoping them to new versus existing providers",
+    "rationale": "The AIP itself leaves this open, so without an explicit scope every existing provider reads as instantly out of compliance and the transition plan (a call for stewards, PMC stewardship for the remainder) is invisible",
+    "evidence": [
+      {
+        "pr": 60896,
+        "url": "https://github.com/apache/airflow/pull/60896#discussion_r2717251239",
+        "excerpt": "it's better to mention that it applies only for providers created after the approval"
+      },
+      {
+        "pr": 60896,
+        "url": "https://github.com/apache/airflow/pull/60896#discussion_r2724277054",
+        "excerpt": "we are going to make a call for stewards"
+      }
+    ],
+    "scope_paths": [
+      "PROVIDERS.rst"
+    ]
+  },
+  {
+    "rule": "Documentation of provider attic status must spell out the CI and maintenance consequences: not actively tested in `main`, dependencies not checked for conflicts with other providers, common refactorings not applied, and significant effort required to restore the provider",
+    "category": "providers",
+    "trigger": "A PR describes provider lifecycle or attic status listing only that modules stay readable and unmaintained, without the CI, dependency-conflict and refactoring consequences",
+    "rationale": "Attic is not merely 'no new features' - dropping the provider out of CI and conflict checking is what makes leaving the attic expensive, and a steward signing up needs that stated up front",
+    "evidence": [
+      {
+        "pr": 60896,
+        "url": "https://github.com/apache/airflow/pull/60896#discussion_r2714866934",
+        "excerpt": "Module is not actively tested in \"main\" in Airflow CI"
+      }
+    ],
+    "scope_paths": [
+      "PROVIDERS.rst"
+    ]
+  }
+]

@@ -1,0 +1,173 @@
+[
+  {
+    "rule": "After firing a coordinator's update timer with `async_fire_time_changed`, await `hass.async_block_till_done(wait_background_tasks=True)` before asserting on refreshed state.",
+    "category": "testing",
+    "trigger": "A test ticks the freezer by the coordinator UPDATE_INTERVAL, calls `async_fire_time_changed`, then asserts entity state after a plain `await hass.async_block_till_done()`.",
+    "rationale": "The coordinator refresh is scheduled as a background task, so a plain block_till_done can return before it has run and the assertion sees stale state.",
+    "evidence": [
+      {"pr": 167816, "url": "https://github.com/home-assistant/core/pull/167816#discussion_r3061192761", "excerpt": "ensure the scheduled coordinator refresh task has completed before asserting on updated state"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Run the translation generation script for the integration and re-capture entity snapshots after adding translation keys, so snapshotted entities show their translated names and object-id-derived entity_ids.",
+    "category": "testing",
+    "trigger": "A snapshot .ambr adds entities with a `translation_key` set but `original_name: None`, no `object_id_base`, and generic entity_ids like `sensor.device_1_2`.",
+    "rationale": "Entity naming comes from generated English translations; a snapshot captured before running `python3 -m script.translations develop --integration <domain>` bakes in the un-named entity ids that will not match reality.",
+    "evidence": [
+      {"pr": 176069, "url": "https://github.com/home-assistant/core/pull/176069#discussion_r3550195351", "excerpt": "regenerate translations (`python3 -m script.translations develop --integration imou`) and re-capture the snapshot"}
+    ],
+    "scope_paths": ["tests/components/", "homeassistant/components/*/strings.json"]
+  },
+  {
+    "rule": "Do not snapshot volatile numeric sensor readings; snapshot the stable entity metadata (entity id, device class, unit, availability) and relax the fluctuating `state` value.",
+    "category": "testing",
+    "trigger": "A dependency bump changes numeric `state` values inside a snapshot .ambr file, forcing snapshot churn.",
+    "rationale": "Exact readings that are not contractual make the snapshot noisy every time an upstream library adjusts scaling or rounding.",
+    "evidence": [
+      {"pr": 171472, "url": "https://github.com/home-assistant/core/pull/171472#discussion_r3273051783", "excerpt": "tests can become noisy and require frequent snapshot churn ... consider relaxing the assertions"}
+    ],
+    "scope_paths": ["tests/components/*/snapshots/"]
+  },
+  {
+    "rule": "Snapshot the device registry entry once per test module, not once per entity.",
+    "category": "testing",
+    "trigger": "A per-platform test loops over entity registry entries and snapshots the resolved `device_entry` inside the loop.",
+    "rationale": "The device is the same object for every entity of the integration, so repeating the device snapshot in each platform test only bloats the .ambr files.",
+    "evidence": [
+      {"pr": 163901, "url": "https://github.com/home-assistant/core/pull/163901#discussion_r2847884366", "excerpt": "we don't have to snapshot the device for every entity ... once is enough"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "A regenerated snapshot must contain exactly one entity per unique_id for a config entry; prune stale blocks instead of committing duplicates.",
+    "category": "testing",
+    "trigger": "A snapshot .ambr contains two entries sharing a unique_id under different entity_ids.",
+    "rationale": "The entity registry cannot produce duplicate unique_ids in one run, so duplicates mean the snapshot is stale or an unintended duplicate entity is being created.",
+    "evidence": [
+      {"pr": 166298, "url": "https://github.com/home-assistant/core/pull/166298#discussion_r2990388935", "excerpt": "entity registry should not produce duplicate unique_ids for one config entry/subentry"}
+    ],
+    "scope_paths": ["tests/components/matter/snapshots/", "tests/components/*/snapshots/"]
+  },
+  {
+    "rule": "A test must actually exercise the failure path named in its name and docstring; patch the dependency with a failing `side_effect` rather than a benign empty result that duplicates an existing test.",
+    "category": "testing",
+    "trigger": "A config flow test named for a startup/discovery failure patches the discovery helper to return an empty result and asserts a generic abort reason.",
+    "rationale": "Otherwise the new test is a rename of an existing no-devices-found case and the real error branch stays uncovered.",
+    "evidence": [
+      {"pr": 169251, "url": "https://github.com/home-assistant/core/pull/169251#discussion_r3249257609", "excerpt": "patch `async_discover_controllers` with `side_effect=OSError` ... otherwise this duplicates `test_not_found`"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Tests that enable a disabled-by-default entity must advance time to run the coordinator refresh and assert the entity's resolved value, not merely that the entity exists.",
+    "category": "testing",
+    "trigger": "A test enables an entity via the entity registry and reloads, then only asserts `state is not None`.",
+    "rationale": "Existence after reload does not prove the enable path works end to end; only a refreshed state proves the coordinator populates the entity.",
+    "evidence": [
+      {"pr": 165194, "url": "https://github.com/home-assistant/core/pull/165194#discussion_r2928060418", "excerpt": "Consider advancing time/firing a time-changed event ... asserting the HDR sensor state resolves"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Obtain registries through the provided pytest fixtures (`entity_registry: er.EntityRegistry`, `device_registry`, `issue_registry`) declared as test/fixture parameters, not by calling `er.async_get(hass)` inside the body.",
+    "category": "testing",
+    "trigger": "A test or conftest fixture body calls `er.async_get(hass)` / `dr.async_get(hass)` instead of taking the registry fixture.",
+    "rationale": "The shared fixtures are the house pattern for registry access in Home Assistant tests and keep the dependency visible in the signature.",
+    "evidence": [
+      {"pr": 170841, "url": "https://github.com/home-assistant/core/pull/170841#discussion_r3354481543", "excerpt": "entity_registry: er.EntityRegistry,) -> MockConfigEntry:"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Assert that entities were not created by querying the entity registry for the config entry (by unique_id or original_name) rather than by guessing generated entity_id slugs.",
+    "category": "testing",
+    "trigger": "A test asserts `hass.states.get(\"<domain>.<guessed_slug>\") is None`, especially for names containing characters that alter slugging (e.g. \"2+\", \"2-way\").",
+    "rationale": "A mistyped slug makes the assertion vacuously pass even when the entity does exist under the real slug, so the negative test proves nothing.",
+    "evidence": [
+      {"pr": 168105, "url": "https://github.com/home-assistant/core/pull/168105#discussion_r3074641887", "excerpt": "can silently pass even if the entity exists under a different slug"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Assert that a specific repair issue key is absent rather than that the whole issue registry is empty.",
+    "category": "testing",
+    "trigger": "A test asserts `len(issue_registry.issues) == 0` or compares the full issue registry contents.",
+    "rationale": "The issue registry is global and unrelated integrations can register issues in the same run, making the emptiness assertion brittle.",
+    "evidence": [
+      {"pr": 163572, "url": "https://github.com/home-assistant/core/pull/163572#discussion_r2832022434", "excerpt": "brittle because unrelated tests/integrations can register issues in the same registry"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Deprecation repair issues must have test coverage for every branch that selects a different translation key, including the entity-used-in-automations/scripts variant and its placeholder substitution.",
+    "category": "testing",
+    "trigger": "A repairs test only covers the plain deprecated-entity issue while the implementation also raises a `*_scripts`/`*_automations` variant with an `{items}` placeholder.",
+    "rationale": "The alternate translation key and its placeholder are what the user actually sees when the entity is referenced elsewhere, and nothing else verifies the placeholder is populated.",
+    "evidence": [
+      {"pr": 159601, "url": "https://github.com/home-assistant/core/pull/159601#discussion_r3202983454", "excerpt": "so the issue uses the *_scripts translation key and populates the {items} placeholder correctly"}
+    ],
+    "scope_paths": ["tests/components/*/test_repairs.py"]
+  },
+  {
+    "rule": "When a change tightens validation, fix the existing tests it breaks instead of deleting them.",
+    "category": "testing",
+    "trigger": "A diff that adds stricter validation also removes an existing test function.",
+    "rationale": "Deleting the failing test silently drops the coverage the behaviour it asserted still needs; updating it (e.g. setting a valid `color_mode`) keeps that coverage.",
+    "evidence": [
+      {"pr": 162620, "url": "https://github.com/home-assistant/core/pull/162620#discussion_r2781257491", "excerpt": "Prefer updating/restoring the test ... instead of deleting it, to avoid losing coverage"}
+    ],
+    "scope_paths": ["tests/components/light/", "tests/components/"]
+  },
+  {
+    "rule": "When a service response model gains fields, add a test case where those fields carry non-default values rather than only the default None case.",
+    "category": "testing",
+    "trigger": "A test's expected service-response dict gains new keys whose asserted values are all `None`.",
+    "rationale": "Only the None path is exercised, so the code that maps real values (or NullValue) from the device response stays unverified.",
+    "evidence": [
+      {"pr": 167875, "url": "https://github.com/home-assistant/core/pull/167875#discussion_r3062944498", "excerpt": "so the new response fields are verified beyond the default None case"}
+    ],
+    "scope_paths": ["tests/components/matter/", "tests/components/"]
+  },
+  {
+    "rule": "A test parametrized over a fixture-overriding value must declare that fixture as a function parameter.",
+    "category": "testing",
+    "trigger": "`@pytest.mark.parametrize(\"mqtt_config_entry_data\", ...)` (or another fixture-override parametrization) sits above a test whose signature omits that name.",
+    "rationale": "Pytest fails collection with \"function uses no argument\" and the parametrization is silently not applied.",
+    "evidence": [
+      {"pr": 172500, "url": "https://github.com/home-assistant/core/pull/172500#discussion_r3320669225", "excerpt": "otherwise pytest will fail collection with \"function uses no argument 'mqtt_config_entry_data'\""},
+      {"pr": 172500, "url": "https://github.com/home-assistant/core/pull/172500#discussion_r3324226090", "excerpt": "so the parametrization is applied and pytest can collect the test"}
+    ],
+    "scope_paths": ["tests/components/mqtt/", "tests/components/"]
+  },
+  {
+    "rule": "Unique_id migration tests must round-trip every unique_id format the integration produces (device, multi-channel and group variants) and must not let one format's pattern match another's ids.",
+    "category": "testing",
+    "trigger": "A migration test derives old-format unique_ids with string slicing/suffix matching and skips entries where the channel is None.",
+    "rationale": "Skipped or loosely matched cases produce false positives, so the test stops detecting mismatches between the migration map and the runtime unique_ids.",
+    "evidence": [
+      {"pr": 166580, "url": "https://github.com/home-assistant/core/pull/166580#discussion_r2994011803", "excerpt": "those cases are skipped or can yield false positives, reducing the test's ability to detect"}
+    ],
+    "scope_paths": ["tests/components/homematicip_cloud/", "tests/components/"]
+  },
+  {
+    "rule": "Conditions and triggers that filter their targets by supported domain need a negative test proving the condition does not pass when only unsupported entities are targeted.",
+    "category": "testing",
+    "trigger": "A new condition/trigger test file covers only supported entity domains, including a `behavior='all'` case.",
+    "rationale": "With `behavior='all'`, filtering away every unsupported entity leaves an empty set that evaluates vacuously true, so the positive tests hide the bug.",
+    "evidence": [
+      {"pr": 166595, "url": "https://github.com/home-assistant/core/pull/166595#discussion_r2995455756", "excerpt": "behavior='all', which can otherwise become vacuously true if no supported entities"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Matter node fixtures must list any cluster whose attributes they define in that endpoint's Descriptor ServerList.",
+    "category": "testing",
+    "trigger": "A `tests/components/matter/fixtures/nodes/*.json` adds attributes for a cluster id that is absent from the endpoint's `65531` server list.",
+    "rationale": "A real node advertises its clusters in the descriptor, so a fixture that omits it makes discovery tests diverge from device behaviour.",
+    "evidence": [
+      {"pr": 169311, "url": "https://github.com/home-assistant/core/pull/169311#discussion_r3155843496", "excerpt": "endpoint 1's server cluster list does not include that cluster"}
+    ],
+    "scope_paths": ["tests/components/matter/fixtures/nodes/"]
+  }
+]

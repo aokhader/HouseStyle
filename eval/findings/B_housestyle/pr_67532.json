@@ -1,0 +1,8 @@
+{"pr": 67532,
+ "findings": [
+   {"rule_id": "airflow-r014",
+    "path": "providers/ibm/db2/tests/unit/ibm/db2/hooks/test_db2.py",
+    "line": 168,
+    "category": "testing",
+    "message": "`mock_dialect = MagicMock()` stands in for `Db2Dialect` here and is then patched onto `hook.dialect`, so `mock_dialect.get_column_names.assert_called_once_with(\"TEST_TABLE\", \"MY_SCHEMA\")` would keep passing even if that method were renamed or its signature changed on the real dialect. Spec it - `MagicMock(spec=Db2Dialect)` - the way `MagicMock(spec=DbApiHook)` is already used in tests/unit/ibm/db2/dialects/test_db2.py."}
+ ]}

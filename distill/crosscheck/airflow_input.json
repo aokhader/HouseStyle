@@ -1,0 +1,237 @@
+{
+  "repo": "apache/airflow",
+  "n_rules": 14,
+  "rules": [
+    {
+      "id": "airflow-r002",
+      "rule": "Keep the public surface of provider operators, hooks, executors and extractors backward compatible: a renamed attribute or method keeps a deprecated forwarding property, a removed parameter is deprecated with its values mapped onto the replacement, and a changed return value, changed traversal or new constructor keyword is opt-in through a parameter that defaults to the existing behaviour.",
+      "category": "api-design",
+      "trigger": "A diff renames a public attribute or method on a BaseExecutor subclass with no shim, removes an operator parameter such as wait_policy and hard-codes one of its former values, changes an existing operator's execute() return shape, alters what an existing hook method traverses or returns, or passes a new required keyword to a subclass constructor such as BaseExtractor.__init__ unconditionally.",
+      "scope_paths": [
+        "providers/"
+      ],
+      "support_count": 6,
+      "evidence_prs": [
+        66992,
+        64465,
+        63657,
+        63035,
+        61284,
+        56158
+      ]
+    },
+    {
+      "id": "airflow-r009",
+      "rule": "Put imports at module scope; an import inside a function, method, test helper or fixture body is acceptable only to break a genuine circular import or for deliberate lazy loading (worker isolation, TYPE_CHECKING), and must carry a comment naming the reason.",
+      "category": "correctness",
+      "trigger": "An import or from-import statement appears inside a function, method, test helper or fixture body with no adjacent comment explaining the circular-import or lazy-loading reason.",
+      "scope_paths": [
+        "airflow-core/tests/unit/",
+        "providers/common/ai/tests/unit/common/ai/toolsets/",
+        "task-sdk/src/airflow/sdk/"
+      ],
+      "support_count": 5,
+      "evidence_prs": [
+        68118,
+        64563,
+        62850,
+        62696,
+        61077
+      ]
+    },
+    {
+      "id": "airflow-r014",
+      "rule": "Mocks that stand in for a real interface must be specced — `MagicMock(spec=...)`, `spec_set=`, or `create_autospec` — including nested attributes; `MagicMock(autospec=True)` is a no-op keyword and does not spec anything.",
+      "category": "testing",
+      "trigger": "A bare `MagicMock()` (or `MagicMock(autospec=True)`) substituted for a known type such as the Task SDK execution API `Client`, `RunContext`, `ToolsetTool`, or a credentials object, then given attributes the real type may not have",
+      "scope_paths": [
+        "providers/",
+        "task-sdk/tests/task_sdk/"
+      ],
+      "support_count": 5,
+      "evidence_prs": [
+        68974,
+        67635,
+        64568,
+        62850,
+        53801
+      ]
+    },
+    {
+      "id": "airflow-r001",
+      "rule": "Do not add or keep public surface that nothing consumes: a parameter, field or property must have a real consumer in the repository and a real effect; if it is unimplemented or no longer used, remove it from the signature and docstring, or make supplying it warn or raise.",
+      "category": "api-design",
+      "trigger": "A field is added to an execution-API datamodel with no worker-side reader, a property is added to a core base class such as CronMixin with no in-core reference site, an __init__ stores self.param that no method reads, or a parameter is dropped from a DagBag implementation body but kept in the signature or docstring.",
+      "scope_paths": [
+        "airflow-core/src/airflow/",
+        "providers/common/ai/src/airflow/providers/common/ai/operators/"
+      ],
+      "support_count": 4,
+      "evidence_prs": [
+        67717,
+        66161,
+        63081,
+        61550
+      ]
+    },
+    {
+      "id": "airflow-r007",
+      "rule": "Distinguish absence from a legitimate falsy value: test with `is not None` in Python and an explicit undefined/null check in TypeScript, and do not collapse None into an empty container with `param or []`, wherever 0, False, an empty string or an empty collection carry meaning.",
+      "category": "correctness",
+      "trigger": "`if bundle_version:`, `Boolean(value)` or `if (value)` is used as a presence check on a field whose valid domain includes falsy values (a map_index of 0, a falsy XCom value), or `self.param = param or []` in an operator __init__ where an explicit empty list means something downstream.",
+      "scope_paths": [
+        "airflow-core/src/airflow/",
+        "providers/"
+      ],
+      "support_count": 4,
+      "evidence_prs": [
+        67226,
+        64538,
+        61550,
+        54210
+      ]
+    },
+    {
+      "id": "airflow-r003",
+      "rule": "Put behaviour that every concrete subclass needs in the shared base class or mixin - BaseExecutor, BaseCoordinator, BaseNotifier - rather than re-implementing it, or repeating the version guard, in each concrete implementation.",
+      "category": "api-design",
+      "trigger": "A new workload-handling method or branch is added to several concrete executor files with no base-class implementation, a new per-language coordinator re-implements socket server startup or accept helpers, or an `if AIRFLOW_V_x_y_PLUS:` guard is added inside a concrete Notifier.",
+      "scope_paths": [
+        "airflow-core/src/airflow/executors/",
+        "providers/slack/src/airflow/providers/slack/notifications/",
+        "task-sdk/src/airflow/sdk/coordinators/java/"
+      ],
+      "support_count": 3,
+      "evidence_prs": [
+        65958,
+        62343,
+        55308
+      ]
+    },
+    {
+      "id": "airflow-r004",
+      "rule": "A trigger's run() must yield a distinct terminal TriggerEvent for every terminal condition it can reach: separate success and failure events rather than one collapsed success, and a timeout event carrying the timeout status and a descriptive reason rather than a bare break or return - with any cancellation side-effect in the timeout branch wrapped in its own try/except so a failed cancel cannot replace the event.",
+      "category": "async",
+      "trigger": "An `async def run()` yields a TriggerEvent with no separate success/failure handling or compares status against a single string instead of the provider's Enum, or a polling loop in providers/*/triggers/*.py reaches its timeout condition and breaks without yielding, or performs a cancel call in the timeout branch outside a dedicated try/except.",
+      "scope_paths": [
+        "providers/"
+      ],
+      "support_count": 3,
+      "evidence_prs": [
+        68799,
+        67524,
+        63614
+      ]
+    },
+    {
+      "id": "airflow-r005",
+      "rule": "Keep a PR scoped to the change its title and description claim: unrelated uv.lock churn must be reverted, an Alembic migration that fixes a pre-existing schema issue must go in its own PR, and a second independent feature must either be split out or added to the PR description with its own rationale and compatibility notes.",
+      "category": "commit-hygiene",
+      "trigger": "The diff contains uv.lock changes with no dependency bump in the description, an independent schema-fix migration alongside a feature migration, or a second unrelated feature (e.g. worker recycling added to a DAG-caching PR).",
+      "scope_paths": [
+        "./",
+        "airflow-core/src/airflow/"
+      ],
+      "support_count": 3,
+      "evidence_prs": [
+        61550,
+        60804,
+        55954
+      ]
+    },
+    {
+      "id": "airflow-r006",
+      "rule": "A broad `except Exception` must not swallow or re-wrap an exception that is deliberately raised to propagate: re-raise the specific type before the generic handler, and when introducing such an exception, update every enclosing fall-through loop to let it through in the same change.",
+      "category": "correctness",
+      "trigger": "An except Exception block in dag_processing/ wraps a sentinel such as CallbackBundleUnavailable, a `raise AirflowException(...)` sits inside a try whose downstream `except Exception as e` re-wraps it, or a secrets backend is made to raise PermissionError without changing the `except Exception: continue` backend-iteration loops in execution_time/context.py and models/connection.py.",
+      "scope_paths": [
+        "airflow-core/src/airflow/dag_processing/",
+        "providers/celery/src/airflow/providers/celery/executors/",
+        "task-sdk/src/airflow/sdk/execution_time/secrets/"
+      ],
+      "support_count": 3,
+      "evidence_prs": [
+        66575,
+        65543,
+        64767
+      ]
+    },
+    {
+      "id": "airflow-r008",
+      "rule": "Do not write an inline try/except ImportError compatibility shim where a central layer already handles the import - airflow.utils.sqlalchemy for SQLAlchemy 1.4/2.0 differences, airflow.providers.common.compat for provider redirects - or where the import cannot fail in the supported version.",
+      "category": "correctness",
+      "trigger": "A model file adds a try/except ImportError block to shim mapped_column or Mapped from sqlalchemy.orm, or a core test or provider module adds a `try: from airflow.X import Y / except ImportError:` block for a symbol the current core exports or common.compat already redirects.",
+      "scope_paths": [
+        "airflow-core/",
+        "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/"
+      ],
+      "support_count": 3,
+      "evidence_prs": [
+        64143,
+        55954,
+        54383
+      ]
+    },
+    {
+      "id": "airflow-r010",
+      "rule": "Spell the Airflow concept and its Python class as `Dag`/`Dags` in prose - user-facing docs, newsfragments, release notes, config.yml descriptions, docstrings and test names - reserving all-caps `DAG` for code identifiers and quoted strings.",
+      "category": "docs",
+      "trigger": "Prose in a newsfragment, release note, config.yml description, docstring or test name uses all-caps DAG/DAGs for the concept or the Python class, outside backticks or a code identifier.",
+      "scope_paths": [
+        "airflow-core/"
+      ],
+      "support_count": 3,
+      "evidence_prs": [
+        64322,
+        61702,
+        59430
+      ]
+    },
+    {
+      "id": "airflow-r011",
+      "rule": "When a provider operator or hook gains a new parameter or changes its documented behaviour, update the class docstring - a `:param name:` entry describing the type, and for a Callable what each positional argument means - and the matching provider RST guide, in the same PR.",
+      "category": "docs",
+      "trigger": "A new keyword argument on a provider operator or hook __init__ (e.g. KubernetesPodOperator) with no corresponding `:param:` entry, or a new or changed `:param ...:` list with no edit to providers/<name>/docs/operators/*.rst or providers/<name>/docs/connections/*.rst.",
+      "scope_paths": [
+        "providers/"
+      ],
+      "support_count": 3,
+      "evidence_prs": [
+        64538,
+        53801,
+        53598
+      ]
+    },
+    {
+      "id": "airflow-r012",
+      "rule": "Reuse Airflow's established name for a concept instead of inventing a synonym: `run_after` for the DAG run scheduling timestamp, `wait_for_completion` for the wait-for-finish flag, and an `a`-prefixed method name (`aget_connection`) for the async variant of an existing method.",
+      "category": "naming",
+      "trigger": "A new or renamed parameter/method using `logical_date` or `date` for scheduling time, `wait_for_termination` for a completion flag, or an `async_`-prefixed name where a sync counterpart exists",
+      "scope_paths": [
+        "providers/",
+        "task-sdk/src/airflow/sdk/bases/"
+      ],
+      "support_count": 3,
+      "evidence_prs": [
+        60369,
+        55110,
+        53831
+      ]
+    },
+    {
+      "id": "airflow-r013",
+      "rule": "Raise the native Python exception that fits - ValueError, TypeError, RuntimeError - for argument validation, bad user input, unexpected internal state and third-party service failures in provider code and triggers, rather than AirflowException.",
+      "category": "providers",
+      "trigger": "A new `raise AirflowException(...)` for parameter validation inside a provider hook or operator, for an internal error condition inside a BaseTrigger.run() coroutine, or for an error that originated in an external service.",
+      "scope_paths": [
+        "providers/"
+      ],
+      "support_count": 3,
+      "evidence_prs": [
+        62240,
+        60963,
+        55068
+      ]
+    }
+  ]
+}

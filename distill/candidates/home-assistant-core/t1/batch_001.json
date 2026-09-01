@@ -1,0 +1,273 @@
+[
+  {
+    "rule": "Build PR bodies from the checked-in .github/PULL_REQUEST_TEMPLATE.md rather than a hardcoded copy, and preserve the template's instructional HTML comments and mandated section text instead of stripping all comments.",
+    "category": "commit-hygiene",
+    "trigger": "Agent instructions, tooling, or docs that generate a PR body embed their own copy of the template, or instruct that all HTML comments be removed from the template.",
+    "rationale": "The template carries required constraints (\"Please, DO NOT DELETE ANY TEXT from this template!\") and per-section guidance; hardcoding it drifts from upstream and blanket comment-stripping drops obligations reviewers rely on.",
+    "evidence": [
+      {
+        "pr": 160759,
+        "url": "https://github.com/home-assistant/core/pull/160759#discussion_r2827093516",
+        "excerpt": "must preserve any instructional comments that convey required constraints or important explanations"
+      }
+    ],
+    "scope_paths": [".claude/agents/", ".github/PULL_REQUEST_TEMPLATE.md"]
+  },
+  {
+    "rule": "Keep types-* stub packages excluded from automated dependency bumps; their version must be pinned to match the installed version of the upstream runtime dependency they type.",
+    "category": "providers",
+    "trigger": "A renovate/dependabot config adds or removes a types-* entry from the ignore/exclude list, or a types-* pin is bumped without a matching bump of its upstream package.",
+    "rationale": "Stub packages are coupled to a specific upstream release (types-protobuf 6.32.1.x matches protobuf 6.32.0); automated bots do not check that pairing, so maintainers verify it manually every time.",
+    "evidence": [
+      {
+        "pr": 168192,
+        "url": "https://github.com/home-assistant/core/pull/168192#discussion_r3081287774",
+        "excerpt": "types-* packages are coupled to the corresponding version for their upstream dependency"
+      }
+    ],
+    "scope_paths": [".github/renovate.json"]
+  },
+  {
+    "rule": "Guard CI jobs that consume repository secrets so they are skipped, not failed, when the secret is unavailable - notably on pull_request runs from forks.",
+    "category": "correctness",
+    "trigger": "A workflow step or job references secrets.* (or validates a token via a validate_*_secret script) without an if: condition on the secret being present or on the event not being a fork pull_request.",
+    "rationale": "Fork pull requests cannot access repository secrets, so an unguarded secret-validation step turns every external contributor's PR red for a reason unrelated to their change.",
+    "evidence": [
+      {
+        "pr": 168855,
+        "url": "https://github.com/home-assistant/core/pull/168855#discussion_r3242449692",
+        "excerpt": "Skip the activation job when COPILOT_GITHUB_TOKEN isn't available (e.g., pull_request runs from forks)"
+      }
+    ],
+    "scope_paths": [".github/workflows/"]
+  },
+  {
+    "rule": "Write all code comments, docstrings and identifiers in English; non-English comments must be translated before merge.",
+    "category": "docs",
+    "trigger": "An added line inside homeassistant/components/ contains a comment or docstring with non-ASCII, non-English text (e.g. CJK characters).",
+    "rationale": "The codebase is maintained by an international contributor base and reviewed in English; comments in another language are unreadable to most maintainers of the integration.",
+    "evidence": [
+      {
+        "pr": 167272,
+        "url": "https://github.com/home-assistant/core/pull/167272#discussion_r3032125051",
+        "excerpt": "Remove Chinese comment - only English comments should be used in the codebase"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Every rule status in an integration's quality_scale.yaml must reflect what the code actually implements; do not leave a rule as todo when the corresponding implementation is already present.",
+    "category": "docs",
+    "trigger": "A quality_scale.yaml adds or keeps a rule marked todo/exempt while the integration source already contains the implementation for that rule (e.g. config-entry-unloading: todo alongside async_unload_entry in __init__.py).",
+    "rationale": "The quality scale file is the authoritative record of an integration's tier; a stale todo understates the integration's level and hides which rules still need work.",
+    "evidence": [
+      {
+        "pr": 169709,
+        "url": "https://github.com/home-assistant/core/pull/169709#discussion_r3185501553",
+        "excerpt": "Mark config-entry-unloading as done (not todo) since the integration implements async_unload_entry"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/quality_scale.yaml"]
+  },
+  {
+    "rule": "Normalize MAC addresses with homeassistant.helpers.device_registry.format_mac before using them as a config entry unique ID or device identifier; never hand-roll uppercasing/colon insertion.",
+    "category": "correctness",
+    "trigger": "A config flow or entity builds a MAC string via .upper(), .lower(), string slicing or \":\".join(...) and passes it to async_set_unique_id or device identifiers.",
+    "rationale": "Manual normalization assumes a particular length and separator format from the discovery source; the shared helper is what the rest of the codebase uses, so hand-rolled variants produce unique IDs that do not match other flows.",
+    "evidence": [
+      {
+        "pr": 163936,
+        "url": "https://github.com/home-assistant/core/pull/163936#discussion_r2846181321",
+        "excerpt": "Using the shared helper (format_mac) would better match patterns used across the codebase"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/config_flow.py"]
+  },
+  {
+    "rule": "A service handler must only index call.data with keys declared in that specific service's voluptuous schema; for optional or per-service fields use call.data.get() and handle the missing case.",
+    "category": "correctness",
+    "trigger": "A shared service handler branches on an attribute constant and reads call.data[ATTR_X] where ATTR_X is not part of the schema registered for the service being executed.",
+    "rationale": "Services registered with different schemas share one handler, so indexing a key another service defines raises KeyError at call time for users of the service that omits the field.",
+    "evidence": [
+      {
+        "pr": 166291,
+        "url": "https://github.com/home-assistant/core/pull/166291#discussion_r2977546805",
+        "excerpt": "only read a value from call.data for services that actually define that field"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/services.py"]
+  },
+  {
+    "rule": "Authentication failures that start a reauth flow must surface a distinct user-facing message stating that reauthentication is required, and must not interpolate the raw exception text into it.",
+    "category": "api-design",
+    "trigger": "An except clause groups an authentication error with connection/transport errors into one HomeAssistantError whose message is generic or embeds f\"...{err}\".",
+    "rationale": "The user-visible message is the only cue that credentials need re-entering; collapsing it into the generic connection wording hides the required action, and raw exception text is too technical for the frontend.",
+    "evidence": [
+      {
+        "pr": 164615,
+        "url": "https://github.com/home-assistant/core/pull/164615#discussion_r2873450354",
+        "excerpt": "consider returning an error message that indicates reauthentication is required"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/entity.py", "homeassistant/components/*/coordinator.py"]
+  },
+  {
+    "rule": "Gate conditional entity creation on the capability flag or coordinator data key that actually supplies the entity's value, not on an unrelated module/feature flag.",
+    "category": "correctness",
+    "trigger": "An entity is appended inside an if that tests a capability key different from the datapoint key the entity description reads (e.g. entity keyed on hidro.* created only when main.hasCL is set).",
+    "rationale": "Mismatched gating silently prevents an entity from ever being created on hardware that does provide the datapoint, and there is no error to trace it back to.",
+    "evidence": [
+      {
+        "pr": 168051,
+        "url": "https://github.com/home-assistant/core/pull/168051#discussion_r3069622977",
+        "excerpt": "Gate this on the correct capability (e.g., hydrolysis presence flag)"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/binary_sensor.py", "homeassistant/components/*/sensor.py"]
+  },
+  {
+    "rule": "When the user step and the reauth step of a config flow perform the same validation, share one implementation and branch on the flow type at the end rather than duplicating the connect/validate block.",
+    "category": "api-design",
+    "trigger": "config_flow.py contains async_step_reauth_confirm whose try/except validation body duplicates async_step_user, differing only in the final async_create_entry vs async_update_reload_and_abort.",
+    "rationale": "Duplicated flow bodies drift apart as error handling changes; existing integrations such as airgradient already model the merged form reviewers ask new integrations to follow.",
+    "evidence": [
+      {
+        "pr": 173287,
+        "url": "https://github.com/home-assistant/core/pull/173287#discussion_r3379663175",
+        "excerpt": "as you user flow and reauth flow are very similar, you could consider merging them"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/config_flow.py"]
+  },
+  {
+    "rule": "A coordinator's _async_update_data must not issue one sequential API request per device; use the library's batch endpoint, or at minimum asyncio.gather, so the polling interval does not multiply request volume by device count.",
+    "category": "performance",
+    "trigger": "_async_update_data contains a for-loop over devices with an awaited per-device API call inside it, following an initial list/devices call.",
+    "rationale": "With a short update interval an N+1 fan-out scales request volume with the user's device count (10 devices = 11 requests/minute) and can trip cloud rate limits for everyone using the integration.",
+    "evidence": [
+      {
+        "pr": 172936,
+        "url": "https://github.com/home-assistant/core/pull/172936#discussion_r3361617212",
+        "excerpt": "This loop makes one API call per device on every update cycle (N+1 pattern)"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/coordinator.py"]
+  },
+  {
+    "rule": "Keep device- and API-specific data marshalling (timestamp formatting, parameter string construction) in the upstream vendor library rather than in the integration's coordinator.",
+    "category": "providers",
+    "trigger": "A coordinator or entity module defines helpers that format datetimes or build vendor-specific request parameter strings before passing them to the library client.",
+    "rationale": "Formatting rules belong to the device's API contract; keeping them in the library keeps the integration thin and means format changes are fixed once upstream instead of in core.",
+    "evidence": [
+      {
+        "pr": 174075,
+        "url": "https://github.com/home-assistant/core/pull/174075#discussion_r3452563360",
+        "excerpt": "it would be very cool if the library handles the datetime -> string part"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/coordinator.py"]
+  },
+  {
+    "rule": "Adding an entity platform module, or a new entity description to an existing platform's descriptions tuple, requires accompanying tests covering entity creation and state - with snapshot assertions for entity attributes.",
+    "category": "testing",
+    "trigger": "A diff adds homeassistant/components/<domain>/<platform>.py or appends an EntityDescription with a new key/device_class, without a matching added or extended tests/components/<domain>/test_<platform>.py.",
+    "rationale": "Untested platforms and device-class mappings regress silently during setup or state handling; integrations here are expected to have per-platform tests with snapshots the way their init and config-flow modules already do.",
+    "evidence": [
+      {
+        "pr": 172936,
+        "url": "https://github.com/home-assistant/core/pull/172936#discussion_r3356426066",
+        "excerpt": "the sensor platform should similarly have tests covering entity creation, state values, and snapshot assertions"
+      },
+      {
+        "pr": 169910,
+        "url": "https://github.com/home-assistant/core/pull/169910#discussion_r3195496596",
+        "excerpt": "Add tests that cover creation and state reporting for the new open window binary sensor"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/", "tests/components/"]
+  },
+  {
+    "rule": "Key entity caches and lookup dictionaries by a stable unique identifier (the entity's unique_id), never by its display name.",
+    "category": "correctness",
+    "trigger": "A module stores entities in a dict keyed by a human-readable name variable (sensor_name, friendly name, topic label) and later checks `if key not in store` to decide between creating and updating.",
+    "rationale": "Display names are not globally unique - two devices or topics can both produce \"Barometer\" - so a name-keyed store lets one sensor overwrite another or receive another's updates.",
+    "evidence": [
+      {
+        "pr": 172264,
+        "url": "https://github.com/home-assistant/core/pull/172264#discussion_r3304335160",
+        "excerpt": "Key the store by a stable unique identifier (unique_id) instead of the display name"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/sensor.py"]
+  },
+  {
+    "rule": "User-facing strings in strings.json must follow Home Assistant string style: spell out \"for example\" instead of \"e.g.\", avoid slash constructions such as \"Folder/Prefix\", and wrap literal example values in backticks rather than quotes.",
+    "category": "docs",
+    "trigger": "An added or changed value in strings.json (name, description, data_description) contains a slash-joined noun pair, \"e.g.\", or an example value in single/double quotes.",
+    "rationale": "These strings are shown in the config flow UI and are translated downstream; the project's string style guidance keeps them readable and consistently translatable across integrations.",
+    "evidence": [
+      {
+        "pr": 162836,
+        "url": "https://github.com/home-assistant/core/pull/162836#discussion_r2814409228",
+        "excerpt": "avoid the slash and use backticks for the example value"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/strings.json"]
+  },
+  {
+    "rule": "Log per-item skip or parse failures at debug level; reserve _LOGGER.warning for conditions the user can act on and that cannot repeat once per listed item.",
+    "category": "correctness",
+    "trigger": "A _LOGGER.warning call sits inside a loop over remote objects/files in an except branch that merely skips the item.",
+    "rationale": "A bucket or listing can contain many unrelated items, so a per-item warning floods the log for a condition the user cannot fix; diagnostics stay available at debug level.",
+    "evidence": [
+      {
+        "pr": 171589,
+        "url": "https://github.com/home-assistant/core/pull/171589#discussion_r3294787275",
+        "excerpt": "Logging a warning per skipped metadata file can become noisy"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/backup.py", "homeassistant/components/"]
+  },
+  {
+    "rule": "A failing backup agent must fail only itself: an exception raised by one backup platform must not abort the overall backup or the other platforms, and the platform API contract is documented rather than defensively re-validated.",
+    "category": "correctness",
+    "trigger": "Changes to the backup agent/platform API (agent.py, manager.py) that propagate a single agent's exception into the shared backup flow, or add per-call validation of platform-supplied callbacks.",
+    "rationale": "Integrations can always contain bugs; the manager's job is isolation of the offending platform, and the documented platform API is the contract rather than runtime checks in core.",
+    "evidence": [
+      {
+        "pr": 163608,
+        "url": "https://github.com/home-assistant/core/pull/163608#discussion_r2841763717",
+        "excerpt": "We should just make sure that it's only that backup platform that will fail"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/backup/"]
+  },
+  {
+    "rule": "Do not silence an untyped third-party return value with a broad `# type: ignore`; cast the value explicitly (e.g. int(...)) or add typing for the library function.",
+    "category": "correctness",
+    "trigger": "A return statement or assignment gains a `# type: ignore[no-any-return]` (or similar blanket ignore) around a call into an untyped external dependency.",
+    "rationale": "The ignore comment disables checking for the whole statement, so later type errors on that line go unreported; an explicit cast keeps the annotation meaningful.",
+    "evidence": [
+      {
+        "pr": 167602,
+        "url": "https://github.com/home-assistant/core/pull/167602#discussion_r3045871470",
+        "excerpt": "Replace the broad type-ignore on the return statement with an explicit int cast"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/", "homeassistant/"]
+  },
+  {
+    "rule": "An entity lifecycle override must call the matching base-class hook (async_will_remove_from_hass calls super().async_will_remove_from_hass()); never satisfy the home-assistant-missing-super-call check by calling a different hook or by disabling it.",
+    "category": "correctness",
+    "trigger": "An overridden async_added_to_hass / async_will_remove_from_hass calls a super() method with a different name, or adds `# pylint: disable-next=home-assistant-missing-super-call`.",
+    "rationale": "The custom pylint check exists because skipping or crossing lifecycle hooks leaves base-class subscriptions and cleanup in an inconsistent state; disabling it hides exactly the bug it detects.",
+    "evidence": [
+      {
+        "pr": 175986,
+        "url": "https://github.com/home-assistant/core/pull/175986#discussion_r3544956832",
+        "excerpt": "Call the correct removal hook on the base class (async_will_remove_from_hass)"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/entity.py", "homeassistant/components/"]
+  }
+]

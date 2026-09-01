@@ -1,0 +1,342 @@
+[
+  {
+    "rule": "Docs and newsfragment prose must use the Airflow 3 spellings of core nouns: `Dag`, `Dag run`, `Dag files`, `Dag bundles`, `Dag Processor`, `API Server` (never `DAG`, `webserver`, or `DAG processor`), while generic concept words stay lowercase (`email notifier`, not `email Notifier`) unless they name an actual class",
+    "category": "docs",
+    "trigger": "A `.rst` docs page or newsfragment adds prose containing `DAG`, `DAG run`, `DAG files`, `webserver`, `DAG processor`, or capitalises a generic concept noun that is not a class name",
+    "rationale": "Airflow 3 renamed the components and standardised on `Dag` in prose; mixed spellings in new pages make them inconsistent with the rest of the documentation, and capitalising a concept implies a class that does not exist",
+    "evidence": [
+      {
+        "pr": 53727,
+        "url": "https://github.com/apache/airflow/pull/53727#discussion_r2266271491",
+        "excerpt": "Deadline Alerts allow you to set time thresholds for your Dag runs"
+      },
+      {
+        "pr": 53727,
+        "url": "https://github.com/apache/airflow/pull/53727#discussion_r2243570766",
+        "excerpt": "Unless you have good reason to keep it capitalized? ... existing email notifier"
+      },
+      {
+        "pr": 67994,
+        "url": "https://github.com/apache/airflow/pull/67994#discussion_r3383967813",
+        "excerpt": "replaced ``webserver`` references with ``API Server``, introduced ``Dag bundles`` as a required component"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/",
+      "airflow-core/newsfragments/"
+    ]
+  },
+  {
+    "rule": "When docs enumerate a feature's parameters, each bullet must name the exact keyword argument in double backticks (``reference``, ``interval``, ``callback``) and the stated mandatory/optional counts must match the real signature",
+    "category": "docs",
+    "trigger": "A docs page lists parameters as capitalised prose words (`Reference:`, `Interval:`, `Callback Kwargs:`) or claims a number of mandatory parameters that disagrees with the constructor signature",
+    "rationale": "Readers copy parameter names straight from the docs into their Dag code, so prose names that differ from the real keyword arguments produce examples that cannot run",
+    "evidence": [
+      {
+        "pr": 53727,
+        "url": "https://github.com/apache/airflow/pull/53727#discussion_r2266277878",
+        "excerpt": "looks more like 3 mandatory args but we can modify callback"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/howto/deadline-alerts.rst",
+      "airflow-core/docs/"
+    ]
+  },
+  {
+    "rule": "`curl` examples in the docs must percent-encode reserved characters in the query string (`%7C` for `|`, `%5E` for `^`) or use `curl --data-urlencode`, so the example runs when copied verbatim",
+    "category": "docs",
+    "trigger": "A `.. code-block:: bash` block adds a curl invocation whose URL query string contains a raw `|`, `^`, or other RFC 3986 reserved character",
+    "rationale": "`|` and `^` are not valid URL characters and may be rejected by proxies and clients, so the copy/pasted API example fails for the reader",
+    "evidence": [
+      {
+        "pr": 64610,
+        "url": "https://github.com/apache/airflow/pull/64610#discussion_r3147217212",
+        "excerpt": "`|` is not a valid URL character per RFC 3986"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/authoring-and-scheduling/assets.rst",
+      "airflow-core/docs/"
+    ]
+  },
+  {
+    "rule": "A language-SDK docs page that documents log forwarding must also document the configuration the SDK already reads for it — for the Java SDK, `AIRFLOW__LOGGING__LOGGING_LEVEL` and `AIRFLOW__LOGGING__NAMESPACE_LEVELS`",
+    "category": "docs",
+    "trigger": "A new Logging section under `airflow-core/docs/authoring-and-scheduling/language-sdks/` lists the integration artifacts but has no subsection on setting log levels",
+    "rationale": "The Java side reads those env vars at startup; documenting only the artifacts leaves users unable to discover configuration that already exists",
+    "evidence": [
+      {
+        "pr": 68725,
+        "url": "https://github.com/apache/airflow/pull/68725#discussion_r3440328796",
+        "excerpt": "reads AIRFLOW__LOGGING__LOGGING_LEVEL and AIRFLOW__LOGGING__NAMESPACE_LEVELS at startup - worth a short subsection"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/authoring-and-scheduling/language-sdks/"
+    ]
+  },
+  {
+    "rule": "A new row in `extra-packages-ref.rst` must describe exactly the component types the provider ships (hooks, triggers, queue providers, operators); do not write \"hooks and operators\" for a provider that defines no operators",
+    "category": "docs",
+    "trigger": "A diff adds a row to the extras table in `airflow-core/docs/extra-packages-ref.rst` whose description does not match the components actually defined in the corresponding provider package",
+    "rationale": "The extras table is how users decide which extra to install; a description that overstates what a provider ships sends them hunting for operators that do not exist",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r2984869099",
+        "excerpt": "provider currently defines hooks/triggers/queue provider and no operators"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/extra-packages-ref.rst"
+    ]
+  },
+  {
+    "rule": "A PR's title and description must describe the scope actually present in the diff; a documentation/CI/repo-metadata-only change must not be titled as a CLI or behaviour fix",
+    "category": "commit-hygiene",
+    "trigger": "PR title or description claims a code/CLI behaviour change (e.g. \"map_index bounds validation\") but the diff touches only docs, CI configuration, or repo metadata",
+    "rationale": "Airflow's changelog tooling and reviewers both work from the title and description, so a mismatch misleads the release notes as well as the review",
+    "evidence": [
+      {
+        "pr": 64133,
+        "url": "https://github.com/apache/airflow/pull/64133#discussion_r3066474692",
+        "excerpt": "update the PR title/description to reflect the documentation/CI scope to avoid misleading changelog tooling"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/",
+      "airflow-core/newsfragments/"
+    ]
+  },
+  {
+    "rule": "`AsyncCallback` must wrap something that is actually awaitable; synchronous notifiers such as `SlackWebhookNotifier` expose no awaitables and must not appear inside `AsyncCallback` in deadline-alert examples or Dag code",
+    "category": "async",
+    "trigger": "`AsyncCallback(` is constructed with a notifier or callable that defines no async interface, in docs examples or in deadline configuration",
+    "rationale": "Docs examples are copied verbatim, so pairing AsyncCallback with a non-awaitable notifier ships an example that cannot work; reviewers insist examples be working examples",
+    "evidence": [
+      {
+        "pr": 53727,
+        "url": "https://github.com/apache/airflow/pull/53727#discussion_r2263984607",
+        "excerpt": "This should be awaitable for `AsyncCallback`, SlackWebhookNotifier doesn't have any awaitbale's"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/howto/deadline-alerts.rst"
+    ]
+  },
+  {
+    "rule": "Do not describe the Execution API as an \"internal\" API; describe it as an API for use by Airflow itself rather than third-party callers, because it is deliberately reachable from outside the deployment",
+    "category": "docs",
+    "trigger": "Security or API documentation introduces the Execution API with the word \"internal\", or implies it is not exposed outside the deployment boundary",
+    "rationale": "Calling it internal suggests to deployers that it need not be secured or exposed, but workers call it from outside the deployment",
+    "evidence": [
+      {
+        "pr": 64760,
+        "url": "https://github.com/apache/airflow/pull/64760#discussion_r3044299545",
+        "excerpt": "clarify what we mean by \"internal\" -- since it is designed to be called"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/security/jwt_token_authentication.rst"
+    ]
+  },
+  {
+    "rule": "The UI authentication JWT must be stored in a secure, HTTP-only `_token` cookie with `SameSite=Lax`, never in browser local storage or local settings",
+    "category": "security",
+    "trigger": "Auth-manager or UI code, or documentation of it, stores or describes storing the `access_token` anywhere other than the secure HTTP-only cookie",
+    "rationale": "The project deliberately moved off local settings/storage to secure cookies because local storage is vulnerable to a wider class of attacks",
+    "evidence": [
+      {
+        "pr": 64760,
+        "url": "https://github.com/apache/airflow/pull/64760#discussion_r3072842703",
+        "excerpt": "we changed it later to securit cookies, as Local Setting are portentially vulnerable"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/security/jwt_token_authentication.rst"
+    ]
+  },
+  {
+    "rule": "Execution API JWTs are minted by the scheduler via the executor's `jwt_generator` property while the workload is built; `executor.queue_workload()` must not generate tokens, it forwards whatever workload it is given",
+    "category": "security",
+    "trigger": "An executor implementation creates or refreshes a task JWT inside `queue_workload()` (or elsewhere in the executor) instead of consuming the token already present on the workload",
+    "rationale": "Token minting is centralised on the scheduler side so every executor produces identical tokens configured from `[execution_api]`, and executors stay dumb transports",
+    "evidence": [
+      {
+        "pr": 64760,
+        "url": "https://github.com/apache/airflow/pull/64760#discussion_r3044313975",
+        "excerpt": "`executor.queue_workload()` doesn't do the generation, it just takes what ever it is given"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/security/jwt_token_authentication.rst",
+      "airflow-core/src/airflow/executors/"
+    ]
+  },
+  {
+    "rule": "Security-model guidance that narrows credential distribution must keep connection credentials available to the Dag processor and triggerer; only the JWT signing key is withheld from components that neither generate nor validate tokens (workers)",
+    "category": "security",
+    "trigger": "`security_model.rst` or deployment guidance adds advice that connection credentials should be available only to the API server, without carving out the Dag processor and triggerer",
+    "rationale": "The triggerer needs connections for async jobs (e.g. Databricks) and the Dag processor needs them for deadline-alert notifiers (e.g. Slack); a blanket restriction disables those features",
+    "evidence": [
+      {
+        "pr": 64760,
+        "url": "https://github.com/apache/airflow/pull/64760#discussion_r3044445188",
+        "excerpt": "if you don't allow Conns to the DagFileProcessor or Trigger it will severely limit"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/security/security_model.rst"
+    ]
+  },
+  {
+    "rule": "A `.feature.rst` newsfragment must state what the new API does for users, not the internal defect it fixes: \"check whether a user is authorized to approve a HITL task\", not \"to fix ApprovalOperator authorization\"",
+    "category": "docs",
+    "trigger": "A newsfragment sentence is phrased as \"... to fix <internal component/behaviour>\" instead of describing the capability the change adds",
+    "rationale": "Newsfragments become release notes read by operators who never saw the bug, so fix-framing tells them nothing about what changed for them",
+    "evidence": [
+      {
+        "pr": 59399,
+        "url": "https://github.com/apache/airflow/pull/59399#discussion_r2623993243",
+        "excerpt": "method to check whether a user a is authorized to approve a HITL task"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/newsfragments/"
+    ]
+  },
+  {
+    "rule": "A `.significant.rst` newsfragment that ticks the Behaviour-change or Code-interface-change checkbox must spell out the delta in prose: \"Previously it worked as X, now it works as Y\" / \"Previously the interface was X, now it is Y\"",
+    "category": "docs",
+    "trigger": "A `.significant.rst` file marks `[x] Behaviour changes` or `[x] Code interface changes` but contains no before/after explanation of what changed",
+    "rationale": "The ticked checkbox alone does not tell an upgrading user what to change; the explicit before/after is what makes the fragment actionable",
+    "evidence": [
+      {
+        "pr": 63419,
+        "url": "https://github.com/apache/airflow/pull/63419#discussion_r2923313988",
+        "excerpt": "I expected to see something like: \"Previously it worked as ... now it works as\""
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/newsfragments/"
+    ]
+  },
+  {
+    "rule": "A significant newsfragment describing an observability or process-management change must add the operator-visible impact and migration step (dashboards built on the old Gauge must move to Histogram aggregations; how to roll-restart the api-server on Kubernetes)",
+    "category": "docs",
+    "trigger": "A `.significant.rst` describes an internal representation or process change (metric instrument type, uvicorn worker/restart model) without saying what existing deployments must do about it",
+    "rationale": "Operators read these fragments to decide whether their Grafana panels or deployment automation break; the internal description alone leaves that unknown",
+    "evidence": [
+      {
+        "pr": 67233,
+        "url": "https://github.com/apache/airflow/pull/67233#discussion_r3273155280",
+        "excerpt": "dashboards built against the previous Gauge representation will need to migrate to Histogram aggregations"
+      },
+      {
+        "pr": 60940,
+        "url": "https://github.com/apache/airflow/pull/60940#discussion_r2753284864",
+        "excerpt": "Do we need to mention the case when using `uvicorn` in k8s?"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/newsfragments/"
+    ]
+  },
+  {
+    "rule": "Do not add a newsfragment for a documentation-only change; a `.doc.rst` fragment for a pure docs update is overkill",
+    "category": "commit-hygiene",
+    "trigger": "A PR whose diff touches only files under `docs/` also adds a file under `airflow-core/newsfragments/`",
+    "rationale": "Docs updates do not need release-note entries, and the extra fragment adds review and changelog noise for no reader benefit",
+    "evidence": [
+      {
+        "pr": 67994,
+        "url": "https://github.com/apache/airflow/pull/67994#discussion_r3383967813",
+        "excerpt": "I don't think you need a newsfragment for a docs update"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/newsfragments/"
+    ]
+  },
+  {
+    "rule": "Partition mapper classes must be named `To<Granularity>Mapper` (`ToHourlyMapper`, `ToDailyMapper`, `ToWeeklyMapper`, `ToMonthlyMapper`, `ToQuarterlyMapper`), not the bare granularity name",
+    "category": "naming",
+    "trigger": "A new partition mapper class, or documentation of one, uses a bare granularity name such as `HourlyMapper` or `DailyMapper`",
+    "rationale": "Mappers transform upstream partition keys into a different granularity, so the `To` prefix makes the direction of the transform explicit rather than ambiguous",
+    "evidence": [
+      {
+        "pr": 63419,
+        "url": "https://github.com/apache/airflow/pull/63419#discussion_r2964874577",
+        "excerpt": "``ToHourlyMapper``, ``ToDailyMapper``, ``ToWeeklyMapper``, ``ToMonthlyMapper``, ``ToQuarterlyMapper``"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/newsfragments/"
+    ]
+  },
+  {
+    "rule": "Profiling and other developer-only libraries (e.g. `memray`) must be declared as an optional extra in `airflow-core/pyproject.toml`, never appended to the mandatory `dependencies` list",
+    "category": "api-design",
+    "trigger": "A diff adds an entry to the top-level `dependencies = [...]` array in `airflow-core/pyproject.toml` for a tool that only some users need",
+    "rationale": "Every mandatory dependency is installed for every Airflow user; opt-in tooling belongs behind an extra such as `pip install 'apache-airflow[memray]'`",
+    "evidence": [
+      {
+        "pr": 56821,
+        "url": "https://github.com/apache/airflow/pull/56821#discussion_r2442473484",
+        "excerpt": "better to have it an optional \"memray\" dependency. We do not necessarily want"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/pyproject.toml"
+    ]
+  },
+  {
+    "rule": "Cross-team asset-event triggering must ship with the most restrictive default (a teamless API user may trigger only teamless consumers) and the restriction must be documented with the reasoning behind it",
+    "category": "security",
+    "trigger": "Multi-team documentation or code defines which producers may trigger which consumers across team boundaries, and either proposes a permissive default or states a rule with no explanation",
+    "rationale": "Reviewers prefer shipping with more restrictions and relaxing them later if needed; a permissive cross-team default cannot be tightened without a breaking change",
+    "evidence": [
+      {
+        "pr": 65690,
+        "url": "https://github.com/apache/airflow/pull/65690#discussion_r3133449132",
+        "excerpt": "I generally like shipping with more restrictions and relaxing them later if needed"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/core-concepts/multi-team.rst"
+    ]
+  },
+  {
+    "rule": "In `multi-team.rst`, feature-specific sections belong above the concluding multi-team architecture diagram, which is meant to end the page",
+    "category": "docs",
+    "trigger": "A new section is appended after the `multi_team_arch_diagram.png` image block in `airflow-core/docs/core-concepts/multi-team.rst`",
+    "rationale": "The overall architecture diagram is the generic conclusion of the page, so a specifically targeted section placed after it buries the new content",
+    "evidence": [
+      {
+        "pr": 65690,
+        "url": "https://github.com/apache/airflow/pull/65690#discussion_r3127321361",
+        "excerpt": "Can you shuffle this above the Architecture diagram? ... nice generic way to conclude"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/core-concepts/multi-team.rst"
+    ]
+  },
+  {
+    "rule": "Architecture docs must say the scheduler reads serialized Dags from the metadata database and needs no direct Dag bundle access, and must not assert that another component (e.g. the triggerer) accesses bundles directly without verifying it",
+    "category": "docs",
+    "trigger": "A docs diff enumerates which Airflow components require access to Dag bundles or Dag files",
+    "rationale": "Deployers use this list to decide what to sync or mount into which component, so an over-broad list forces unnecessary bundle distribution",
+    "evidence": [
+      {
+        "pr": 67994,
+        "url": "https://github.com/apache/airflow/pull/67994#discussion_r3383854351",
+        "excerpt": "I don't think the triggerer does, does it? Pretty sure it reads"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/docs/core-concepts/overview.rst"
+    ]
+  }
+]

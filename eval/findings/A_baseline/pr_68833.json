@@ -1,0 +1,15 @@
+{"pr": 68833,
+ "findings": [
+   {"path": "airflow-core/src/airflow/api_fastapi/core_api/services/public/event_logs.py",
+    "line": 31,
+    "category": "api-design",
+    "message": "This mutates a live persistent ORM instance in the session identity map purely to shape a response, so anything that reads `event_log.owner_display_name` later in the same session sees the substituted owner rather than the real (NULL) column value. A presentation-only fallback belongs in `EventLogResponse` (a model validator or computed field), not in the mapped object."},
+   {"path": "airflow-core/src/airflow/api_fastapi/core_api/services/public/event_logs.py",
+    "line": 38,
+    "category": "correctness",
+    "message": "Silently nulling a relationship that happens not to be eager-loaded turns a missing `joinedload` into wrong data rather than a slow query: any caller that forgets it gets `dag_display_name`/`task_display_name` as null with no signal. `get_event_log` was updated to `joinedload(Log.dag_model)`, but please confirm the `get_event_logs` collection query does too, otherwise the list endpoint now returns null display names where it previously returned real ones."},
+   {"path": "airflow-core/src/airflow/api_fastapi/core_api/routes/public/event_logs.py",
+    "line": 105,
+    "category": "api-design",
+    "message": "Sorting on `owner_display_name` orders by the raw column, but the value actually returned falls back to `owner` when the column is NULL. Clients sorting by this attribute will get an order that does not match the values in the response; either sort on `coalesce(owner_display_name, owner)` or leave the attribute out of the sortable list."}
+ ]}

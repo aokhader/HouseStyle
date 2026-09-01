@@ -1,0 +1,11 @@
+{"pr": 71067,
+ "findings": [
+   {"path": "providers/redis/src/airflow/providers/redis/hooks/redis.py",
+    "line": 89,
+    "category": "correctness",
+    "message": "Extras that arrive from a URI-defined connection (`redis://host:6379/?cluster=false`) are strings, so `\"false\"` is truthy here and silently switches the user onto the cluster client — the line just above already works around exactly this for `password`. The same coercion bites the `db` guard below: `{\"db\": \"0\"}` fails `not in (None, 0)` and raises \"only supports database 0\" for a db that *is* 0. Please normalise both values before using them."},
+   {"path": "providers/redis/docs/connections.rst",
+    "line": 93,
+    "category": "docs",
+    "message": "This is a `code-block:: json` with a `//` comment in it, which is not valid JSON — pygments will fail to lex the block (a Sphinx warning, and the docs build treats those as errors), and a user copying the snippet into the Extra field gets a parse error. Move the annotation into the prose above the block."}
+ ]}

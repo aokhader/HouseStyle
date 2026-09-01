@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding is about the dropped session.merge() call, while the human is about fileloc being left stale when the source hash is unchanged.",
+  "judge": "agent"
+}

@@ -4,20 +4,26 @@ Every prompt handed to IBM Bob on this project, in order, with status. Completed
 keep their prompts for the record — together with `bob_sessions/` they are the audit trail
 of how the project was built.
 
-| Phase | What | Status |
-|---|---|---|
-| 0 | Scaffold + project rules | complete |
-| 0b | Privacy rules correction | complete |
-| 1 | Harvester | complete |
-| 1b | Body backfill | complete |
-| 2a | Batching into tranches | complete |
-| 2b-map | Subagent fan-out | **validated by pilot** |
-| 2b-critic | Chunked reduce | not yet validated |
-| 2c | Contrast corpus | pending |
-| 3 | AGENTS.md cross-check | pending |
-| 4 | The Skill | pending |
-| 5 | Evaluation | pending |
-| 6 | Dashboard | pending |
+| Phase | What | Status | Run by |
+|---|---|---|---|
+| 0 | Scaffold + project rules | complete | Bob |
+| 0b | Privacy rules correction | complete | Bob |
+| 1 | Harvester | complete | Bob |
+| 1b | Body backfill | complete | Bob |
+| 2a | Batching into tranches | complete | Bob |
+| 2b-map | Subagent fan-out | complete — t1, t2 (60 batches) | Bob, then Claude Code |
+| 2b-critic | Chunked reduce + merge | complete — t1 | Claude Code |
+| 2c | Contrast corpus | complete — 20 batches | Claude Code |
+| 3 | AGENTS.md cross-check | complete | Claude Code |
+| 4 | The Skill | complete | Claude Code |
+| 5 | Evaluation | harness complete | Claude Code |
+| 6 | Dashboard | complete | Claude Code |
+
+> **Handoff.** Phases 0 through 2a ran in IBM Bob. Bob credits ran out partway through the
+> 2b map, and the remainder was completed in Claude Code against the same prompts, which
+> now live as files under `distill/prompts/` and `eval/prompts/` so they are versioned
+> rather than pasted. See [Completion notes](#completion-notes--what-changed-after-the-handoff)
+> at the end for what changed and why.
 
 **Target repos:** `apache/airflow` (primary, Apache-2.0), `home-assistant/core`
 (contrast, Apache-2.0).
@@ -556,3 +562,200 @@ before three. Never re-run a full tranche to fix a prompt — fix it on the next
 
 **Never cut:** the A_baseline condition (the entire impact argument), the evidence
 citations in findings (the design score), or `bob_sessions/` (a submission requirement).
+---
+
+## Completion notes — what changed after the handoff
+
+Phases 2b-critic onward were run in Claude Code rather than Bob. The prompts above were
+the starting point; these are the changes that survived contact with the data, and why.
+
+### Prompts are now files, not pasted text
+
+| File | Used by |
+|---|---|
+| `distill/prompts/map_subagent.md` | Phase 2b map, one subagent per batch |
+| `distill/prompts/critic_chunk.md` | Phase 2b critic, one per 10-batch chunk |
+| `distill/prompts/critic_merge.md` | Phase 2b critic-MERGE |
+| `distill/prompts/crosscheck.md` | Phase 3 |
+| `eval/prompts/review_baseline.md` | Phase 5, condition A |
+| `eval/prompts/review_housestyle.md` | Phase 5, conditions B and C |
+
+Each subagent is handed a path, not a wall of text, so a prompt change is a diff.
+
+### The critic was split: judgement in the agent, arithmetic in code
+
+The original 2b-critic prompt asked one agent to merge candidates *and* compute support
+counts *and* generalise scope paths *and* apply the threshold. A support count asserted by
+a language model is a number nobody can check, and it is the number the promotion
+threshold acts on.
+
+So `distill/critic.py` now owns everything downstream of the merge judgement. Subagents
+emit **clusters of candidate keys** (`t1/batch_007#3`) and nothing else. The code resolves
+each key's evidence against `comments.jsonl`, counts distinct PRs, generalises scopes,
+assigns stable ids and applies the threshold.
+
+This caught something a prose instruction would not have: **7 of 912 evidence URLs across
+the Airflow corpus did not resolve to any harvested comment** (2 of 408 for Home
+Assistant). Those are transcription slips — a digit wrong in a permalink. They are dropped
+rather than counted, because a finding whose precedent does not resolve is not a finding.
+
+### The merge contract was inverted
+
+Asking critic-MERGE to restate all 454 clusters produced an output large enough that the
+agent ran out of budget mid-write, twice, losing everything. A truncated restatement
+silently drops rules and looks like a successful run.
+
+The merge agent now emits **only the groups that merge** — around 50 — plus an optional
+`demote` list. `distill/critic.py merge-expand` derives the ~400 singletons in code. Loss
+became structurally impossible rather than something to check for afterwards.
+
+Key accounting is verified by script at every stage. Tranche 1: **499 candidates in, 499
+keys out across 454 clusters, zero duplicates, zero orphans.**
+
+### signal_strength does not discriminate on Airflow — and that is a measurement
+
+`.bob/rules/00-project.md` originally required at least one `strong` comment before
+promoting a rule. Measured on the corpus:
+
+| Repo | strong | medium | weak |
+|---|---|---|---|
+| `apache/airflow` | 5,454 (98.8%) | 7 (0.1%) | 59 (1.1%) |
+| `home-assistant/core` | 8,298 (78.1%) | 974 (9.2%) | 1,350 (12.7%) |
+
+On Airflow the gate admits everything — it would read as rigour while doing no work. On
+Home Assistant it carries real information. The field is recorded on every rule's evidence
+and gated on nowhere; the rules file was amended to say so rather than left contradicting
+the pipeline. This answers the question Phase 2c asked.
+
+### Tranche 3's map was not run
+
+Held deliberately, per the stopping rule. The map is the expensive part of a tranche, and
+skipping t3 is the only saving saturation can buy.
+
+### Phase 3 fetches documents instead of cloning
+
+The original prompt says to clone `apache/airflow` into a separate workspace and add
+`AGENTS.md` to `.bobignore` first, so the agent cannot edit the artifact it is meant to
+evaluate. `distill/fetch_docs.py` fetches read-only copies into gitignored `data/` instead
+— the same protection, without a multi-gigabyte clone. 35 documents, 397 KB.
+
+### Phase 5 has two judges
+
+The spec names IBM Granite on watsonx.ai, and `eval/judge.py` implements exactly that:
+IAM auth, the `text/chat` API, every verdict cached under `eval/cache/` keyed by a hash of
+the pair, and the three out-of-scope models refused rather than silently substituted.
+
+Because no watsonx credentials were available at completion time, a second backend writes
+undecided pairs to a queue for an agent judge working from the identical rubric, and reads
+verdicts back into the same cache. Adding credentials and re-running fills in the rest
+without re-judging anything already decided. The condition A and B/C reviewer prompts were
+written to be **symmetric** — same discipline, same output schema, same "prefer silence"
+instruction — because an asymmetry there would rig the comparison rather than measure it.
+
+### Tests
+
+60 tests cover the parts where a silent error would move a headline number without
+raising one: scope generalisation, excerpt clipping, id stability, contested detection,
+diff parsing and post-image line numbers, the scope filter, precedent suppression, the
+greedy one-to-one matcher, and the judge cache.
+
+```bash
+.venv/Scripts/python.exe -m pytest -q
+```
+
+### A negative result: lexical shortlisting cannot find merges
+
+Cross-tranche merging means one agent holding ~830 cluster summaries in mind at once. The
+obvious economy is to pre-filter with lexical similarity — propose likely pairs, let the
+agent adjudicate only those. It was built, measured against the 41 merge pairs critic-MERGE
+actually produced on tranche 1, and thrown away:
+
+| Jaccard threshold | pairs shortlisted | true merges recalled |
+|---|---|---|
+| 0.30 | 1 | 0% |
+| 0.22 | 8 | 10% |
+| 0.15 | 83 | 24% |
+| 0.10 | 501 | 34% |
+| 0.05 | 2,845 | 49% |
+
+Even at a threshold generating 2,845 candidate pairs it finds barely half the real merges.
+Reviewers phrase the same convention too differently for token overlap to catch — "spell it
+`Dag` not `DAG` in prose" and "user-facing docs use the `Dag` capitalisation" share almost
+no content words. The shortlist code was removed rather than left in looking useful.
+
+The workable economy is partitioning by category instead: merges essentially never cross
+category boundaries, so a large merge can be split into per-category agents without the
+recall loss.
+
+### The ablation as originally specified would have been trivially true
+
+Phase 5's condition C applies Home Assistant's rules to Airflow PRs. Run through the Skill's
+normal scope filter, **it scores zero because all 27 rules are rejected before their content
+is examined** — Home Assistant scopes are `homeassistant/components/...` and `tests/...`,
+which cannot intersect `airflow-core/` or `providers/`. Zero applicable rules on all 30
+held-out PRs.
+
+That is a real result about path specificity, and it is reported. But it does not test the
+claim the ablation exists to test: that the *conventions* are repo-specific, not just their
+file paths. So condition C is scored with the scope filter disabled — every Home Assistant
+rule offered against every Airflow diff — which asks whether those conventions actually fire
+on another repository's code. Both numbers are in `eval/results.md`.
+
+### The eval's recall is bounded by a prompt decision, and the report says so
+
+Both reviewer prompts instruct the reviewer to *prefer silence* — report only what a human
+would actually comment on. That is the right instinct for a review tool (an ignored tool
+has zero recall in practice), but it caps recall arithmetically. With ~0.4 findings per PR
+against 203 ground-truth comments, the highest recall any condition could reach is about
+6% even if every single finding matched.
+
+`eval/results.json` therefore reports a **`recall_ceiling`** alongside recall, and
+`results.md` explains the relationship. Without it a reader sees "1% recall" and concludes
+the rules are bad, when the actual fact is "the reviewer chose to speak 13 times and was
+echoed by a human twice".
+
+The instruction is identical in both prompts, so **the comparison between conditions is
+unaffected** — only the absolute recall scale is. A higher-verbosity run would trade
+precision for recall and measure a different product; the original Phase 5 prompt
+anticipated that direction ("expect precision to look bad"), and this run went the other
+way deliberately.
+
+### The judge is a separate agent from the orchestrator
+
+Semantic equivalence was adjudicated by a subagent that saw only the rubric and the
+finding/comment pairs — not the project, not which condition produced which finding, and
+not any expectation about the result. The orchestrating agent built the pipeline and
+should not grade its own output.
+
+It matters: on the first 13 pairs the independent judge returned **0 MATCH, 3 PARTIAL,
+10 NO_MATCH**, stricter than the orchestrator's own read of the same pairs, and it
+downgraded to PARTIAL a pair the orchestrator had called a clean match. It also flagged a
+structural property worth knowing — those 13 pairs covered only 8 distinct findings, since
+the matcher pairs each finding against every nearby comment before the one-to-one
+assignment picks a winner.
+
+### What condition C actually showed
+
+The ablation was expected to score near zero, and it did — but the *shape* of the near-zero
+is more informative than the number.
+
+Of 27 Home Assistant rules offered unscoped against 30 Airflow pull requests, only three
+fired, and all three are the framework-neutral ones:
+
+| Rule | What it says |
+|---|---|
+| `hass-r002` | import a value that already has a name instead of restating the literal |
+| `hass-r018` | a branch the diff adds must be tested in every outcome it can take |
+| `hass-r024` | every fixture and `TEST_*` constant added must be consumed by a test |
+
+Every genuinely Home-Assistant-shaped rule — config flows, coordinators, `strings.json`
+translation keys, `quality_scale.yaml`, `EntityDescription`, `.ambr` snapshots — fired on
+nothing at all, because the concepts its triggers name do not exist in Airflow.
+
+Two things follow. The intended one: **repo-specific conventions do not transfer, so the
+mining is learning a repository rather than detecting generic Python smells.** The
+unintended one: those three rules that did transfer are exactly the "universal software
+advice" the map prompt was written to reject, so condition C doubles as a leakage measure
+on the mining itself — roughly 3 of 27 Home Assistant rules are general programming advice
+wearing a repository's name. That is a number worth quoting against our own method, not
+just against the ablation.

@@ -1,0 +1,2142 @@
+{
+  "chunk": "chunk_B",
+  "source": "distill/candidates/t1",
+  "batches": "11-20",
+  "n_candidates": 178,
+  "candidates": [
+    {
+      "key": "t1/batch_011#0",
+      "rule": "Centralise all localStorage key strings in `src/constants/localStorage.ts`; do not scatter inline string literals across components.",
+      "category": "naming",
+      "trigger": "useLocalStorage(\\`[a-z_]+-\\$\\{",
+      "evidence_prs": [
+        53216
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/layouts/Details/DetailsLayout.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_011#1",
+      "rule": "When a persisted UI state value (e.g. `dagView`) becomes invalid because a required URL context (e.g. `runId`) is absent, add a `useEffect` to coerce the stored value back to a valid default.",
+      "category": "correctness",
+      "trigger": "useLocalStorage.*dagView|localStorage.*gantt",
+      "evidence_prs": [
+        64335
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/layouts/Details/DetailsLayout.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_011#10",
+      "rule": "Check API error HTTP status using `(error as ExpandedApiError).status` or optional-chaining `error?.status`; do not use `instanceof ApiError`.",
+      "category": "correctness",
+      "trigger": "instanceof ApiError",
+      "evidence_prs": [
+        61560
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/queries/useDagParsing.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_011#11",
+      "rule": "Normalize field values (e.g. `\"\" → undefined/null`) before comparing against the initial value to build `updateMask`; do not push a field into `updateMask` based on an un-normalized comparison.",
+      "category": "correctness",
+      "trigger": "updateMask\\.push.*team_name|updateMask.*push.*===.*undefined",
+      "evidence_prs": [
+        63994
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/queries/useEditConnection.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_011#12",
+      "rule": "When the UI must clear an existing server-side field, send `null` (not `undefined`) in the request body so the field is included in `model_fields_set` on the backend.",
+      "category": "correctness",
+      "trigger": "=== \"\" \\? undefined : |teamName.*undefined.*updateMask",
+      "evidence_prs": [
+        63994
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/queries/useEditVariable.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_011#13",
+      "rule": "Use the OpenAPI-generated react-query hooks for all API calls; do not make raw `fetch` calls with manually encoded query strings.",
+      "category": "api-design",
+      "trigger": "fetch\\(`\\$\\{OpenAPI\\.BASE\\}|encodeURIComponent.*join\\(\"&\"\\)",
+      "evidence_prs": [
+        62369
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/queries/useGridTISummaries.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_011#14",
+      "rule": "Do not prop-drill URL search-param values (e.g. `tryNumber`) through multiple component levels; read them directly from `useSearchParams` in the consuming component.",
+      "category": "api-design",
+      "trigger": "tryNumber.*props|prop.*tryNumber.*ExtraLinks",
+      "evidence_prs": [
+        65661
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/pages/TaskInstance/ExtraLinks.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_011#15",
+      "rule": "Use Chakra semantic color tokens in `.tsx` component files; do not reference hardcoded Tailwind/color-scale strings outside a designated theme/utils file.",
+      "category": "docs",
+      "trigger": "color.*blue\\.[0-9]+|color.*green\\.[0-9]+|color.*red\\.[0-9]+",
+      "evidence_prs": [
+        53981
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/theme/react_components_analysis.md"
+      ]
+    },
+    {
+      "key": "t1/batch_011#2",
+      "rule": "Extract shared visual constants (gradient strings, pixel offsets, colours) that are used across two or more components into the nearest `constants.ts` file for the feature folder.",
+      "category": "api-design",
+      "trigger": "const [A-Z_]+ =\\s*\"linear-gradient|const [A-Z_]+_PX =",
+      "evidence_prs": [
+        69121
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/layouts/Details/Grid/Bar.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_011#3",
+      "rule": "Use `total_entries` from the API response for displaying counts when a hard `limit` is applied; never use `array.length` as the displayed count.",
+      "category": "correctness",
+      "trigger": "limit:\\s*\\d+.*\\.length|missedDeadlines\\.length|pendingDeadlines\\.length",
+      "evidence_prs": [
+        62195
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/pages/Dag/Calendar/CalendarDeadlines.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_011#4",
+      "rule": "When a component queries with a hard `limit`, check `data.total_entries > limit` and show a '+ N more' affordance (e.g. a modal) rather than silently truncating results.",
+      "category": "api-design",
+      "trigger": "limit:\\s*\\d+[^,]*(totalEntries|total_entries)",
+      "evidence_prs": [
+        62195
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/pages/Run/DeadlineStatus.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_011#5",
+      "rule": "Filter-reset logic must not delete the ordering/sort search param; only clear actual filter params.",
+      "category": "correctness",
+      "trigger": "searchParams\\.delete\\(.*ORDER|resetFilters.*searchParams\\.delete",
+      "evidence_prs": [
+        54210
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/pages/Events/EventsFilters.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_011#6",
+      "rule": "Do not use `Boolean(value)` to test whether a filter is active; check `value !== undefined && value !== null` so that valid falsy values (e.g. `map_index = 0`) are correctly counted as active filters.",
+      "category": "correctness",
+      "trigger": "Boolean\\([a-zA-Z]+\\).*count|count.*Boolean\\(",
+      "evidence_prs": [
+        54210
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/pages/Events/filterUtils.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_011#7",
+      "rule": "Filter inputs that are redundant in a context-specific view (e.g. DAG ID filter when `dagId` is already in the URL path) must be hidden via conditional rendering.",
+      "category": "api-design",
+      "trigger": "dagId.*===.*undefined.*EventsFilters|dagId.*filter.*Input",
+      "evidence_prs": [
+        54210
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/pages/Events/Events.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_011#8",
+      "rule": "Feature sub-components must be grouped in a named folder (e.g. `TaskFilters/`) with a single barrel export; only the folder's root component is imported from outside.",
+      "category": "api-design",
+      "trigger": "import.*from.*\\.\\./[A-Z][a-zA-Z]+/[A-Z][a-zA-Z]+Filter",
+      "evidence_prs": [
+        54484
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/pages/Dag/Tasks/AttrSelectFilter.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_011#9",
+      "rule": "Reset the pagination OFFSET search param whenever a filter mode (e.g. tag match mode) changes to avoid landing on an empty page.",
+      "category": "correctness",
+      "trigger": "setTagFilterMode|TAGS_MATCH_MODE.*searchParams\\.set",
+      "evidence_prs": [
+        63273
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/pages/DagsList/useTagFilter.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_012#0",
+      "rule": "Use `airflow/utils/hashlib_wrapper.py` instead of `hashlib.md5()` directly so that MD5 works in FIPS-enabled environments.",
+      "category": "security",
+      "trigger": "diff adds `import hashlib` or calls `hashlib.md5(` in airflow-core Python source",
+      "evidence_prs": [
+        60065
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/utils/code_utils.py"
+      ]
+    },
+    {
+      "key": "t1/batch_012#1",
+      "rule": "New `_REVISION_HEADS_MAP` entries in `db.py` must be monotonically ordered: each Airflow version must map to a migration whose `down_revision` points to the previous version's head, never a later one.",
+      "category": "database",
+      "trigger": "diff modifies `_REVISION_HEADS_MAP` in `airflow/utils/db.py`",
+      "evidence_prs": [
+        62343
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/utils/db.py"
+      ]
+    },
+    {
+      "key": "t1/batch_012#10",
+      "rule": "Each e2e page helper method that navigates to a URL must also wait for a key element to become visible before returning.",
+      "category": "testing",
+      "trigger": "diff adds a `navigateTo*` or `goto(` call in a `tests/e2e/pages/*.ts` file without a subsequent `waitFor` or `expect(...).toBeVisible`",
+      "evidence_prs": [
+        59943
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/tests/e2e/pages/DagsPage.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_012#11",
+      "rule": "E2e specs must use `testConfig.testDag.id` for the DAG under test, not a hardcoded string constant such as `\"example_bash_operator\"`.",
+      "category": "testing",
+      "trigger": "diff adds `const DAG_ID = \"example_bash_operator\"` or similar hardcoded DAG ID string in a `tests/e2e/specs/*.ts` file",
+      "evidence_prs": [
+        59943
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/tests/e2e/specs/dag-tasks.spec.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_012#12",
+      "rule": "E2e specs that depend on a successful DAG run must use a `test.beforeAll` block to trigger the DAG and wait for `\"success\"` status before running assertions.",
+      "category": "testing",
+      "trigger": "diff adds a `test.describe` block in `tests/e2e/specs/*.ts` that asserts DAG-run-dependent state without a `beforeAll` that calls `triggerDag` and `verifyDagRunStatus`",
+      "evidence_prs": [
+        59943
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/tests/e2e/specs/dag-tasks.spec.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_012#13",
+      "rule": "E2e tests that verify pagination must use `expect.poll()` to assert that page content has changed, not re-querying immediately after a navigation click.",
+      "category": "testing",
+      "trigger": "diff adds pagination assertions in `tests/e2e/specs/*.ts` that compare page content immediately after `clickNextPage()` without `expect.poll`",
+      "evidence_prs": [
+        60449
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/tests/e2e/pages/RequiredActionsPage.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_012#14",
+      "rule": "E2e tests must not have conditional logic that makes them pass regardless of whether the feature under test works (no-op tests).",
+      "category": "testing",
+      "trigger": "diff adds an `if (count > 0) { … }` guard or similar short-circuit in a `tests/e2e/specs/*.ts` assertion block",
+      "evidence_prs": [
+        59943
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/tests/e2e/specs/dag-tasks.spec.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_012#15",
+      "rule": "Mermaid initialisation in the Airflow UI must be managed as a React context provider in `src/context`, not as a module-level mutable variable.",
+      "category": "api-design",
+      "trigger": "diff adds or modifies mermaid initialisation code outside `airflow-core/src/airflow/ui/src/context/`",
+      "evidence_prs": [
+        66809
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/utils/renderMermaid.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_012#16",
+      "rule": "Prefer `getByText` + `.locator('input')` over `getByRole('textbox', { name: … })` when the `<Input>` inside `InputWithAddon` does not expose an accessible name.",
+      "category": "testing",
+      "trigger": "diff adds `getByRole(\"textbox\", { name: filterLabel })` in an e2e page object that targets an `InputWithAddon` component",
+      "evidence_prs": [
+        63463
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/tests/e2e/pages/EventsPage.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_012#2",
+      "rule": "When adding a new Alembic migration, add a corresponding `_REVISION_HEADS_MAP` entry for the **next** unreleased Airflow version, not an already-released one.",
+      "category": "database",
+      "trigger": "diff adds a new Alembic migration file under `airflow/migrations/` without updating `_REVISION_HEADS_MAP`, or updates an already-released version key",
+      "evidence_prs": [
+        62343
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/utils/db.py"
+      ]
+    },
+    {
+      "key": "t1/batch_012#3",
+      "rule": "Do not log connection URIs or credential strings at any log level; use the security code-scanning suppressions or redact before logging.",
+      "category": "security",
+      "trigger": "diff adds a `log.` call whose argument is a variable derived from a connection URI, password, or secret",
+      "evidence_prs": [
+        56191
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/utils/log/connection_manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_012#4",
+      "rule": "In `file_task_handler._read`, treat `UP_FOR_RETRY` and `UP_FOR_RESCHEDULE` as states with a completed attempt, not as actively-running states; serve logs via the fallback path for both.",
+      "category": "correctness",
+      "trigger": "diff changes the `ti.state` condition in `FileTaskHandler._read` and references `TaskInstanceState.UP_FOR_RETRY` or `UP_FOR_RESCHEDULE`",
+      "evidence_prs": [
+        54547
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/utils/log/file_task_handler.py"
+      ]
+    },
+    {
+      "key": "t1/batch_012#5",
+      "rule": "Define carve-outs from `State.unfinished` as a module-level `frozenset` constant rather than inline `or == specific_member` conditions.",
+      "category": "correctness",
+      "trigger": "diff adds `ti.state not in State.unfinished or ti.state ==` pattern in `file_task_handler.py`",
+      "evidence_prs": [
+        54547
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/utils/log/file_task_handler.py"
+      ]
+    },
+    {
+      "key": "t1/batch_012#6",
+      "rule": "Do not prefix a TypeAlias with `Legacy` when non-streaming log providers may always exist; use a domain-meaningful name such as `LogResponse` vs `StreamingLogResponse`.",
+      "category": "naming",
+      "trigger": "diff introduces a `TypeAlias` or class name prefixed with `Legacy` in `file_task_handler.py`",
+      "evidence_prs": [
+        54813
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/utils/log/file_task_handler.py"
+      ]
+    },
+    {
+      "key": "t1/batch_012#7",
+      "rule": "Shared enums that must be understood by multi-language DAG authoring (e.g. WeightRule, TriggerRule) must be defined in the ExecAPI OpenAPI spec, not shared via Python code or `airflow-shared`.",
+      "category": "api-design",
+      "trigger": "diff moves or adds an Airflow enum (TriggerRule, WeightRule, etc.) to `airflow-shared/` or imports it from there in task-SDK or provider code",
+      "evidence_prs": [
+        53393
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/utils/weight_rule.py"
+      ]
+    },
+    {
+      "key": "t1/batch_012#8",
+      "rule": "Custom SQLAlchemy compilation functions (via `@compiles`) must use bound parameters, not string interpolation, to avoid SQL injection through user-controlled values.",
+      "category": "security",
+      "trigger": "diff adds a `@compiles` function that builds an SQL string with f-string or `%`/`.format()` containing column or value expressions",
+      "evidence_prs": [
+        64611
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/utils/sqlalchemy.py"
+      ]
+    },
+    {
+      "key": "t1/batch_012#9",
+      "rule": "In the UI e2e Page Object layer, page helper methods must not have default parameter values; callers must supply all arguments explicitly.",
+      "category": "testing",
+      "trigger": "diff adds a method in a `tests/e2e/pages/*.ts` file with a default value for a string parameter (e.g. `dagId: string = \"example_bash_operator\"`)",
+      "evidence_prs": [
+        59943
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/tests/e2e/pages/DagsPage.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_013#0",
+      "rule": "When adding a provider module path to the project-structure test allowlist, the corresponding test file must already exist in that PR.",
+      "category": "testing",
+      "trigger": "diff adds a path string to the allowlist in `test_providers_modules_should_have_tests` but the referenced test file is not present in the same PR",
+      "evidence_prs": [
+        62232
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/always/test_project_structure.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#1",
+      "rule": "Test method names that reference SQLAlchemy/database exception types must spell multi-word names as separate words separated by underscores (e.g., `data_error` not `dataerror`).",
+      "category": "naming",
+      "trigger": "diff introduces a test function whose name concatenates a known multi-word SQLAlchemy exception (e.g., `dataerror`, `operationalerror`, `integrityerror`) without underscores",
+      "evidence_prs": [
+        66888
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/api_fastapi/common/test_exceptions.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#10",
+      "rule": "Use `session.scalar(select(Model).where(…))` (or `session.scalars(…).one()`) instead of the legacy `session.query(Model).filter(…).one()` ORM style.",
+      "category": "database",
+      "trigger": "diff contains `session.query(…).filter(…)` in test or source code",
+      "evidence_prs": [
+        59823
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/jobs/test_scheduler_job.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#11",
+      "rule": "airflow-core tests must not import from `airflow.sdk._shared` or other task-sdk internal paths directly; doing so makes airflow-core tests unrunnable without task-sdk installed.",
+      "category": "correctness",
+      "trigger": "diff changes an import in an `airflow-core` test from `airflow.X` to `airflow.sdk._shared.X` or any other `airflow.sdk` internal namespace",
+      "evidence_prs": [
+        59883
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/listeners/test_listeners.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#12",
+      "rule": "Alembic stairway migration tests must include the failing revision ID in the error message so CI logs immediately identify the broken migration.",
+      "category": "testing",
+      "trigger": "diff adds a loop over migration revisions that calls `command.upgrade` / `command.downgrade` without re-raising or `pytest.fail`-ing with the `revision_id` in the message",
+      "evidence_prs": [
+        64905
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/migrations/test_migration_utils.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#13",
+      "rule": "When catching exceptions from `airflow.sdk` in airflow-core tests, assert against the exception class from the SDK package, not from `airflow.exceptions`, to avoid an always-false assertion after the class was moved.",
+      "category": "correctness",
+      "trigger": "diff imports an exception (e.g., `FailFastDagInvalidTriggerRule`) from `airflow.exceptions` in an airflow-core test that exercises code whose raise site now lives in `airflow.sdk`",
+      "evidence_prs": [
+        53389
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/models/test_dag.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#14",
+      "rule": "In docstrings and test names, spell 'Dag' with a capital D and lowercase 'ag' (i.e., `Dag`, not `DAG`) when referring to the Python class in prose.",
+      "category": "naming",
+      "trigger": "diff adds or modifies a docstring or test name that uses `DAG` (all-caps) when referring to the Python DAG class in a prose sentence",
+      "evidence_prs": [
+        61702
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/models/test_dag.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#15",
+      "rule": "Tests that assert on complete tag/stats dictionaries must not be split into per-key assertions that allow unknown keys to pass silently; assert the full dict equality unless explicitly testing a subset.",
+      "category": "testing",
+      "trigger": "diff changes `assert tags == {\"key\": \"value\", …}` to individual `assert tags[\"key\"] == \"value\"` assertions on a dict that should be fully specified",
+      "evidence_prs": [
+        68568
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/models/test_dagrun.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#16",
+      "rule": "Prefer top-level test functions over needlessly small test classes; do not create a new class for every narrow scenario when the surrounding file uses top-level functions as the primary pattern.",
+      "category": "testing",
+      "trigger": "diff adds a new small test class (e.g., `class TestDagRunSomeSpecificBehavior`) in a file where the dominant pattern is top-level `def test_*` functions",
+      "evidence_prs": [
+        68568
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/models/test_dagrun.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#2",
+      "rule": "Paginated bulk-action API endpoints must have tests that verify the action is applied across multiple pages (limit=1 scenario).",
+      "category": "testing",
+      "trigger": "diff adds tests for a paginated PATCH/POST bulk endpoint but no test covers `limit=1` to verify multi-page traversal",
+      "evidence_prs": [
+        63665
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/api_fastapi/core_api/routes/public/test_dags.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#3",
+      "rule": "New task-group or task-instance state-change API handlers must include unmocked integration tests that verify upstream/downstream propagation, past/future run coverage, and deadlock/conflict (409) paths.",
+      "category": "testing",
+      "trigger": "diff adds a `TestPatch*TaskGroup` or `TestPatch*TaskInstance` class whose tests uniformly mock the underlying state-transition method, leaving the real DB logic untested",
+      "evidence_prs": [
+        62812
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/api_fastapi/core_api/routes/public/test_task_instances.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#4",
+      "rule": "Tests covering endpoint parameters that accept multiple values (e.g., filter flags with True/False/None) must be parametrized rather than combined into a single assertion block.",
+      "category": "testing",
+      "trigger": "diff adds a test function that asserts multiple filter-param combinations sequentially in one block instead of using `@pytest.mark.parametrize`",
+      "evidence_prs": [
+        55041
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/api_fastapi/core_api/routes/ui/test_dags.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#5",
+      "rule": "OTel context-manager generator tests in the execution API must cover the `athrow` path (route-error injection) and assert whether `detach` is called on that path.",
+      "category": "async",
+      "trigger": "diff adds or modifies tests for `_extract_w3c_trace_context` or similar async generator middleware without a test that `athrow`s into the generator",
+      "evidence_prs": [
+        68039
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/api_fastapi/execution_api/test_app.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#6",
+      "rule": "When a new execution-API feature claims multi-backend support via SQLAlchemy (e.g., `regexp_match`), tests must cover all claimed backends, not only Postgres.",
+      "category": "database",
+      "trigger": "diff adds tests marked only `@pytest.mark.backend(\"postgres\")` for a feature that uses `regexp_match` or other backend-portable SQLAlchemy constructs",
+      "evidence_prs": [
+        64610
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/api_fastapi/execution_api/versions/head/test_asset_events.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#7",
+      "rule": "Version-compat guards in `airflow-core` tests must use the lowest Airflow version at which the relevant change actually landed (e.g., `AIRFLOW_V_3_0_PLUS` when the SDK move happened in 3.0, not 3.1).",
+      "category": "correctness",
+      "trigger": "diff uses `AIRFLOW_V_3_1_PLUS` (or higher) in a version-compat import guard for a symbol that was moved/introduced in an earlier 3.x release",
+      "evidence_prs": [
+        53791
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/cli/commands/test_dag_command.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#8",
+      "rule": "Do not add try/except ImportError version-compat shims in airflow-core tests for symbols that exist in the current core codebase.",
+      "category": "correctness",
+      "trigger": "diff introduces a `try: from airflow.X import Y / except ImportError: from airflow.X import Z as Y` pattern inside an `airflow-core` test file",
+      "evidence_prs": [
+        54383
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/cli/commands/test_dag_command.py"
+      ]
+    },
+    {
+      "key": "t1/batch_013#9",
+      "rule": "Import statements inside test method bodies are only permitted for circular-import avoidance, lazy loading for worker isolation, or `TYPE_CHECKING` blocks; all other imports must be at module level.",
+      "category": "correctness",
+      "trigger": "diff adds `import` or `from … import` statements inside a test function body where none of the listed exceptions apply",
+      "evidence_prs": [
+        61077,
+        68118
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/cli/commands/test_dag_command.py",
+        "airflow-core/tests/unit/dag_processing/test_manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_014#0",
+      "rule": "In test setup, consolidate multiple session.flush() calls into a single flush at the end unless earlier flushes are required by subsequent setup queries.",
+      "category": "testing",
+      "trigger": "Two or more `session.flush()` calls appear in the setup section of a single test function or fixture.",
+      "evidence_prs": [
+        61372
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/models/test_taskinstance.py"
+      ]
+    },
+    {
+      "key": "t1/batch_014#1",
+      "rule": "Use assert_queries_count() to guard performance-critical ORM changes such as replacing session.merge() with session.add() so that regressions are caught by CI.",
+      "category": "testing",
+      "trigger": "A diff replaces `session.merge(` with `session.add(` (or vice-versa) inside a code path that touches `task_instance` or `dag_run` tables without an accompanying `assert_queries_count` assertion in the tests.",
+      "evidence_prs": [
+        69565
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/models/test_taskinstance.py"
+      ]
+    },
+    {
+      "key": "t1/batch_014#10",
+      "rule": "Bugfix entries in chart/RELEASE_NOTES.rst must use a concise title that fits on one line; detailed explanation belongs in the PR, not the release note.",
+      "category": "docs",
+      "trigger": "A diff adds a multi-sentence bugfix entry to `chart/RELEASE_NOTES.rst` (more than ~15 words in the release note line).",
+      "evidence_prs": [
+        65569
+      ],
+      "evidence_paths": [
+        "chart/RELEASE_NOTES.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_014#11",
+      "rule": "When a Helm chart value is deprecated in favour of executor-specific keys (e.g. workers.labels → workers.celery.labels / workers.kubernetes.labels), the chart docs must show examples for each new key and must not describe the change as a rename.",
+      "category": "docs",
+      "trigger": "A diff removes a worker labels (or similar executor-shared) example from chart docs or adds a deprecation warning that says 'renamed' for a value being split into executor-specific keys.",
+      "evidence_prs": [
+        65030
+      ],
+      "evidence_paths": [
+        "chart/docs/customizing-labels.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_014#12",
+      "rule": "chart/newsfragments/*.significant.rst files for breaking changes must enumerate every removed Helm value and its replacement with a migration mapping, not just a prose summary.",
+      "category": "docs",
+      "trigger": "A diff adds a `.significant.rst` newsfragment that mentions removed values or executor support without listing specific old→new key mappings.",
+      "evidence_prs": [
+        65866
+      ],
+      "evidence_paths": [
+        "chart/newsfragments/65866.significant.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_014#13",
+      "rule": "Helm chart NOTES.txt deprecation warnings for split values must say 'deprecated; use X or Y depending on executor' rather than 'renamed to X'.",
+      "category": "docs",
+      "trigger": "A diff adds a `DEPRECATION WARNING` block in a Helm `NOTES.txt` or `_helpers.yaml` that uses the word 'renamed' for a value being split into executor-specific keys.",
+      "evidence_prs": [
+        65030
+      ],
+      "evidence_paths": [
+        "chart/templates/NOTES.txt"
+      ]
+    },
+    {
+      "key": "t1/batch_014#14",
+      "rule": "Helm chart kustomize overlay CI must not pull arbitrary images from DockerHub without an image-allowlist validation step to prevent credential leakage via untrusted images.",
+      "category": "security",
+      "trigger": "A diff adds an `image:` field referencing a third-party DockerHub image in a kustomize overlay under `chart/kustomize-overlays/` without a corresponding allowlist or validation check.",
+      "evidence_prs": [
+        67012
+      ],
+      "evidence_paths": [
+        "chart/kustomize-overlays/CONTRIBUTING.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_014#15",
+      "rule": "The Helm OTel collector ConfigMap template must expose a values key that allows users to supply their own complete OTel Collector config.yml instead of only the Airflow-generated one.",
+      "category": "api-design",
+      "trigger": "A diff adds a new `chart/templates/configmaps/otel-collector-configmap.yaml` or similar OTel ConfigMap template without a `.Values` override key for the entire config body.",
+      "evidence_prs": [
+        64902
+      ],
+      "evidence_paths": [
+        "chart/templates/configmaps/otel-collector-configmap.yaml"
+      ]
+    },
+    {
+      "key": "t1/batch_014#16",
+      "rule": "In the Helm OTel collector ConfigMap, traces and metrics pipelines and their exporters must be conditional on separate feature-flag values (e.g. .Values.otelCollector.tracesEnabled / .Values.otelCollector.metricsEnabled).",
+      "category": "correctness",
+      "trigger": "A diff adds or modifies `chart/templates/configmaps/otel-collector-configmap.yaml` such that both `traces:` and `metrics:` pipelines are unconditionally included regardless of which backends are enabled.",
+      "evidence_prs": [
+        64902
+      ],
+      "evidence_paths": [
+        "chart/templates/configmaps/otel-collector-configmap.yaml"
+      ]
+    },
+    {
+      "key": "t1/batch_014#17",
+      "rule": "Helm Service templates must name the user-supplied annotations key .Values.<component>.service.annotations (not extraAnnotations) when no Airflow-generated annotations already exist on the resource.",
+      "category": "api-design",
+      "trigger": "A diff introduces a `.Values.<component>.service.extraAnnotations` key in a Helm Service template where no other Airflow-generated annotations are applied.",
+      "evidence_prs": [
+        64902
+      ],
+      "evidence_paths": [
+        "chart/templates/otel-collector/otel-collector-service.yaml"
+      ]
+    },
+    {
+      "key": "t1/batch_014#2",
+      "rule": "Tests for @operator_defaults must include a case where the operator explicitly overrides the decorator's default (e.g. retries=0 beats @operator_defaults(retries=3)).",
+      "category": "testing",
+      "trigger": "A test file adds cases for `@operator_defaults` but only tests the decorator applying its value, with no test for an operator-level explicit override of that same field.",
+      "evidence_prs": [
+        57853
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/serialization/test_dag_serialization.py"
+      ]
+    },
+    {
+      "key": "t1/batch_014#3",
+      "rule": "DAG serialization test fixtures that include fields unconditionally emitted on the wire (because defaults come from airflow.cfg at parse time, not the schema) must carry an inline comment explaining this so future readers do not remove them as redundant.",
+      "category": "docs",
+      "trigger": "A diff adds or modifies a serialization test fixture dict/JSON that includes fields like `catchup`, `max_active_runs`, or `max_active_tasks` without an explanatory comment.",
+      "evidence_prs": [
+        65310
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/serialization/test_dag_serialization.py"
+      ]
+    },
+    {
+      "key": "t1/batch_014#4",
+      "rule": "Sentinel objects such as NOTSET and SET_DURING_EXECUTION must have repr() and str() return the same stable string produced by their serialize() method, not just the class name.",
+      "category": "correctness",
+      "trigger": "A diff modifies `__repr__` or `__str__` on a sentinel class (`NOTSET`, `SET_DURING_EXECUTION`, or similar) to return the class name rather than the serialized sentinel string.",
+      "evidence_prs": [
+        65222
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/serialization/test_helpers.py"
+      ]
+    },
+    {
+      "key": "t1/batch_014#5",
+      "rule": "When a caplog fixture is injected into a @pytest.mark.db_test, the test must assert on the expected log output; otherwise remove caplog and its setup entirely.",
+      "category": "testing",
+      "trigger": "A `@pytest.mark.db_test` function accepts `caplog` as a parameter but contains no `assert … in caplog` (or `caplog.records`) assertion.",
+      "evidence_prs": [
+        64503
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/utils/test_retries.py"
+      ]
+    },
+    {
+      "key": "t1/batch_014#6",
+      "rule": "Do not bundle unrelated test-mock tightening (e.g. adding spec= to an existing MagicMock) in a PR whose title describes a distinct bug fix; either drop the hunk or call it out explicitly in the PR body.",
+      "category": "commit-hygiene",
+      "trigger": "A diff modifies an existing `mock.MagicMock()` call to add `spec=` in a file that is otherwise changed only for an unrelated fix.",
+      "evidence_prs": [
+        64503
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/utils/test_retries.py"
+      ]
+    },
+    {
+      "key": "t1/batch_014#7",
+      "rule": "In the Scheduler's topological_sort or any O(n²) path inside task-group ordering, use a dict[task_id, index] instead of a list with .index() lookups.",
+      "category": "performance",
+      "trigger": "A diff introduces or retains a `.index(` call on a list inside a `topological_sort` or task-group ordering function.",
+      "evidence_prs": [
+        69933
+      ],
+      "evidence_paths": [
+        "airflow-core/tests/unit/utils/test_task_group.py"
+      ]
+    },
+    {
+      "key": "t1/batch_014#8",
+      "rule": "Docker Compose fixtures under airflow-e2e-tests must not set a fixed container_name; intra-compose services must communicate via service-name hostnames, and host ports must not be published unless there is a demonstrated external requirement.",
+      "category": "testing",
+      "trigger": "A diff adds `container_name:` or a host-port mapping (e.g. `- \"9092:9092\"`) to a service in a docker-compose file under `airflow-e2e-tests/`.",
+      "evidence_prs": [
+        64833
+      ],
+      "evidence_paths": [
+        "airflow-e2e-tests/docker/kafka.yml"
+      ]
+    },
+    {
+      "key": "t1/batch_014#9",
+      "rule": "In chart/RELEASE_NOTES.rst, all Helm values key references must be wrapped in double RST backticks (e.g. ``workers.celery.nodeSelector``).",
+      "category": "docs",
+      "trigger": "A diff adds a line to `chart/RELEASE_NOTES.rst` that contains a dotted Helm values path (e.g. `workers.celery.*`) without surrounding double backticks.",
+      "evidence_prs": [
+        63759
+      ],
+      "evidence_paths": [
+        "chart/RELEASE_NOTES.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_015#0",
+      "rule": "In chart/values.yaml, describe auto-generated config values as 'generated by default from .Values.<helmPath>' and recommend configuring via the Helm value rather than overriding config.* directly.",
+      "category": "docs",
+      "trigger": "A values.yaml comment says a config key is 'deprecated' or 'only possible' via a direct override when it is actually auto-generated from a Helm value path.",
+      "evidence_prs": [
+        64559
+      ],
+      "evidence_paths": [
+        "chart/values.yaml"
+      ]
+    },
+    {
+      "key": "t1/batch_015#1",
+      "rule": "When a Helm config flag's behaviour depends on another flag (e.g. statsd_on gated on otelCollector.metricsEnabled), document the dependency in both values.yaml and values.schema.json.",
+      "category": "docs",
+      "trigger": "A ternary or conditional expression in config: block of values.yaml references two or more .Values fields but only one field has an explanatory comment.",
+      "evidence_prs": [
+        64902
+      ],
+      "evidence_paths": [
+        "chart/values.yaml"
+      ]
+    },
+    {
+      "key": "t1/batch_015#10",
+      "rule": "CI reproduction instructions generated by Breeze must use GITHUB_SHA to check out the exact commit, not FETCH_HEAD, so the instructions remain stable as the PR ref advances.",
+      "category": "correctness",
+      "trigger": "A ReproductionCommand in reproduce_ci.py emits git checkout FETCH_HEAD after a fetch of refs/pull/….",
+      "evidence_prs": [
+        63901
+      ],
+      "evidence_paths": [
+        "dev/breeze/src/airflow_breeze/utils/reproduce_ci.py"
+      ]
+    },
+    {
+      "key": "t1/batch_015#11",
+      "rule": "When Breeze emits CLI flag pairs in reproduction commands, always select the long-form alias (param.opts[-1] / param.secondary_opts[-1]), not the first alias (param.opts[0]).",
+      "category": "correctness",
+      "trigger": "A flag-pair branch in build_reproduction_command_from_context() uses param.opts[0] or param.secondary_opts[0] to select the flag to emit.",
+      "evidence_prs": [
+        63901
+      ],
+      "evidence_paths": [
+        "dev/breeze/src/airflow_breeze/utils/reproduce_ci.py"
+      ]
+    },
+    {
+      "key": "t1/batch_015#12",
+      "rule": "The KUSTOMIZE_OVERLAYS_FILES file group in selective_checks.py must include chart/templates/ and chart/files/ because overlay smoke tests depend on Helm template changes.",
+      "category": "testing",
+      "trigger": "A diff adds or modifies FileGroupForCi.KUSTOMIZE_OVERLAYS_FILES in selective_checks.py without including r\"^chart/templates/\" and r\"^chart/files/\" patterns.",
+      "evidence_prs": [
+        67012
+      ],
+      "evidence_paths": [
+        "dev/breeze/src/airflow_breeze/utils/selective_checks.py"
+      ]
+    },
+    {
+      "key": "t1/batch_015#13",
+      "rule": "Breeze utility functions must not mix human-readable error sentinel strings into list[str] collections of job names; use None, a result object, or a typed union to signal lookup failure.",
+      "category": "api-design",
+      "trigger": "A function with return type list[str] (or similar job-name collection) returns a string constant such as FAILED_JOBS_LOOKUP_ERROR on failure instead of None or raising an exception.",
+      "evidence_prs": [
+        64863
+      ],
+      "evidence_paths": [
+        "dev/breeze/src/airflow_breeze/utils/workflow_status.py"
+      ]
+    },
+    {
+      "key": "t1/batch_015#14",
+      "rule": "Tests for Breeze CLI flag-pair rendering must include a case with both a short alias and a long alias to assert the long form is emitted.",
+      "category": "testing",
+      "trigger": "A test in dev/breeze/tests/ for build_reproduction_command_from_context or similar flag-rendering logic only tests flags that have a single (long) form, omitting the short+long alias scenario.",
+      "evidence_prs": [
+        63901
+      ],
+      "evidence_paths": [
+        "dev/breeze/tests/test_reproduce_ci.py"
+      ]
+    },
+    {
+      "key": "t1/batch_015#2",
+      "rule": "Do not include implementation-detail comments in chart/values.yaml; keep comments at the user-facing configuration level only.",
+      "category": "docs",
+      "trigger": "A values.yaml comment explains internal template guard logic, schema validation mechanics, or Helm helper function internals rather than describing what the field controls.",
+      "evidence_prs": [
+        69945
+      ],
+      "evidence_paths": [
+        "chart/values.yaml"
+      ]
+    },
+    {
+      "key": "t1/batch_015#3",
+      "rule": "Release-tooling shell scripts in dev/ must branch on $(uname) to handle both macOS (BSD date) and Linux (GNU date) syntax.",
+      "category": "commit-hygiene",
+      "trigger": "A shell script in dev/ uses date --utc (GNU-only) or date -v (BSD-only) without an OS check.",
+      "evidence_prs": [
+        64083
+      ],
+      "evidence_paths": [
+        "dev/README_RELEASE_PROVIDERS.md"
+      ]
+    },
+    {
+      "key": "t1/batch_015#4",
+      "rule": "Images used only by kustomize-overlay smoke tests must NOT be added to the static Breeze k8s image list; they are auto-discovered from the overlay manifest via _discover_overlay_images().",
+      "category": "providers",
+      "trigger": "A new image entry is added to the static Breeze k8s preload list in kubernetes_commands.py for an image that appears only in chart/kustomize-overlays/.",
+      "evidence_prs": [
+        67012
+      ],
+      "evidence_paths": [
+        "dev/breeze/src/airflow_breeze/commands/kubernetes_commands.py"
+      ]
+    },
+    {
+      "key": "t1/batch_015#5",
+      "rule": "New path-parsing or git-worktree logic added to Breeze must be covered by unit tests for: an absolute gitdir path, a relative gitdir path, and the non-worktree case.",
+      "category": "testing",
+      "trigger": "A function that reads .git file content or derives paths from AIRFLOW_ROOT_PATH is added to path_utils.py or shell_params.py without corresponding tests mocking those three scenarios.",
+      "evidence_prs": [
+        62905
+      ],
+      "evidence_paths": [
+        "dev/breeze/src/airflow_breeze/params/shell_params.py"
+      ]
+    },
+    {
+      "key": "t1/batch_015#6",
+      "rule": "Fragile path-derivation logic in Breeze (e.g. locating the main .git directory from a worktree gitdir) must be encapsulated in a single helper; do not duplicate it across docker_command_utils.py and shell_params.py.",
+      "category": "correctness",
+      "trigger": "The expression .parent.parent (or equivalent worktree-root derivation) appears in more than one file under dev/breeze/src/ when referring to the main git repository root.",
+      "evidence_prs": [
+        62905
+      ],
+      "evidence_paths": [
+        "dev/breeze/src/airflow_breeze/utils/docker_command_utils.py"
+      ]
+    },
+    {
+      "key": "t1/batch_015#7",
+      "rule": "get_git_worktree_root() must resolve a relative gitdir: path to an absolute path before returning, because Docker bind mounts require absolute paths.",
+      "category": "correctness",
+      "trigger": "Path(git_content.removeprefix(\"gitdir: \")) is returned directly without checking is_absolute() and resolving against AIRFLOW_ROOT_PATH.",
+      "evidence_prs": [
+        62905
+      ],
+      "evidence_paths": [
+        "dev/breeze/src/airflow_breeze/utils/path_utils.py"
+      ]
+    },
+    {
+      "key": "t1/batch_015#8",
+      "rule": "When using prek in Breeze helper scripts or error messages, use --hook-stage (not --stage) to match prek's CLI flag name.",
+      "category": "commit-hygiene",
+      "trigger": "A prek invocation or instructional string in dev/breeze/ uses --stage instead of --hook-stage.",
+      "evidence_prs": [
+        62682
+      ],
+      "evidence_paths": [
+        "dev/breeze/src/airflow_breeze/utils/github.py"
+      ]
+    },
+    {
+      "key": "t1/batch_015#9",
+      "rule": "CacheStore entries in Breeze must wrap the stored payload under a dedicated key (e.g. {\"profile\": ...}) so that internal cache metadata (cached_at) is not leaked into the runtime object returned to callers.",
+      "category": "api-design",
+      "trigger": "A CacheStore.save() call stores a plain dict directly, and the corresponding CacheStore.get() return value is used as the runtime object without stripping cache metadata fields.",
+      "evidence_prs": [
+        64590
+      ],
+      "evidence_paths": [
+        "dev/breeze/src/airflow_breeze/utils/pr_cache.py"
+      ]
+    },
+    {
+      "key": "t1/batch_016#0",
+      "rule": "Use `time.monotonic()` instead of `time.time()` for deadline and duration checks in triggers and operators, because `time.time()` can jump on NTP sync.",
+      "category": "async",
+      "trigger": "diff adds `time.time()` to compute or compare a deadline/elapsed duration inside a Trigger or Operator",
+      "evidence_prs": [
+        64051
+      ],
+      "evidence_paths": [
+        "providers/airbyte/src/airflow/providers/airbyte/triggers/airbyte.py"
+      ]
+    },
+    {
+      "key": "t1/batch_016#1",
+      "rule": "In a Trigger's polling loop, check the execution deadline before checking job state so a terminal status observed after the deadline still yields `timeout` rather than `success`/`error`.",
+      "category": "async",
+      "trigger": "diff adds or modifies a `while` loop inside a Trigger `run()` method that checks `is_still_running()` before checking `end_time` / `execution_deadline`",
+      "evidence_prs": [
+        64051
+      ],
+      "evidence_paths": [
+        "providers/airbyte/src/airflow/providers/airbyte/triggers/airbyte.py"
+      ]
+    },
+    {
+      "key": "t1/batch_016#10",
+      "rule": "Helm test coverage for deprecated-but-still-supported Helm value overrides (e.g. `workers.keda.query`) must be retained when the CRD or executor that previously exercised them is removed; migrate the test to an equivalent supported executor.",
+      "category": "testing",
+      "trigger": "diff deletes a helm test parametrize case that covers a value path listed in `chart/templates/NOTES.txt` deprecation notice",
+      "evidence_prs": [
+        65866
+      ],
+      "evidence_paths": [
+        "helm-tests/tests/helm_tests/airflow_core/test_worker.py"
+      ]
+    },
+    {
+      "key": "t1/batch_016#11",
+      "rule": "Helm test helper variables must be named after the Kubernetes workload they actually inspect; do not use a variable named `broker_url_secret_in_scheduler` to hold a value read from the worker StatefulSet.",
+      "category": "naming",
+      "trigger": "diff adds a variable in a helm test whose name references one workload type (scheduler/worker/webserver) but the value is fetched from a different workload",
+      "evidence_prs": [
+        65006
+      ],
+      "evidence_paths": [
+        "helm-tests/tests/helm_tests/other/test_redis.py"
+      ]
+    },
+    {
+      "key": "t1/batch_016#12",
+      "rule": "Helm tests for a given Airflow component (e.g. `metadataConnection`) must be co-located in the existing dedicated test file for that component rather than spread across multiple files.",
+      "category": "testing",
+      "trigger": "diff adds a new test class for a component (e.g. `TestMetadataConnectionTplRendering`) to a file other than the established `test_<component>.py` file for that component",
+      "evidence_prs": [
+        64763
+      ],
+      "evidence_paths": [
+        "helm-tests/tests/helm_tests/security/test_tpl_rendering.py"
+      ]
+    },
+    {
+      "key": "t1/batch_016#13",
+      "rule": "Version strings that must be kept in sync with an external release (e.g. provider version in the Edge Worker) must be declared as named constants at the top of the file or in a dedicated constants file, not embedded as string literals.",
+      "category": "providers",
+      "trigger": "diff changes a hard-coded version string literal (e.g. `\"3.3.0\"`) inside a function or constructor in the go-sdk or edge worker code",
+      "evidence_prs": [
+        64493
+      ],
+      "evidence_paths": [
+        "go-sdk/edge/worker.go"
+      ]
+    },
+    {
+      "key": "t1/batch_016#14",
+      "rule": "When the Go SDK and Python supervisor use different frame-size caps for the IPC channel, each side's constant must have a doc comment explaining the rationale for the chosen value and why the two sides differ.",
+      "category": "docs",
+      "trigger": "diff adds or changes a frame-size / buffer-size constant in `go-sdk/pkg/execution/` without a comment explaining its value relative to the Python side's cap",
+      "evidence_prs": [
+        67315
+      ],
+      "evidence_paths": [
+        "go-sdk/pkg/execution/frames.go"
+      ]
+    },
+    {
+      "key": "t1/batch_016#15",
+      "rule": "Go IPC message structs that use `-1` as a sentinel for `map_index` must document the sentinel convention in a comment; prefer `*int` (nullable) to match the Python side's `int | None` representation.",
+      "category": "api-design",
+      "trigger": "diff adds a Go IPC message struct with an `int` field for `MapIndex` that uses -1 as a sentinel while the Python counterpart in `comms.py` uses `int | None`",
+      "evidence_prs": [
+        67315
+      ],
+      "evidence_paths": [
+        "go-sdk/pkg/execution/messages.go"
+      ]
+    },
+    {
+      "key": "t1/batch_016#16",
+      "rule": "ADR documents must accurately reference the actual function/method name where a described behaviour lives; do not cite a helper function when the logic resides in the exported entry-point.",
+      "category": "docs",
+      "trigger": "diff adds or edits an ADR `.md` file that references a Go/Python symbol by name (e.g. `runTask`, `defer recover()`) and the cited symbol does not match the actual code location",
+      "evidence_prs": [
+        67153
+      ],
+      "evidence_paths": [
+        "go-sdk/adr/0003-coordinator-protocol-msgpack-ipc.md"
+      ]
+    },
+    {
+      "key": "t1/batch_016#17",
+      "rule": "Source release tarballs built from the Java SDK must use `export-ignore` (or equivalent) for binary wrapper artifacts like `gradle-wrapper.jar` to avoid triggering Apache release-checker warnings during the RC vote.",
+      "category": "commit-hygiene",
+      "trigger": "diff adds a `git archive` invocation in a Gradle release task without a `.gitattributes` export-ignore for `gradle-wrapper.jar`",
+      "evidence_prs": [
+        69444
+      ],
+      "evidence_paths": [
+        "java-sdk/build.gradle.kts"
+      ]
+    },
+    {
+      "key": "t1/batch_016#18",
+      "rule": "Public interfaces in the Java/Kotlin SDK must carry KDoc/JavaDoc so that SDK documentation can be generated from source and IDEs can show inline help.",
+      "category": "docs",
+      "trigger": "diff adds a `public interface` or `public class` to `java-sdk/sdk/src/main/kotlin/` without a KDoc block",
+      "evidence_prs": [
+        65956
+      ],
+      "evidence_paths": [
+        "java-sdk/sdk/src/main/kotlin/org/apache/airflow/sdk/execution/Client.kt"
+      ]
+    },
+    {
+      "key": "t1/batch_016#2",
+      "rule": "The `execute_complete` method of a deferrable operator must handle every status emitted by its paired Trigger, including `cancelled`; a missing branch silently reports task success for a cancelled job.",
+      "category": "correctness",
+      "trigger": "diff adds a status constant (e.g. `\"cancelled\"`, `\"timeout\"`) to a Trigger's `TriggerEvent` yield but the corresponding `execute_complete` in the operator has no branch for that status",
+      "evidence_prs": [
+        64051
+      ],
+      "evidence_paths": [
+        "providers/airbyte/src/airflow/providers/airbyte/operators/airbyte.py"
+      ]
+    },
+    {
+      "key": "t1/batch_016#3",
+      "rule": "Do not add a `stream()` method stub that raises `NotImplementedError` on a log handler; the log framework uses `getattr` to detect streaming support and the stub defeats the fallback to `read()`.",
+      "category": "correctness",
+      "trigger": "diff adds `def stream(self, ...) -> ...: raise NotImplementedError` to a class that also inherits from a remote log handler",
+      "evidence_prs": [
+        54813
+      ],
+      "evidence_paths": [
+        "providers/alibaba/src/airflow/providers/alibaba/cloud/log/oss_task_handler.py"
+      ]
+    },
+    {
+      "key": "t1/batch_016#4",
+      "rule": "The `tags` field in a provider's `provider.yaml` must match the tags declared in `get_provider_info.py`; mismatched tags produce conflicting categorisation in generated provider docs.",
+      "category": "providers",
+      "trigger": "diff modifies `provider.yaml` `tags:` or `get_provider_info.py` tags list in a provider package and the two sources no longer agree",
+      "evidence_prs": [
+        64754
+      ],
+      "evidence_paths": [
+        "providers/akeyless/provider.yaml"
+      ]
+    },
+    {
+      "key": "t1/batch_016#5",
+      "rule": "Hooks that accept an `access_type` (or equivalent enum-like parameter) must validate the value against `VALID_*` constants and raise `ValueError` with a message listing allowed values before making any API call.",
+      "category": "correctness",
+      "trigger": "diff adds a hook method that branches on `access_type` / `auth_type` without an explicit `if ... not in VALID_...` guard before the branching",
+      "evidence_prs": [
+        64754
+      ],
+      "evidence_paths": [
+        "providers/akeyless/src/airflow/providers/akeyless/hooks/akeyless.py"
+      ]
+    },
+    {
+      "key": "t1/batch_016#6",
+      "rule": "Provider changelog entries in `changelog.rst` must use sentence-case commit titles (capitalise only the first word and proper nouns); lowercase prefixes such as `fix:` are not acceptable.",
+      "category": "docs",
+      "trigger": "diff adds a line to `providers/*/docs/changelog.rst` whose commit title starts with a lowercase word or a `fix:`/`feat:` conventional-commit prefix",
+      "evidence_prs": [
+        67920
+      ],
+      "evidence_paths": [
+        "providers/amazon/docs/changelog.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_016#7",
+      "rule": "When tightening a provider dependency to a `<X.Y` upper bound, leave a recorded note (in code comment or issue) stating the conditions under which the cap can be relaxed.",
+      "category": "providers",
+      "trigger": "diff adds an upper-bound pin (`<X.Y`) to a provider's dependency in `provider.yaml` or `setup.cfg` without an accompanying comment explaining when the cap may be lifted",
+      "evidence_prs": [
+        62962
+      ],
+      "evidence_paths": [
+        "providers/amazon/docs/index.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_016#8",
+      "rule": "Trigger test cases that verify a specific deadline path (e.g. `execution_deadline`) must set the other deadline (`end_time`) to a future value so each test exercises exactly one timeout branch.",
+      "category": "testing",
+      "trigger": "diff adds a Trigger unit test where both `end_time` and `execution_deadline` are set to already-expired values",
+      "evidence_prs": [
+        64051
+      ],
+      "evidence_paths": [
+        "providers/airbyte/tests/unit/airbyte/triggers/test_airbyte.py"
+      ]
+    },
+    {
+      "key": "t1/batch_016#9",
+      "rule": "Do not use `caplog` in Kubernetes/integration tests; replace it with mock-based log capture to avoid test flakiness that CI static checks will flag as a failure.",
+      "category": "testing",
+      "trigger": "diff adds `caplog` as a parameter or fixture to a test function in `kubernetes-tests/`",
+      "evidence_prs": [
+        53598
+      ],
+      "evidence_paths": [
+        "kubernetes-tests/tests/kubernetes_tests/test_kubernetes_pod_operator.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#0",
+      "rule": "When renaming public executor attributes (e.g. `pending_tasks` → `pending_workloads`), keep the old name as a deprecated property shim that delegates to the new name to preserve back-compat.",
+      "category": "providers",
+      "trigger": "diff renames an instance attribute or method on a class that subclasses BaseExecutor (e.g. `self.pending_tasks` → `self.pending_workloads`) without adding a `@property` shim",
+      "evidence_prs": [
+        63035
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/executors/aws_lambda/lambda_executor.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#1",
+      "rule": "When renaming public executor methods (e.g. `sync_running_tasks` → `sync_running_workloads`), add a deprecated forwarding wrapper under the old name to preserve back-compat.",
+      "category": "providers",
+      "trigger": "diff renames a public method on an executor subclass without adding a same-named wrapper method that calls the new name",
+      "evidence_prs": [
+        63657
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/executors/ecs/ecs_executor.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#10",
+      "rule": "When an operator adds a new boolean parameter that controls trigger behavior, the operator must accept and pass that parameter through rather than hard-coding a value in the trigger instantiation.",
+      "category": "providers",
+      "trigger": "diff instantiates an Airflow trigger with a boolean argument (e.g. `cancel_on_kill=True`) that is not exposed as a parameter on the enclosing operator",
+      "evidence_prs": [
+        64770
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/operators/emr.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#11",
+      "rule": "When an operator parameter changes behavior (e.g. `awslogs_enabled` previously controlling log fetching), the new implementation must preserve the parameter's documented effect in both deferrable and non-deferrable code paths.",
+      "category": "providers",
+      "trigger": "diff refactors deferrable operator execution and leaves a previously-honored parameter (e.g. `awslogs_enabled`) without effect in the `execute_complete` path",
+      "evidence_prs": [
+        64745
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/operators/batch.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#12",
+      "rule": "For CloudWatch / external-resource operator links, persist links that require job completion (e.g. log stream ARN) after the job completes, not before, in the non-deferrable path.",
+      "category": "providers",
+      "trigger": "diff calls `_persist_links()` or equivalent before `hook.wait_for_job()` in a non-deferrable execute path where the link data is only available post-completion",
+      "evidence_prs": [
+        64745
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/operators/batch.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#13",
+      "rule": "When changing behavior covered by existing tests, update tests to explicitly cover both the new branch and any removed/altered branch; do not leave tests asserting old behavior that no longer applies.",
+      "category": "testing",
+      "trigger": "diff changes conditional logic in an AWS operator (e.g. `awslogs_enabled` branch) without adding or updating unit tests for both the enabled and disabled paths",
+      "evidence_prs": [
+        64745
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/operators/batch.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#14",
+      "rule": "Amazon provider operator docstrings must tag templatable parameters with `(templated)` in the parameter description.",
+      "category": "docs",
+      "trigger": "diff adds a new parameter docstring line in an Amazon provider operator, trigger, or sensor without appending `(templated)` to the description of a parameter that is listed in `template_fields`",
+      "evidence_prs": [
+        69886
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/operators/ecr.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#15",
+      "rule": "AWS operator `execute()` return values should be minimal, meaningful identifiers (e.g. ARN, URI, name) rather than raw, full boto3 response dicts.",
+      "category": "api-design",
+      "trigger": "diff adds `return response` (the raw boto3 response dict) as the final statement of an AWS operator's `execute()` method",
+      "evidence_prs": [
+        69886
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/operators/ecr.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#16",
+      "rule": "Removing a parameter that controls waiter policy selection is a breaking change; instead, deprecate the old parameter and map its values to the new parameter.",
+      "category": "providers",
+      "trigger": "diff removes a parameter (e.g. `wait_policy`) from an EMR operator and hard-codes one of its former values, silently eliminating other valid enum values",
+      "evidence_prs": [
+        56158
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/operators/emr.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#17",
+      "rule": "Provider operator RST how-to docs must order lifecycle sections to reflect the natural resource lifecycle (Create → Start → Stop → Update → Delete).",
+      "category": "docs",
+      "trigger": "diff adds a new RST section in a provider how-to doc where the section order does not follow the resource lifecycle sequence",
+      "evidence_prs": [
+        66891
+      ],
+      "evidence_paths": [
+        "providers/amazon/docs/operators/mwaa_serverless.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_017#18",
+      "rule": "When documenting a constraint (e.g. maximum list size) in an operator's docstring, enforce that constraint with a runtime check in `__init__`; do not document bounds that are not validated.",
+      "category": "correctness",
+      "trigger": "diff adds a docstring stating a numeric bound (e.g. \"maximum 200\") for a parameter but `__init__` does not validate that bound",
+      "evidence_prs": [
+        64545
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/operators/sagemaker.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#2",
+      "rule": "When a provider imports a type from airflow-core that does not yet exist in the minimum supported core version, gate the import behind a runtime version check rather than importing it unconditionally.",
+      "category": "providers",
+      "trigger": "diff adds an unconditional import of a symbol from `airflow.executors.workloads.types` or a similarly new airflow-core module in a provider that targets an older min_ver",
+      "evidence_prs": [
+        62984
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/executors/batch/batch_executor.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#3",
+      "rule": "In `BaseExecutor._process_workloads` and its overrides, name the sequence parameter `workload_items` (not `workloads`) to avoid shadowing the `airflow.executors.workloads` module import.",
+      "category": "providers",
+      "trigger": "diff adds or modifies a method with a parameter named `workloads` in an executor subclass where `from airflow.executors import workloads` is also imported",
+      "evidence_prs": [
+        62984
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/executors/batch/batch_executor.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#4",
+      "rule": "AWS executor failures must not log each individual failure inline; they must be aggregated and logged once at the summary point to avoid spam.",
+      "category": "providers",
+      "trigger": "diff adds `self.log.info(…)` or `self.log.error(…)` inside a per-task failure branch in an AWS executor's sync loop",
+      "evidence_prs": [
+        54038
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/executors/ecs/ecs_executor.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#5",
+      "rule": "AWS hooks that use a Boto3 client must subclass the appropriate Boto-specific base class (e.g. `AwsBaseHook`), not the generic `BaseHook`.",
+      "category": "providers",
+      "trigger": "diff introduces a new AWS hook that imports from `airflow.providers.common.compat.sdk` to get `BaseHook` while also creating a Boto3 client",
+      "evidence_prs": [
+        62240
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/hooks/sagemaker_unified_studio_notebook.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#6",
+      "rule": "Do not raise `AirflowException` for failures that are not caused by Airflow itself; use the most appropriate Python built-in exception instead.",
+      "category": "providers",
+      "trigger": "diff raises `AirflowException` for a non-Airflow-infrastructure failure (e.g. an external service returning an unexpected state, bad user input)",
+      "evidence_prs": [
+        62240
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/hooks/sagemaker_unified_studio_notebook.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#7",
+      "rule": "In deferrable operators, call `self.persist()` (or equivalent link/metadata persistence) before `self.defer()`, because `defer()` raises `TaskDeferred` making every subsequent line unreachable.",
+      "category": "providers",
+      "trigger": "diff places a `self.persist(…)` or XCom push or operator-link-persist call after a `self.defer(…)` call in the same code path",
+      "evidence_prs": [
+        64274
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/operators/neptune_analytics.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#8",
+      "rule": "In `execute_complete`, never fall back to `self.<attribute>` set during `execute`; read all required state exclusively from the trigger event dict.",
+      "category": "providers",
+      "trigger": "diff uses `self.job_id` (or any attribute set in `execute`) inside `execute_complete` as a fallback when the event dict does not contain the value",
+      "evidence_prs": [
+        64770
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/operators/emr.py"
+      ]
+    },
+    {
+      "key": "t1/batch_017#9",
+      "rule": "In `execute_complete`, always check `event[\"status\"]` and raise on error before treating the event as a success.",
+      "category": "providers",
+      "trigger": "diff implements `execute_complete` and reads payload fields from `event` without first checking `event[\"status\"]` for an error value",
+      "evidence_prs": [
+        64274
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/operators/neptune_analytics.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#0",
+      "rule": "Do not replace AirflowException with RuntimeError in operator/sensor/trigger error paths without auditing all callers that catch the original exception type.",
+      "category": "correctness",
+      "trigger": "diff removes `raise AirflowException(` and adds `raise RuntimeError(` inside an operator, sensor, or trigger",
+      "evidence_prs": [
+        56936
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/operators/ssm.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#1",
+      "rule": "In async trigger `run()` methods, define and explicitly handle distinct SUCCESS and FAILURE terminal states; do not collapse all non-transitional statuses into a single success event.",
+      "category": "async",
+      "trigger": "diff adds an `async def run()` trigger that yields a `TriggerEvent` without separate success/failure state handling, or compares status against a single string instead of an Enum",
+      "evidence_prs": [
+        67524
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/triggers/dms.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#10",
+      "rule": "Avoid redundant unit tests that exercise the same code paths as more complex tests already present; prefer fewer, higher-value tests over exhaustive branch-by-branch coverage.",
+      "category": "testing",
+      "trigger": "diff adds multiple small test functions each testing a single simple branch that is also exercised as a sub-case of an existing broader test in the same file",
+      "evidence_prs": [
+        64545
+      ],
+      "evidence_paths": [
+        "providers/amazon/tests/unit/amazon/aws/operators/test_sagemaker_fail.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#11",
+      "rule": "In caplog-based trigger tests, call `caplog.set_level(\"INFO\")` before invoking the method under test to prevent environment-dependent log-capture failures.",
+      "category": "testing",
+      "trigger": "diff adds an `async def test_*` that calls a trigger method and then asserts on `caplog.records` or `caplog.text` without first setting `caplog.set_level(...)`",
+      "evidence_prs": [
+        64342
+      ],
+      "evidence_paths": []
+    },
+    {
+      "key": "t1/batch_018#12",
+      "rule": "Prefer using the provider's existing Hook class (e.g., `KafkaProducerHook`) rather than constructing the underlying client directly inside operator or listener code.",
+      "category": "providers",
+      "trigger": "diff constructs a provider client (e.g., `confluent_kafka.Producer(...)`) directly inside operator, trigger, or listener code where a corresponding Hook already wraps that client",
+      "evidence_prs": [
+        68082
+      ],
+      "evidence_paths": [
+        "providers/apache/kafka/src/airflow/providers/apache/kafka/plugins/listener.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#13",
+      "rule": "Trigger resource-holder attributes (e.g., a consumer or client stored on `self`) must be initialised to `None` in `__init__` and reset to `None` after cleanup to make the cleanup method idempotent.",
+      "category": "async",
+      "trigger": "diff assigns `self.<resource>` for the first time inside `async def run()` (or another non-`__init__` method) of a `BaseTrigger` subclass",
+      "evidence_prs": [
+        64612
+      ],
+      "evidence_paths": [
+        "providers/apache/kafka/src/airflow/providers/apache/kafka/triggers/await_message.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#14",
+      "rule": "New provider dependencies (e.g., `requests`) used in provider source code must be declared in the provider's `pyproject.toml` before the code that uses them is merged.",
+      "category": "providers",
+      "trigger": "diff adds `import <package>` inside `providers/<name>/src/` where `<package>` is not listed as a dependency in `providers/<name>/pyproject.toml`",
+      "evidence_prs": [
+        65991
+      ],
+      "evidence_paths": [
+        "providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#15",
+      "rule": "Operator parameters that are initialised in `__init__` must be declared as constructor arguments; do not reference `self.<param>` in `execute()` if the parameter was never added to `__init__`.",
+      "category": "correctness",
+      "trigger": "diff adds a reference to `self.<param>` inside `execute()` or `execute_complete()` of an operator where the same `<param>` is not present in the class `__init__` signature",
+      "evidence_prs": [
+        62560
+      ],
+      "evidence_paths": [
+        "providers/amazon/tests/unit/amazon/aws/operators/test_glue.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#16",
+      "rule": "State-tracking attributes that represent submission/execution status must be initialised in `__init__` and must not be reset inside the method that drives the operation (e.g., `submit()`).",
+      "category": "correctness",
+      "trigger": "diff assigns a state-tracking attribute (e.g., `self._yarn_application_submitted = False`) at the top of an operation method (`submit`, `execute`, `run`) rather than in `__init__`",
+      "evidence_prs": [
+        65991
+      ],
+      "evidence_paths": [
+        "providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#17",
+      "rule": "In `SparkSubmitHook.submit()`, post-submit commands or cleanup called after the job completes must be wrapped in a `try/finally` block so they execute regardless of whether the job succeeded or failed.",
+      "category": "correctness",
+      "trigger": "diff adds a method call (e.g., `self._run_post_submit_commands()`) after an `AirflowException` raise site inside `SparkSubmitHook.submit()` without a `try/finally` guard",
+      "evidence_prs": [
+        64391
+      ],
+      "evidence_paths": [
+        "providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#18",
+      "rule": "Spark provider documentation for K8s-API tracking must note that the worker's kube client is used for pod tracking and that the K8s path bypasses `ResumableJobMixin`, causing retries to submit a fresh driver instead of reattaching.",
+      "category": "docs",
+      "trigger": "diff adds or modifies a **Requirements** or **Caveats** section for K8s-based Spark submission in `providers/apache/spark/docs/`",
+      "evidence_prs": [
+        67715
+      ],
+      "evidence_paths": [
+        "providers/apache/spark/docs/operators.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_018#19",
+      "rule": "Spark provider documentation describing failure modes must note that conflicts can arise when a resubmitted job is not idempotent, not only that compute is wasted.",
+      "category": "docs",
+      "trigger": "diff adds prose about worker-crash / job-resubmission behaviour in `providers/apache/spark/docs/` without mentioning idempotency conflicts",
+      "evidence_prs": [
+        67118
+      ],
+      "evidence_paths": [
+        "providers/apache/spark/docs/operators.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_018#2",
+      "rule": "Use the provider-specific Enum (e.g., `DmsTaskWaiterStatus`) for state comparisons inside triggers and operators instead of raw string literals.",
+      "category": "correctness",
+      "trigger": "diff adds a comparison like `if status != \"<state_string>\"` inside a trigger or operator where a corresponding Enum already exists in the provider",
+      "evidence_prs": [
+        67524
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/triggers/dms.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#3",
+      "rule": "Inside async trigger methods (including `safe_to_cancel()`), wrap synchronous DB/hook calls with `sync_to_async()` to prevent blocking the triggerer event loop.",
+      "category": "async",
+      "trigger": "diff adds a synchronous call (e.g., `self.get_task_instance()`, `hook.stop_query()`) inside an `async def` method of a `BaseTrigger` subclass without `await sync_to_async(...)`",
+      "evidence_prs": [
+        64770
+      ],
+      "evidence_paths": [
+        "providers/amazon/src/airflow/providers/amazon/aws/triggers/emr.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#4",
+      "rule": "In system tests, set `AIRFLOW_CONN_*` environment variables inside a `@task`-decorated function rather than at DAG parse time, so the connection is available in the same worker process that executes subsequent tasks.",
+      "category": "testing",
+      "trigger": "diff adds `os.environ[f\"AIRFLOW_CONN_...\"] = ...` at DAG-level scope (outside any `@task`) in a system test file",
+      "evidence_prs": [
+        66976
+      ],
+      "evidence_paths": [
+        "providers/amazon/tests/system/amazon/aws/example_sagemaker_unified_studio_notebook.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#5",
+      "rule": "System tests must annotate each task chain step with its phase: setup, test body, or teardown—mirroring the pattern used in canonical examples such as `example_sqs.py`.",
+      "category": "testing",
+      "trigger": "diff adds a `chain(...)` call in a system test file without inline comments or task naming that distinguishes setup / test / teardown phases",
+      "evidence_prs": [
+        65789
+      ],
+      "evidence_paths": [
+        "providers/amazon/tests/system/amazon/aws/example_s3_read_object.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#6",
+      "rule": "System tests must be validated by running them locally before submission; reviewers will reject system tests that have not been exercised end-to-end.",
+      "category": "testing",
+      "trigger": "diff adds or substantially modifies a file matching `providers/*/tests/system/**/*.py`",
+      "evidence_prs": [
+        66549
+      ],
+      "evidence_paths": [
+        "providers/amazon/tests/system/amazon/aws/example_opensearch_serverless.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#7",
+      "rule": "In system test DAGs, read external variables (e.g., role ARNs from `SystemTestContextBuilder`) and perform connection setup inside a `@task`-decorated function so XCom resolution happens at task runtime, not at DAG-parse time.",
+      "category": "testing",
+      "trigger": "diff adds code that reads `os.environ[<VAR>]` or constructs a connection string at module/DAG-definition scope in a system test file",
+      "evidence_prs": [
+        66976
+      ],
+      "evidence_paths": [
+        "providers/amazon/tests/system/amazon/aws/example_sagemaker_unified_studio_notebook.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#8",
+      "rule": "In `pytest.raises` blocks that test a specific AWS `ClientError` error code, add a `match=` parameter to assert the exact error code rather than any `ClientError`.",
+      "category": "testing",
+      "trigger": "diff adds `pytest.raises(ClientError)` without a `match=` argument in a provider unit test",
+      "evidence_prs": [
+        66891
+      ],
+      "evidence_paths": [
+        "providers/amazon/tests/unit/amazon/aws/operators/test_mwaa_serverless.py"
+      ]
+    },
+    {
+      "key": "t1/batch_018#9",
+      "rule": "Remove unused `moto` fixtures and their associated `mock_aws` imports from unit tests; do not leave moto infrastructure in a test module that does not exercise real AWS API calls.",
+      "category": "testing",
+      "trigger": "diff adds a `@pytest.fixture` that wraps a hook with `mock_aws()` context manager but the fixture is not referenced by any test function in the same module",
+      "evidence_prs": [
+        64274
+      ],
+      "evidence_paths": [
+        "providers/amazon/tests/unit/amazon/aws/operators/test_neptune_analytics.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#0",
+      "rule": "When implementing Kerberos auth resolution in a Spark provider hook, include the krb5ccache path alongside keytab/principal so REST calls to a Kerberized YARN RM always carry an Authorization header.",
+      "category": "correctness",
+      "trigger": "A method returns auth object based on `keytab` and `principal` connection fields but omits a branch for `_use_krb5ccache` or equivalent ccache flag.",
+      "evidence_prs": [
+        65991
+      ],
+      "evidence_paths": [
+        "providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#1",
+      "rule": "Do not add module-level private constants to a provider module unless they are referenced in that module; dead constants must be wired in or removed.",
+      "category": "correctness",
+      "trigger": "A new `_SOME_CONF = \"...\"` constant is introduced at module level in a provider file but has no call-site reference within the same diff.",
+      "evidence_prs": [
+        67715
+      ],
+      "evidence_paths": [
+        "providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#10",
+      "rule": "ImportError compatibility shims for Task SDK symbols must carry a `>=X.Y.Z` version marker in a comment, referencing the minimum SDK/Airflow release that introduced the symbol.",
+      "category": "providers",
+      "trigger": "A `try: from airflow.sdk... except ImportError: Symbol = None` block is added without a comment specifying the minimum version that exports the symbol.",
+      "evidence_prs": [
+        60855
+      ],
+      "evidence_paths": [
+        "providers/celery/src/airflow/providers/celery/executors/celery_executor_utils.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#11",
+      "rule": "When a broad `except Exception` handler wraps code that deliberately raises `AirflowException`, re-raise `AirflowException` unchanged before the generic handler to preserve the intended error message.",
+      "category": "correctness",
+      "trigger": "A diff introduces a specific `raise AirflowException(...)` inside a `try` block that also has a downstream `except Exception as e` that re-wraps or swallows the exception.",
+      "evidence_prs": [
+        64767
+      ],
+      "evidence_paths": [
+        "providers/celery/src/airflow/providers/celery/executors/default_celery.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#12",
+      "rule": "Prose notes and warnings in provider changelog RST files must use the RST `.. note::` or `.. warning::` directive, not plain prose, so they render correctly in the documentation site.",
+      "category": "docs",
+      "trigger": "A provider `docs/changelog.rst` diff adds a paragraph that reads as a note or warning without a leading `.. note::` or `.. warning::` RST directive.",
+      "evidence_prs": [
+        67137
+      ],
+      "evidence_paths": [
+        "providers/cncf/kubernetes/docs/changelog.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_019#13",
+      "rule": "Documentation claims about KubernetesPodOperator deduplication or ambiguity prevention must be scoped to the specific code path (e.g. `get_or_create_pod`) where the guarantee holds, not asserted end-to-end.",
+      "category": "docs",
+      "trigger": "A diff to a provider `docs/` RST file claims \"no possibility of ambiguity failure\" or equivalent absolute language for pod reconnect behaviour.",
+      "evidence_prs": [
+        69914
+      ],
+      "evidence_paths": [
+        "providers/cncf/kubernetes/docs/operators.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_019#14",
+      "rule": "New parameters added to `KubernetesPodOperator.__init__` must have a matching docstring entry describing the parameter type; for `Callable` parameters the docstring must name each positional argument's meaning.",
+      "category": "docs",
+      "trigger": "A diff adds a new keyword argument to `KubernetesPodOperator.__init__` (or any `*Operator.__init__` in the cncf.kubernetes provider) without a corresponding `:param name:` entry in the class docstring.",
+      "evidence_prs": [
+        53598
+      ],
+      "evidence_paths": [
+        "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/pod.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#15",
+      "rule": "XCom push guards in KubernetesPodOperator must use `if value is not None` rather than `if value` (or `if not value`) so that falsy values such as `0`, `False`, or empty string are persisted correctly.",
+      "category": "correctness",
+      "trigger": "A diff introduces `if not value:` or `if value:` as a guard before an XCom push call inside `KubernetesPodOperator` (or its mixins).",
+      "evidence_prs": [
+        67226
+      ],
+      "evidence_paths": [
+        "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/pod.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#16",
+      "rule": "When persisting pod identity to the task state store, either verify the stored `uid` against the live pod on reconnect or omit `uid` from the stored payload so the schema does not imply verification that is not performed.",
+      "category": "correctness",
+      "trigger": "A diff stores `uid` alongside `name`/`namespace` in a task-state-store payload for pod identity, but the reconnect code only uses `name`/`namespace` without comparing `pod.metadata.uid` to the stored uid.",
+      "evidence_prs": [
+        69914
+      ],
+      "evidence_paths": [
+        "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/pod.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#17",
+      "rule": "When a parameter's behaviour is gated on a minimum Airflow version, its docstring must state the version constraint explicitly (e.g. \"Only available for Airflow 3.3+\").",
+      "category": "docs",
+      "trigger": "A new operator parameter is introduced whose full behaviour requires Airflow ≥X.Y but the `:param name:` docstring entry omits the version constraint.",
+      "evidence_prs": [
+        69914
+      ],
+      "evidence_paths": [
+        "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/pod.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#18",
+      "rule": "When replacing a deprecated parameter with a new version-gated one, silently translate the deprecated parameter's value for users below the minimum required version rather than forcing them to change parameter names.",
+      "category": "api-design",
+      "trigger": "A diff deprecates parameter A and introduces replacement parameter B that only works on Airflow ≥X.Y, without fallback logic that makes B behave like A when the runtime version is below X.Y.",
+      "evidence_prs": [
+        69914
+      ],
+      "evidence_paths": [
+        "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/pod.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#19",
+      "rule": "Kubernetes field selectors using comma-separated `!=` expressions must be verified to produce the correct Boolean semantics (`NOT A AND NOT B`, not `NOT (A OR B)`) before merging.",
+      "category": "correctness",
+      "trigger": "A diff introduces a Kubernetes field selector string of the form `status.phase!=X,status.phase!=Y` where the intent is to exclude pods in either state X or state Y.",
+      "evidence_prs": [
+        61110
+      ],
+      "evidence_paths": [
+        "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/operators/spark_kubernetes.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#2",
+      "rule": "Failures in Kubernetes driver-pod deletion must not propagate as task errors; wrap `_delete_driver_pod()` calls with `contextlib.suppress` or a flag that downgrades the error to a warning.",
+      "category": "correctness",
+      "trigger": "A call to `_delete_driver_pod()` or equivalent pod-cleanup method appears inline in a polling loop without error suppression or a configurable error-vs-warning flag.",
+      "evidence_prs": [
+        68067
+      ],
+      "evidence_paths": [
+        "providers/apache/spark/src/airflow/providers/apache/spark/hooks/spark_submit.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#3",
+      "rule": "Do not change the default value of an existing operator or hook parameter that affects pre-existing code paths; new code paths may enforce their own floor via `max()` but the legacy default must stay unchanged.",
+      "category": "api-design",
+      "trigger": "A diff changes the default of an `__init__` parameter (e.g. `status_poll_interval`) that was already used by a pre-existing execution path, not only by the newly introduced path.",
+      "evidence_prs": [
+        65991
+      ],
+      "evidence_paths": [
+        "providers/apache/spark/tests/unit/apache/spark/hooks/test_spark_submit.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#4",
+      "rule": "When calling the Spark Standalone REST submission API, check the `success` field before accessing `driverState`; raise with the response's `message` field on failure.",
+      "category": "correctness",
+      "trigger": "Code accesses `response.json()[\"driverState\"]` from a Spark Standalone REST response without first asserting `response.json()[\"success\"] is True`.",
+      "evidence_prs": [
+        67118
+      ],
+      "evidence_paths": [
+        "providers/apache/spark/src/airflow/providers/apache/spark/operators/spark_submit.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#5",
+      "rule": "Do not land unreachable code branches in a PR; either drop scaffolding branches or mark them with a TODO referencing the specific follow-up PR that will make them reachable.",
+      "category": "correctness",
+      "trigger": "A diff introduces `if self._hook._is_yarn:` or similar runtime-gated branches that are never reachable from any entry-point added in the same PR.",
+      "evidence_prs": [
+        67118
+      ],
+      "evidence_paths": [
+        "providers/apache/spark/src/airflow/providers/apache/spark/operators/spark_submit.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#6",
+      "rule": "Spark provider REST calls must derive scheme (http/https) and port from Airflow connection extras rather than hardcoding `http://` and a fixed port number.",
+      "category": "providers",
+      "trigger": "A diff introduces a `requests.get(f\"http://{host}:<hardcoded_port>/...\")` call inside a Spark provider operator or hook.",
+      "evidence_prs": [
+        67118
+      ],
+      "evidence_paths": [
+        "providers/apache/spark/src/airflow/providers/apache/spark/operators/spark_submit.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#7",
+      "rule": "Transient HTTP calls inside provider status-polling loops must be wrapped with a retry strategy (e.g. `tenacity`) to avoid burning a task retry slot on a one-second network blip.",
+      "category": "providers",
+      "trigger": "A `requests.get(...)` or similar HTTP call appears inside a polling loop (e.g. inside `get_job_status`, `poll_until_complete`) with no retry/backoff wrapper.",
+      "evidence_prs": [
+        67118
+      ],
+      "evidence_paths": [
+        "providers/apache/spark/src/airflow/providers/apache/spark/operators/spark_submit.py"
+      ]
+    },
+    {
+      "key": "t1/batch_019#8",
+      "rule": "Provider changelogs must not include a release entry when only test files or non-functional pyproject.toml marker comments were modified in the PR.",
+      "category": "docs",
+      "trigger": "A diff to a provider's `docs/changelog.rst` adds a new version section for a PR whose only changed files are under `tests/` or contain only `# use next version` comments in `pyproject.toml`.",
+      "evidence_prs": [
+        66424
+      ],
+      "evidence_paths": [
+        "providers/celery/docs/changelog.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_019#9",
+      "rule": "CLI commands in providers must raise `SystemExit` (not `AirflowConfigException`) for user-facing configuration errors, consistent with other CLI argument validation.",
+      "category": "correctness",
+      "trigger": "A `raise AirflowConfigException(...)` or `raise AirflowException(...)` appears inside a CLI command function (functions decorated or called from `airflow/cli/` or provider `cli/` modules).",
+      "evidence_prs": [
+        60675
+      ],
+      "evidence_paths": [
+        "providers/celery/src/airflow/providers/celery/cli/celery_command.py"
+      ]
+    },
+    {
+      "key": "t1/batch_020#0",
+      "rule": "Provider secrets-backend classes must only implement methods declared in BaseSecretsBackend; do not add extra public methods (e.g. get_config) that are absent from the base class interface.",
+      "category": "api-design",
+      "trigger": "A class extending BaseSecretsBackend defines a public method not present in airflow/secrets/base_secrets.py",
+      "evidence_prs": [
+        61527
+      ],
+      "evidence_paths": [
+        "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/secrets/kubernetes_secrets_backend.py"
+      ]
+    },
+    {
+      "key": "t1/batch_020#1",
+      "rule": "Remove manual ImportError guards for airflow-core symbols that are already handled by airflow.providers.common.compat; the compat layer itself provides the AF2/AF3 fallback.",
+      "category": "providers",
+      "trigger": "A provider module contains try/except ImportError around an import that airflow.providers.common.compat already redirects",
+      "evidence_prs": [
+        64143
+      ],
+      "evidence_paths": [
+        "providers/cncf/kubernetes/src/airflow/providers/cncf/kubernetes/template_rendering.py"
+      ]
+    },
+    {
+      "key": "t1/batch_020#10",
+      "rule": "Provider hook methods that map Airflow connection extras to a third-party library's kwargs must use truthiness filtering (if extra.get(k)) not identity checks (is not None), so that empty-string UI values fall through to environment-based auth.",
+      "category": "providers",
+      "trigger": "A provider hook builds kwargs from connection extras using {k: extra[k] for k in keys if extra.get(k) is not None}",
+      "evidence_prs": [
+        62816
+      ],
+      "evidence_paths": [
+        "providers/common/ai/src/airflow/providers/common/ai/hooks/pydantic_ai.py"
+      ]
+    },
+    {
+      "key": "t1/batch_020#11",
+      "rule": "Provider hook connection-extra field names must match the exact parameter names accepted by the target library; document the mapping if names differ and convert or load the value before passing it.",
+      "category": "providers",
+      "trigger": "A provider hook passes a connection extra key directly to a third-party constructor without verifying the parameter name matches the library's API (e.g. project_id vs project, service_account_file vs credentials object)",
+      "evidence_prs": [
+        62816
+      ],
+      "evidence_paths": []
+    },
+    {
+      "key": "t1/batch_020#12",
+      "rule": "Reuse shared exception types from providers/standard/exceptions.py (e.g. HITLRejectException) rather than defining per-provider duplicates for the same semantic error.",
+      "category": "api-design",
+      "trigger": "A provider defines a new exception class whose docstring or purpose duplicates an existing exception in providers/standard/exceptions.py",
+      "evidence_prs": [
+        62898
+      ],
+      "evidence_paths": [
+        "providers/common/ai/src/airflow/providers/common/ai/mixins/approval.py"
+      ]
+    },
+    {
+      "key": "t1/batch_020#13",
+      "rule": "Do not expose operator or mixin parameters in __init__ and docstrings unless they are fully implemented; stub parameters that have no effect must be removed or replaced with a NotImplementedError/warning until the feature ships.",
+      "category": "correctness",
+      "trigger": "An operator stores a parameter via self.param = param in __init__ but the parameter is never read by any method in the same class or its mixins",
+      "evidence_prs": [
+        63081
+      ],
+      "evidence_paths": [
+        "providers/common/ai/src/airflow/providers/common/ai/operators/agent.py"
+      ]
+    },
+    {
+      "key": "t1/batch_020#14",
+      "rule": "bytes fields must not be included in template_fields; Jinja renders bytes as their repr string (b'...'), causing AttributeError on .decode() and passing literal repr text to binary parsers.",
+      "category": "correctness",
+      "trigger": "An Operator subclass lists a parameter of type bytes in its template_fields sequence",
+      "evidence_prs": [
+        67120
+      ],
+      "evidence_paths": [
+        "providers/common/ai/src/airflow/providers/common/ai/operators/document_loader.py"
+      ]
+    },
+    {
+      "key": "t1/batch_020#15",
+      "rule": "Operators that build prompts or strings incrementally must not embed the accumulator variable in its own f-string; construct the string linearly from separate parts to avoid duplication.",
+      "category": "correctness",
+      "trigger": "A method contains a pattern like prompt = prompt + (... + f\"{prompt}\") where the variable being built is also interpolated inside the expression being appended",
+      "evidence_prs": [
+        62793
+      ],
+      "evidence_paths": [
+        "providers/common/ai/src/airflow/providers/common/ai/operators/llm_schema_compare.py"
+      ]
+    },
+    {
+      "key": "t1/batch_020#16",
+      "rule": "Provider operator methods that iterate over connection IDs must use a cached hook property (e.g. self._db_hooks[conn_id]) rather than constructing a new hook on every call to avoid redundant connections.",
+      "category": "performance",
+      "trigger": "A method loops over connection IDs and calls a factory function like self._get_db_hook(conn_id) inside the loop when a cached property (_db_hooks) already exists on the class",
+      "evidence_prs": [
+        62793
+      ],
+      "evidence_paths": [
+        "providers/common/ai/src/airflow/providers/common/ai/operators/llm_schema_compare.py"
+      ]
+    },
+    {
+      "key": "t1/batch_020#2",
+      "rule": "In Kubernetes-provider tests, mock V1Pod status with V1PodStatus(...) objects, not plain dicts, so that serialization via to_dict() matches real API behaviour.",
+      "category": "testing",
+      "trigger": "Test code assigns pod.status = {\"key\": value} instead of pod.status = V1PodStatus(...)",
+      "evidence_prs": [
+        59097
+      ],
+      "evidence_paths": [
+        "providers/cncf/kubernetes/tests/unit/cncf/kubernetes/operators/test_pod.py"
+      ]
+    },
+    {
+      "key": "t1/batch_020#3",
+      "rule": "Use time_machine to freeze time in tests that compare timestamps or durations; do not compute expected values relative to datetime.datetime.now().",
+      "category": "testing",
+      "trigger": "A test calls datetime.datetime.now() or datetime.utcnow() to derive an expected duration or timestamp rather than freezing time with @time_machine.travel",
+      "evidence_prs": [
+        65232
+      ],
+      "evidence_paths": [
+        "providers/cncf/kubernetes/tests/unit/cncf/kubernetes/operators/test_pod.py"
+      ]
+    },
+    {
+      "key": "t1/batch_020#4",
+      "rule": "When writing pod-selection tests for SparkKubernetesOperator, keep metadata.name identical across all test pods and set deletion_timestamp explicitly so the selection criteria are each independently exercised.",
+      "category": "testing",
+      "trigger": "A test for find_spark_job / get_or_create_pod constructs multiple mock pods with differing metadata.name values or omits deletion_timestamp",
+      "evidence_prs": [
+        61110
+      ],
+      "evidence_paths": [
+        "providers/cncf/kubernetes/tests/unit/cncf/kubernetes/operators/test_spark_kubernetes.py"
+      ]
+    },
+    {
+      "key": "t1/batch_020#5",
+      "rule": "Provider documentation that exposes only a subset of an upstream library's capabilities must link to the upstream capability list and note which features are not yet supported.",
+      "category": "docs",
+      "trigger": "A provider .rst doc lists supported backends/integrations without mentioning the upstream library's fuller list or noting gaps",
+      "evidence_prs": [
+        62232
+      ],
+      "evidence_paths": [
+        "providers/common/ai/docs/operators/analytics.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_020#6",
+      "rule": "Full runnable DAGs in provider documentation must be included via '.. exampleinclude::' referencing a tested file under example_dags/; inline '.. code-block:: python' is reserved for code fragments only.",
+      "category": "docs",
+      "trigger": "A provider .rst file contains a '.. code-block:: python' block that is a complete, runnable DAG rather than a fragment",
+      "evidence_prs": [
+        69552
+      ],
+      "evidence_paths": [
+        "providers/common/ai/docs/quickstart.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_020#7",
+      "rule": "Example DAGs must set schedule=None explicitly; do not omit the schedule parameter in provider example_dags files.",
+      "category": "providers",
+      "trigger": "A new example_dags/*.py file omits the schedule parameter on its @dag or DAG() definition",
+      "evidence_prs": [
+        69552
+      ],
+      "evidence_paths": [
+        "providers/common/ai/docs/quickstart.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_020#8",
+      "rule": "Provider factory classes whose keys are enum members must type-annotate the mapping as dict[EnumType, ...] and accept both str and the enum in public entry points, normalising strings to enum values with an informative ValueError.",
+      "category": "api-design",
+      "trigger": "A provider _providers dict is annotated dict[str, type] but keyed with enum instances, or a factory method accepts only the enum type when callers may pass strings from connection config or YAML",
+      "evidence_prs": [
+        62232
+      ],
+      "evidence_paths": [
+        "providers/common/ai/src/airflow/providers/common/ai/datafusion/object_storage_provider.py"
+      ]
+    },
+    {
+      "key": "t1/batch_020#9",
+      "rule": "Do not explicitly set trigger_rule='all_success' on @task or Operator; it is the default and its presence implies non-standard behaviour to readers.",
+      "category": "providers",
+      "trigger": "A task or Operator definition sets trigger_rule=\"all_success\" explicitly",
+      "evidence_prs": [
+        65172
+      ],
+      "evidence_paths": [
+        "providers/common/ai/src/airflow/providers/common/ai/example_dags/example_llm_survey_agentic.py"
+      ]
+    }
+  ]
+}

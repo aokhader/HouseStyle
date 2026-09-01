@@ -1,0 +1,15 @@
+{"pr": 69748,
+ "findings": [
+   {"path": "providers/http/src/airflow/providers/http/operators/http.py",
+    "line": 134,
+    "category": "api-design",
+    "message": "Adding a public operator parameter whose only effect is to mute a log line is permanent API surface for a very small benefit, and with `default_deferrable=True` every POST task will now log a warning on every attempt. Consider making this a logger-level concern (users can silence `airflow.task.operators...HttpOperator`) rather than a new kwarg."},
+   {"path": "providers/http/src/airflow/providers/http/operators/http.py",
+    "line": 39,
+    "category": "docs",
+    "message": "Hardcoding the `stable/` docs URL means the warning points at the currently released provider docs, which will not contain `deferrable.html` until this change is actually released, so the link is dead for everyone who hits the warning in the meantime. The docstring already carries the `:ref:`; consider dropping the raw URL or deriving it from the provider version."},
+   {"path": "providers/http/tests/unit/http/operators/test_http.py",
+    "line": 177,
+    "category": "testing",
+    "message": "`assert \"issues/67945\" not in message` (also repeated in `test_deferrable_warning_links_to_stable_docs`) asserts the absence of a string the code never produces. It looks like leftover scaffolding from development and will only confuse whoever touches this test next."}
+ ]}

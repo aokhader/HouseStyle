@@ -1,0 +1,7 @@
+{"pr": 66930,
+ "findings": [
+   {"path": "providers/google/tests/system/google/cloud/gcs/example_gcs_to_gdrive.py",
+    "line": 136,
+    "category": "docs",
+    "message": "Adding `destination_folder_id` here makes the `howto_operator_gcs_to_gdrive_copy_single_file` snippet identical to `howto_operator_gcs_to_gdrive_copy_single_file_into_folder`, so the docs now show the same example twice and the distinction between the two is lost. Leave this one without the folder id."}
+ ]}

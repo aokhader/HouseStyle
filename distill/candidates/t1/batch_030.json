@@ -1,0 +1,262 @@
+[
+  {
+    "rule": "Warning and API error text that tells a task author how to offload an oversized stored value must name the worker-side `[workers] state_store_backend` option, not the server-side `[state_store] backend`; keep the same section name in the asset-store warning and in the API error messages.",
+    "category": "docs",
+    "trigger": "diff adds a size-limit warning or HTTP error message in task-sdk execution_time code that names a `[state_store]` config option as the remedy for a too-large value",
+    "rationale": "`[state_store] backend` is the server-side backend and does nothing for a task; only `[workers] state_store_backend` turns `stored` into a small ref, which is also what stops the warning firing.",
+    "evidence": [
+      {
+        "pr": 68133,
+        "url": "https://github.com/apache/airflow/pull/68133#discussion_r3392246843",
+        "excerpt": "`[state_store] backend` is the server-side backend and doesn't help here."
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/execution_time/context.py"]
+  },
+  {
+    "rule": "When instantiating a user-configured coordinator via `import_string(spec.classpath)(**spec.kwargs)`, catch `ImportError`/`TypeError` and re-raise with the offending coordinator key and classpath, and assert `isinstance(coordinator, BaseCoordinator)` before caching the instance.",
+    "category": "correctness",
+    "trigger": "diff adds `import_string(<spec>.classpath)(**<spec>.kwargs)` for a config-driven plugin/coordinator without error wrapping or a base-class check on the result",
+    "rationale": "A bare ImportError or attrs `kw_only` TypeError gives no hint which `coordinators` config entry is wrong, and a typo'd classpath pointing at another importable class only blows up later inside `execute_task`.",
+    "evidence": [
+      {
+        "pr": 65958,
+        "url": "https://github.com/apache/airflow/pull/65958#discussion_r3295487558",
+        "excerpt": "catch `ImportError`/`TypeError` here and re-raise with the offending coordinator key + classpath"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/execution_time/coordinator.py"]
+  },
+  {
+    "rule": "A secrets backend cannot enforce a denial by raising an exception alone: the backend-iteration loops (`_get_connection`, `_async_get_connection`, `_get_variable` in `execution_time/context.py`, and the same pattern in `models/connection.py`) use bare `except Exception: continue`, so any new deny signal must be special-cased and re-raised there in the same change.",
+    "category": "security",
+    "trigger": "diff makes a secrets backend raise `PermissionError` (or another auth-denied exception) without changing the `except Exception` backend-fallthrough loops to re-raise it",
+    "rationale": "`PermissionError` subclasses `Exception` via `OSError`, so the dispatcher swallows it and the next backend (e.g. `EnvironmentVariablesBackend`) still returns the secret — the deny silently becomes a no-op.",
+    "evidence": [
+      {
+        "pr": 66575,
+        "url": "https://github.com/apache/airflow/pull/66575#discussion_r3262697680",
+        "excerpt": "`PermissionError` is a subclass of `Exception` (via `OSError`), so it's caught"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/src/airflow/sdk/execution_time/secrets/execution_api.py",
+      "task-sdk/src/airflow/sdk/execution_time/context.py"
+    ]
+  },
+  {
+    "rule": "In supervisor message handlers, do not guard task-SDK API client results with `isinstance(resp, XResponse)` plus an `else` branch: client methods return their response model unconditionally and raise `ServerResponseError` on failure, so call `XResult.from_api_response(resp)` directly like the neighbouring handlers do.",
+    "category": "correctness",
+    "trigger": "diff adds an `isinstance(<resp>, <X>Response)` check with an `else` fallback around a `self.client.<resource>.<method>(...)` call in `supervisor.py`",
+    "rationale": "The client raises before it can return anything else, so the type guard and its else branch are unreachable dead code; `GetDagRunState` already converts the response with no type guard.",
+    "evidence": [
+      {
+        "pr": 56955,
+        "url": "https://github.com/apache/airflow/pull/56955#discussion_r2949430791",
+        "excerpt": "returns `DagStateResponse` unconditionally, so the isinstance check and else branch are unreachable"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/execution_time/supervisor.py"]
+  },
+  {
+    "rule": "Never print or log a `Connection` object, a `ConnectionResult`, or the output of `Connection.get_uri()` in task-SDK execution paths — including temporary debug prints left in a PR.",
+    "category": "security",
+    "trigger": "diff adds a `print(...)` or logging call that interpolates a `Connection`, `conn_result`, or `get_uri()` under `task-sdk/src/airflow/sdk/execution_time/`",
+    "rationale": "Connection reprs and URIs embed the password, so code scanning fails the PR with a clear-text logging of sensitive information alert.",
+    "evidence": [
+      {
+        "pr": 57744,
+        "url": "https://github.com/apache/airflow/pull/57744#discussion_r2544394260",
+        "excerpt": "Clear-text logging of sensitive information. This expression logs sensitive data (password) as clear text."
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/execution_time/supervisor.py"]
+  },
+  {
+    "rule": "Imports of private third-party internals (e.g. `from structlog._output import WRITE_LOCKS`) in the supervisor must be wrapped in `try/except ImportError` with a `None` fallback, and every use guarded (`if WRITE_LOCKS is not None:`), so a dependency upgrade that moves or removes the internal cannot break task execution.",
+    "category": "correctness",
+    "trigger": "diff adds a module-level import of an underscore-prefixed module or attribute from a third-party package under `task-sdk/src/`",
+    "rationale": "The supervisor runs every task; depending on an unsupported upstream internal must degrade gracefully rather than take the supervisor down when the library refactors it.",
+    "evidence": [
+      {
+        "pr": 65121,
+        "url": "https://github.com/apache/airflow/pull/65121#discussion_r3081163492",
+        "excerpt": "wrap it in try/except so a future structlog upgrade doesn't take down the supervisor"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/execution_time/supervisor.py"]
+  },
+  {
+    "rule": "Tracing helpers that no-op below a configured OTel detail level must return `contextlib.nullcontext(trace.INVALID_SPAN)` rather than `trace.INVALID_SPAN` itself, so `__enter__`/`__exit__` always exist and `with detail_span(...) as span` still yields `INVALID_SPAN`.",
+    "category": "correctness",
+    "trigger": "diff adds a span wrapper whose disabled branch returns `trace.INVALID_SPAN` while `__enter__` calls `self._ctx.__enter__()`",
+    "rationale": "`INVALID_SPAN` is a span object, not a context manager, so every `with detail_span(...)` raises at runtime whenever the configured detail level is low.",
+    "evidence": [
+      {
+        "pr": 63568,
+        "url": "https://github.com/apache/airflow/pull/63568#discussion_r3066479624",
+        "excerpt": "`INVALID_SPAN` is a span object, not a context manager"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/execution_time/task_runner.py"]
+  },
+  {
+    "rule": "Do not wrap conn-id filesystem injection for `ObjectStoragePath` in a blanket `except Exception: pass`; set the cached filesystem through `self.fs` so failures are consistent, and either let the exception propagate or suppress only the specific provider-not-available / scheme-unregistered errors while logging at debug.",
+    "category": "correctness",
+    "trigger": "diff assigns `attach(...).fs` to `__wrapped__._fs_cached` (or similar) guarded by a bare `except Exception: pass` in `sdk/io/path.py`",
+    "rationale": "Silently skipping injection on an invalid conn_id or a provider bug lets delegated methods fall back to an unauthenticated fsspec filesystem and fail much later with confusing errors.",
+    "evidence": [
+      {
+        "pr": 64634,
+        "url": "https://github.com/apache/airflow/pull/64634#discussion_r3029955158",
+        "excerpt": "can cause delegated methods to fall back to an unauthenticated fsspec FS"
+      }
+    ],
+    "scope_paths": ["task-sdk/src/airflow/sdk/io/path.py"]
+  },
+  {
+    "rule": "Mocks of the task-SDK execution API `Client` in task-sdk tests must be specced — `MagicMock(spec=Client)`, `spec_set`, or `create_autospec` — including nested attributes such as `task_instances`, rather than a bare `MagicMock()`.",
+    "category": "testing",
+    "trigger": "diff adds `client = MagicMock()` / `fake_client = MagicMock()` under `task-sdk/tests/` and then sets `<mock>.task_instances.<method>.return_value`",
+    "rationale": "An unspecced client mock hides interface drift and attribute typos, so coordinator and supervisor tests keep passing against a client surface that no longer exists.",
+    "evidence": [
+      {
+        "pr": 67635,
+        "url": "https://github.com/apache/airflow/pull/67635#discussion_r3316173929",
+        "excerpt": "created as a bare `MagicMock()` without `spec`/`autospec`, which can hide real API mismatches"
+      },
+      {
+        "pr": 64568,
+        "url": "https://github.com/apache/airflow/pull/64568#discussion_r3066480500",
+        "excerpt": "unspecced mock; consider using a `spec`/`spec_set` (or `autospec`) for the SDK client"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/tests/task_sdk/coordinators/",
+      "task-sdk/tests/task_sdk/execution_time/"
+    ]
+  },
+  {
+    "rule": "A comment that tells readers to run a benchmark or helper script must name an entrypoint that exists in the tree (e.g. under `dev/`); otherwise add the script in the same PR or drop the instruction.",
+    "category": "docs",
+    "trigger": "diff adds a comment or docstring pointing at a `dev/...` script (or other repo entrypoint) that is not present in the repository",
+    "rationale": "Pointing at a non-existent `dev/bench_topological_sort` makes the guidance misleading for anyone trying to reproduce the performance claim the change rests on.",
+    "evidence": [
+      {
+        "pr": 67288,
+        "url": "https://github.com/apache/airflow/pull/67288#discussion_r3283777112",
+        "excerpt": "there is no such script in the repository (no matches under `dev/`)"
+      }
+    ],
+    "scope_paths": ["task-sdk/tests/task_sdk/definitions/test_taskgroup.py"]
+  },
+  {
+    "rule": "When client-level exception translation replaces an existing error path (e.g. HTTP 409 becoming `TaskAlreadyRunningError`), do not delete the supervisor-level end-to-end test: add a replacement asserting that `ActivitySubprocess.start()`/`supervise` raises the new exception and that the child process is killed.",
+    "category": "testing",
+    "trigger": "diff removes a test from `task-sdk/tests/task_sdk/execution_time/test_supervisor.py` while adding equivalent coverage only in `task-sdk/tests/task_sdk/api/test_client.py`",
+    "rationale": "Client tests cover only the exception translation; nothing then exercises the supervisor's reaction — the subprocess kill and non-failure propagation that the change is actually about.",
+    "evidence": [
+      {
+        "pr": 60855,
+        "url": "https://github.com/apache/airflow/pull/60855#discussion_r2985452033",
+        "excerpt": "nothing tests the supervisor's reaction to `TaskAlreadyRunningError` specifically"
+      },
+      {
+        "pr": 60855,
+        "url": "https://github.com/apache/airflow/pull/60855#discussion_r2981033364",
+        "excerpt": "removed, but there isn't a replacement assertion at the supervisor/celery boundary"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/tests/task_sdk/execution_time/test_supervisor.py",
+      "task-sdk/tests/task_sdk/api/test_client.py"
+    ]
+  },
+  {
+    "rule": "Tests that keep a task subprocess alive to exercise signal delivery must bound their worst-case runtime to tens of seconds; do not write operator bodies like `for i in range(1000): sleep(1)`.",
+    "category": "testing",
+    "trigger": "diff adds a test operator whose `execute` loops with `sleep(...)` for a worst-case total duration well beyond a minute",
+    "rationale": "The loop only needs to outlive signal delivery; if termination regresses the test stalls CI for roughly fifteen minutes instead of failing fast.",
+    "evidence": [
+      {
+        "pr": 61627,
+        "url": "https://github.com/apache/airflow/pull/61627#discussion_r2779759901",
+        "excerpt": "this could run for ~15 minutes and materially stall CI"
+      }
+    ],
+    "scope_paths": ["task-sdk/tests/task_sdk/execution_time/test_supervisor.py"]
+  },
+  {
+    "rule": "Use `partition_key` only for exact-match asset-event filtering; any regex or pattern value (e.g. one starting with `^`) must be passed through `partition_key_pattern`, in production code and in test cases alike.",
+    "category": "correctness",
+    "trigger": "diff sets `partition_key=` to a value containing regex metacharacters in a `GetAssetEventByAsset` message or asset-event query",
+    "rationale": "`partition_key` is documented and implemented as an exact-match filter, so a regex there exercises the wrong query param and can mask real regressions.",
+    "evidence": [
+      {
+        "pr": 64610,
+        "url": "https://github.com/apache/airflow/pull/64610#discussion_r3070030864",
+        "excerpt": "`partition_key` is documented/implemented as an exact-match filter, while regex should go through `partition_key_pattern`"
+      }
+    ],
+    "scope_paths": [
+      "task-sdk/tests/task_sdk/execution_time/test_supervisor.py",
+      "task-sdk/src/airflow/sdk/execution_time/"
+    ]
+  },
+  {
+    "rule": "A regression test for a new `sys.exit(...)` inside `run()` must assert more than `SystemExit(1)`: it must also verify that `on_failure_callback`, the `on_task_instance_failed` listener, and `email_on_failure` still fire for the failed task instance.",
+    "category": "testing",
+    "trigger": "diff adds a task-runner test asserting only `pytest.raises(SystemExit)` / an exit code for a failure path introduced by a new `sys.exit()` call in `run()`",
+    "rationale": "`sys.exit(1)` from inside `run()` bypasses `finalize()` in `main()` because `SystemExit` is not caught by `except Exception:`, so the change can silently drop failure callbacks while the test still passes.",
+    "evidence": [
+      {
+        "pr": 66573,
+        "url": "https://github.com/apache/airflow/pull/66573#discussion_r3262693277",
+        "excerpt": "`sys.exit(1)` from inside `run()` bypasses `finalize()` in `main()`"
+      }
+    ],
+    "scope_paths": ["task-sdk/tests/task_sdk/execution_time/test_task_runner.py"]
+  },
+  {
+    "rule": "New language-SDK task registration APIs should follow the two-step registration the Java and Go SDKs use — define the callable, then register the task against a Dag — so Dag-level arguments stay expressible when whole-Dag definition in the language SDK lands; an inline `registerTask({dagId, taskId}, fn)` must be justified against that forward path.",
+    "category": "api-design",
+    "trigger": "diff adds or documents a task registration entrypoint under `ts-sdk/` that binds dagId and taskId inline in a single call",
+    "rationale": "Cross-language SDK parity is deliberate: Java and Go split callable definition from Dag registration precisely so both task-level and Dag-level args can be supported once the SDK defines whole Dags.",
+    "evidence": [
+      {
+        "pr": 67908,
+        "url": "https://github.com/apache/airflow/pull/67908#discussion_r3471809233",
+        "excerpt": "both Java and Go SDK went with two steps registration"
+      }
+    ],
+    "scope_paths": ["ts-sdk/README.md", "ts-sdk/src/"]
+  },
+  {
+    "rule": "Every `Socket` the ts-sdk coordinator creates must register an `error` handler at construction time that writes the channel name and message to stderr; an unhandled socket `error` event takes down the Node task process.",
+    "category": "correctness",
+    "trigger": "diff constructs or stores a `Socket` under `ts-sdk/src/coordinator/` wiring only `data`/`close`/`connect` handlers",
+    "rationale": "Node throws on unhandled `error` events, so a log-channel socket failure must degrade to a stderr line rather than killing the running task.",
+    "evidence": [
+      {
+        "pr": 69079,
+        "url": "https://github.com/apache/airflow/pull/69079#discussion_r3511172778",
+        "excerpt": "sock.on(\"error\", (err) => { process.stderr.write(`[${this.name}] log socket error: ${err.message}\\n`); });"
+      }
+    ],
+    "scope_paths": ["ts-sdk/src/coordinator/log-channel.ts"]
+  },
+  {
+    "rule": "Client-side socket reconnection in a language SDK is only correct if the Airflow coordinator accepts a second connection on the same channel; when adding `scheduleReconnect`/backoff logic, verify and cover the coordinator-side re-accept path in the same PR.",
+    "category": "correctness",
+    "trigger": "diff adds reconnect or backoff logic to a ts-sdk coordinator socket, e.g. `sock.on(\"close\", ...)` calling `this.scheduleReconnect()`",
+    "rationale": "Reconnecting from the client is a no-op unless the coordinator re-accepts the connection, so reviewers require that server half to be confirmed before merge.",
+    "evidence": [
+      {
+        "pr": 69302,
+        "url": "https://github.com/apache/airflow/pull/69302#discussion_r3555159344",
+        "excerpt": "the airflow coordinator side needs to accept the reconnection again. Can you please verify"
+      }
+    ],
+    "scope_paths": ["ts-sdk/src/coordinator/log-channel.ts"]
+  }
+]

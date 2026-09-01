@@ -1,0 +1,13 @@
+{"pr": 67532,
+ "findings": [
+   {"rule_id": "hass-r002",
+    "path": "providers/ibm/db2/tests/unit/ibm/db2/hooks/test_db2.py",
+    "line": 38,
+    "category": "api-design",
+    "message": "`Db2Hook` already names both of these values - `conn_type = \"ibmdb2\"` and `default_conn_name = \"db2_default\"` - and this fixture (and `mock_connection_with_extras` at line 52) restates them as literals instead. The restatement has already drifted: the connection is built with `conn_type=\"db2\"`, which is not the type the hook registers in provider.yaml. Build the fixture `Connection` from `Db2Hook.conn_type` and `Db2Hook.default_conn_name` so the fixtures cannot disagree with the hook."},
+   {"rule_id": "hass-r018",
+    "path": "providers/ibm/db2/src/airflow/providers/ibm/db2/hooks/db2.py",
+    "line": 134,
+    "category": "testing",
+    "message": "This `if extra:` branch in `get_uri()` is added here and no test takes it: all three `get_uri` tests use connections without an `extra`, so the uppercased keys, the `urlencode` query string and the bool -> \"true\"/\"false\" conversion at line 139 are never exercised - only the plain `return base_uri` side is. Add a `get_uri` case on `mock_connection_with_extras` asserting the `?SECURITY=SSL&SSLSERVERCERTIFICATE=...` suffix, plus one with a boolean extra value."}
+ ]}

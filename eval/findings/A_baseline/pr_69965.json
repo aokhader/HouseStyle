@@ -1,0 +1,7 @@
+{"pr": 69965,
+ "findings": [
+   {"path": "go-sdk/cmd/airflow-go-pack/pack.go",
+    "line": 174,
+    "category": "api-design",
+    "message": "The messages say \"the Airflow server will reject it\", yet `runPack` still writes the bundle and exits 0, so the user gets an artifact that is known to be undeployable. For the two deterministic checks (length and charset) it would be friendlier to fail the pack; keep the warning only for the `..` case, which genuinely depends on server config."}
+ ]}

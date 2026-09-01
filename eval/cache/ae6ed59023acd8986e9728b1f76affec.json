@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding is that startswith('http') is too weak an absoluteness test for the host guard; the human is about the method being async only because of a defensive None guard.",
+  "judge": "agent"
+}

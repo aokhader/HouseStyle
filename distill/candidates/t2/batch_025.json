@@ -1,0 +1,365 @@
+[
+  {
+    "rule": "When a provider transfer operator exposes a passthrough config dict (e.g. `extra_config`), apply it last — after every top-level-derived field — so it actually wins for overlapping keys as documented",
+    "category": "api-design",
+    "trigger": "A passthrough dict is merged into an API-representation dict before the object is constructed, while top-level params (`schema_fields`, `max_bad_records`) are still assigned onto the constructed object afterwards",
+    "rationale": "The escape-hatch dict is documented as taking precedence, so applying it early silently lets typed parameters override user overrides for the same field",
+    "evidence": [
+      {
+        "pr": 64505,
+        "url": "https://github.com/apache/airflow/pull/64505#discussion_r3025329810",
+        "excerpt": "`extra_config` does not consistently take precedence for overlapping fields"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/transfers/"
+    ]
+  },
+  {
+    "rule": "Keep the `deferrable` constructor default as the inline literal `conf.getboolean(\"operators\", \"default_deferrable\", fallback=False)`; do not switch it to `None` and resolve the config inside the body",
+    "category": "providers",
+    "trigger": "An operator/sensor `__init__` signature changes `deferrable=conf.getboolean(\"operators\", \"default_deferrable\", fallback=False)` to `deferrable=None` or any other default",
+    "rationale": "A custom AST pre-commit checker recognises the literal default; changing the shape either silently defeats the checker or forces its logic to become more complicated",
+    "evidence": [
+      {
+        "pr": 66979,
+        "url": "https://github.com/apache/airflow/pull/66979#discussion_r3246447999",
+        "excerpt": "should break our ast checker; leave this deferrable thing as it is"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/transfers/s3_to_gcs.py",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "Do not add a boolean opt-in flag for behaviour that only changes an operator's return value when existing users read the old value from a separate named XCom key",
+    "category": "api-design",
+    "trigger": "New `__init__` boolean parameter (e.g. `return_gcs_uris`) whose only effect is the format of the value returned by `execute()`, while the legacy value is still pushed to its own XCom key",
+    "rationale": "Operators push named XCom keys independently of the return value, so a return-value-only change is already backwards compatible and the flag adds permanent public API surface for nothing",
+    "evidence": [
+      {
+        "pr": 61347,
+        "url": "https://github.com/apache/airflow/pull/61347#discussion_r2854330437",
+        "excerpt": "it shouldn't affect existing users who read from XCom. Is the flag really necessary?"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/transfers/"
+    ]
+  },
+  {
+    "rule": "Raise built-in exceptions such as `RuntimeError` for internal/programming errors in provider code instead of `AirflowException`",
+    "category": "providers",
+    "trigger": "New `raise AirflowException(...)` added inside a provider package trigger, hook or operator helper for a state/invariant violation",
+    "rationale": "Providers are being decoupled from airflow core exception types, so reviewers reject new `AirflowException` usages in provider modules",
+    "evidence": [
+      {
+        "pr": 55068,
+        "url": "https://github.com/apache/airflow/pull/55068#discussion_r2497913513",
+        "excerpt": "Let's not use AirflowException"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/triggers/",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "Log transient, retried API errors inside a trigger's async polling loop at info/debug level, or rate-limit them; do not emit a warning on every retry",
+    "category": "async",
+    "trigger": "`except <TransientError>` inside a trigger `run()` loop calls `self.log.warning(...)` immediately before `await asyncio.sleep(self.polling_period_seconds)`",
+    "rationale": "Triggers poll continuously in a shared triggerer process, so one warning per retry floods the deployment's logs for the entire duration of a provider outage",
+    "evidence": [
+      {
+        "pr": 67219,
+        "url": "https://github.com/apache/airflow/pull/67219#discussion_r3270559145",
+        "excerpt": "Logging a warning on every transient 503 can generate high-volume warning logs"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/triggers/"
+    ]
+  },
+  {
+    "rule": "In a trigger, filter the result of a bulk list call that is already in scope rather than issuing one API request per item",
+    "category": "performance",
+    "trigger": "A comprehension inside a trigger awaits `self.hook.get_<resource>(name=...)` once per name when a `list_<resources>()` result for the same namespace/label selector was already awaited",
+    "rationale": "All triggers share a single event loop in the triggerer, so per-item API calls multiply latency and API quota consumption for every deferred task",
+    "evidence": [
+      {
+        "pr": 63915,
+        "url": "https://github.com/apache/airflow/pull/63915#discussion_r2990423012",
+        "excerpt": "Why are you doing an API call for every pod when you called `list_pods` already"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/triggers/kubernetes_engine.py"
+    ]
+  },
+  {
+    "rule": "When a trigger waits on state that only becomes true eventually (a pod reaching Succeeded, a job finishing), poll in a bounded `while` loop with a timeout instead of a single check plus a stale fallback",
+    "category": "async",
+    "trigger": "Trigger code performs one list/get call and then does `if not <resource>:` to fall back to a previously captured list rather than re-polling until the condition holds or a timeout expires",
+    "rationale": "A query issued too early can run before the resource settles, so the fallback silently returns the wrong object — e.g. missing the replacement retry pod that carries the real XCom",
+    "evidence": [
+      {
+        "pr": 63915,
+        "url": "https://github.com/apache/airflow/pull/63915#discussion_r3115406005",
+        "excerpt": "Maybe we should wrap it in a `while True` loop (+timeout) rather an if statment?"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/cloud/triggers/kubernetes_engine.py"
+    ]
+  },
+  {
+    "rule": "Add new optional parameters to an existing provider hook or operator `__init__` as keyword-only arguments, placed after a `*` separator",
+    "category": "api-design",
+    "trigger": "A new optional parameter is inserted positionally into an existing `__init__` signature with no preceding `*` marker",
+    "rationale": "Positional order carries no meaning for these configuration parameters, and keyword-only placement keeps the signature free to evolve without breaking existing callers",
+    "evidence": [
+      {
+        "pr": 56324,
+        "url": "https://github.com/apache/airflow/pull/56324#discussion_r3091879237",
+        "excerpt": "order does not have any special meaning; keyword only arg would be better"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/common/hooks/",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "A provider hook/operator `:param:` docstring must describe the real runtime fallback and the real scope of validation — not the plausible-sounding one",
+    "category": "docs",
+    "trigger": "A `:param X:` line claims a fallback such as \"if None, the project ID from the connection is used\" when the code passes `None` straight through, or a docstring summary claims to validate \"format and existence\" while only the format is checked",
+    "rationale": "Provider docstrings are published as the user-facing API reference, so an invented default or validation claim misleads users configuring connections",
+    "evidence": [
+      {
+        "pr": 56324,
+        "url": "https://github.com/apache/airflow/pull/56324#discussion_r2662090249",
+        "excerpt": "When quota_project_id is None, no quota project is configured at all"
+      },
+      {
+        "pr": 56324,
+        "url": "https://github.com/apache/airflow/pull/56324#discussion_r2724153278",
+        "excerpt": "It doesn't validate existence (not sure that it should though)"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/common/hooks/base_google.py"
+    ]
+  },
+  {
+    "rule": "Check that an optional credential capability is callable with `callable(getattr(credentials, \"with_quota_project\", None))` rather than probing it with `hasattr`",
+    "category": "correctness",
+    "trigger": "`if not hasattr(credentials, \"<method>\")` guards a subsequent call to that method on a google-auth credentials object",
+    "rationale": "`hasattr` only proves the attribute exists; a non-callable or `None` attribute then fails at the call site with a confusing error instead of the intended configuration error",
+    "evidence": [
+      {
+        "pr": 56324,
+        "url": "https://github.com/apache/airflow/pull/56324#discussion_r3066475503",
+        "excerpt": "only verifies the attribute exists, not that it's callable"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/common/hooks/base_google.py"
+    ]
+  },
+  {
+    "rule": "When bumping the documented `api_version` example of a marketing-platform/Google operator, update the versioned API documentation URLs in the same docstring to match",
+    "category": "docs",
+    "trigger": "A docstring's `:param api_version:` example changes (e.g. 'v4' to 'v5') while a \"Check official API docs\" link in the same class docstring still contains the old `/rest/v4/` segment",
+    "rationale": "A version example and a doc link that disagree send users to the reference for an API version the operator no longer calls",
+    "evidence": [
+      {
+        "pr": 62510,
+        "url": "https://github.com/apache/airflow/pull/62510#discussion_r2860718910",
+        "excerpt": "URL in the same docstring still points to /rest/v4/ — please update the referenced URLs"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/src/airflow/providers/google/marketing_platform/operators/"
+    ]
+  },
+  {
+    "rule": "Collapse provider unit tests that differ only in one input and one expected value into a single test using `@pytest.mark.parametrize`",
+    "category": "testing",
+    "trigger": "Two adjacent test functions such as `test_x_with_<flag>` / `test_x_without_<flag>` share an identical body apart from one argument and one assertion",
+    "rationale": "Near-duplicate hook tests drift apart when the hook changes; the parametrized form keeps the shared assertions in one place",
+    "evidence": [
+      {
+        "pr": 60394,
+        "url": "https://github.com/apache/airflow/pull/60394#discussion_r2686403870",
+        "excerpt": "looks pretty similar, is there a chance to combine them with `@pytest.mark.parametrize`?"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/tests/unit/google/cloud/hooks/"
+    ]
+  },
+  {
+    "rule": "A test for an error-suppression flag (`ignore_error`, soft-fail behaviour) must make the mocked client raise the real provider exception via `side_effect` and assert nothing propagates — asserting that the flag was forwarded is not coverage",
+    "category": "testing",
+    "trigger": "A new test exercising `ignore_error=True` only asserts `<method>.assert_called_once_with(..., on_error=mock.ANY)` and never sets `side_effect`",
+    "rationale": "Passthrough assertions leave the actual suppression path untested, so a regression in the error handler still ships green",
+    "evidence": [
+      {
+        "pr": 62424,
+        "url": "https://github.com/apache/airflow/pull/62424#discussion_r2860731457",
+        "excerpt": "This test doesn't actually verify that the `ignore_error` flag works correctly"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/tests/unit/google/cloud/hooks/test_gcs.py"
+    ]
+  },
+  {
+    "rule": "Every public hook method added must get a unit test asserting the mocked client call chain arguments and the returned value, following the pattern already established in that test module",
+    "category": "testing",
+    "trigger": "A hook gains public methods (e.g. `get_report`, `list_reports`) but the matching `providers/*/tests/unit/.../test_<hook>.py` only covers a subset of them",
+    "rationale": "Discovery-API hooks are thin wrappers whose only real failure mode is wrong parameter names, so per-method call-chain assertions are the coverage that matters",
+    "evidence": [
+      {
+        "pr": 62521,
+        "url": "https://github.com/apache/airflow/pull/62521#discussion_r2860729766",
+        "excerpt": "hook methods `get_report` and `list_reports` are missing test coverage"
+      }
+    ],
+    "scope_paths": [
+      "providers/google/tests/unit/google/marketing_platform/hooks/"
+    ]
+  },
+  {
+    "rule": "Do not swallow credential-resolution or token-refresh failures inside a secrets backend; surface or chain the original error instead of letting it degrade into the backend's generic error",
+    "category": "correctness",
+    "trigger": "`except Exception: pass` (or an equally broad silent handler) wraps `credentials.refresh(...)` or a metadata-server lookup in a secrets backend or its internal client",
+    "rationale": "Swallowed ADC failures resurface later as a generic VaultError about an expected string, which makes production authentication problems very hard to diagnose",
+    "evidence": [
+      {
+        "pr": 53801,
+        "url": "https://github.com/apache/airflow/pull/53801#discussion_r3176107154",
+        "excerpt": "makes production ADC failures much harder to diagnose. Please preserve or surface the original error"
+      }
+    ],
+    "scope_paths": [
+      "providers/hashicorp/src/airflow/providers/hashicorp/_internal_client/"
+    ]
+  },
+  {
+    "rule": "Resolve team-scoped secrets through the same `_get_team_or_global_secret` helper for connections, variables and config alike; do not gate it behind `conf.getboolean(\"core\", \"multi_team\")`",
+    "category": "security",
+    "trigger": "A secrets backend getter branches on the `core.multi_team` config value to choose between the team-aware lookup and the plain lookup",
+    "rationale": "The team-aware helper already falls back to the global path, so the extra config branch makes connection lookup behave differently from variable lookup for no reason",
+    "evidence": [
+      {
+        "pr": 65493,
+        "url": "https://github.com/apache/airflow/pull/65493#discussion_r3118753103",
+        "excerpt": "Why cannot we do this regardless of whether multi team is configured? Same as variable"
+      }
+    ],
+    "scope_paths": [
+      "providers/hashicorp/src/airflow/providers/hashicorp/secrets/"
+    ]
+  },
+  {
+    "rule": "Tests for behaviour gated on an Airflow config flag must cover the flag-off state as well, using `conf_vars` to assert the legacy path is unchanged",
+    "category": "testing",
+    "trigger": "Every new test wraps the call in `with conf_vars({(\"core\", \"multi_team\"): \"True\"})` and no test exercises the same call with the flag disabled",
+    "rationale": "The disabled path is where truthy-string config bugs hide; without that case a regression that always applies the team prefix passes CI",
+    "evidence": [
+      {
+        "pr": 65493,
+        "url": "https://github.com/apache/airflow/pull/65493#discussion_r3115567576",
+        "excerpt": "no regression test ensuring that when `core.multi_team` is disabled the team prefix is skipped"
+      }
+    ],
+    "scope_paths": [
+      "providers/hashicorp/tests/unit/hashicorp/secrets/"
+    ]
+  },
+  {
+    "rule": "Async notifier and async execution paths must go through the provider's hook rather than opening a raw client session such as `aiohttp.ClientSession()` inline",
+    "category": "async",
+    "trigger": "An `async def async_notify`/async execute path constructs `aiohttp.ClientSession()` directly instead of awaiting the provider's async hook method",
+    "rationale": "Bypassing the hook discards connection lookup, auth and retry configuration; reviewers tolerate it only because a precedent exists and prefer refactoring the hook instead",
+    "evidence": [
+      {
+        "pr": 56160,
+        "url": "https://github.com/apache/airflow/pull/56160#discussion_r2403025373",
+        "excerpt": "might be a better way so that we don't have to bypass the hook"
+      }
+    ],
+    "scope_paths": [
+      "providers/http/src/airflow/providers/http/notifications/"
+    ]
+  },
+  {
+    "rule": "`ui-field-behaviour` placeholders in `provider.yaml` must be valid literal JSON that a user can paste straight into a Connection `extra` field — never Python expressions or attribute references",
+    "category": "providers",
+    "trigger": "A `placeholders.extra` block in `provider.yaml` contains a non-JSON token such as `cls.default_open_options` or any other Python expression",
+    "rationale": "The placeholder is rendered verbatim in the connection UI and copied by users, so anything that is not valid JSON becomes a runtime parsing failure in their deployment",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r3066482686",
+        "excerpt": "includes `cls.default_open_options`, which is not valid JSON and will be copied by users"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/provider.yaml",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "Regenerate the provider metadata (`get_provider_info.py`) in the same change whenever `provider.yaml` is edited",
+    "category": "providers",
+    "trigger": "A diff touches a `provider.yaml` (connection types, ui-field-behaviour, extras) with no matching update to that provider's generated `get_provider_info.py`",
+    "rationale": "The generated metadata is what Airflow reads at runtime, so leaving it stale makes the yaml and the shipped provider info disagree",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r3066482686",
+        "excerpt": "then regenerate provider metadata so `get_provider_info.py` stays consistent"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/",
+      "providers/"
+    ]
+  },
+  {
+    "rule": "`get_conn()` must resolve connection-derived configuration into local variables and never overwrite attributes that were set in `__init__`",
+    "category": "correctness",
+    "trigger": "`get_conn()` assigns to `self.<param>` from `connection.extra_dejson` or a `getattr(..., default)` fallback chain",
+    "rationale": "Hooks are reused and `get_conn()` can be called many times, so the first call permanently clobbers the value the user passed to the constructor with a defaulted one",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r2963359574",
+        "excerpt": "the first call permanently overwrites whatever was passed in `__init__`"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/src/airflow/providers/ibm/mq/hooks/"
+    ]
+  },
+  {
+    "rule": "Centralize an optional provider SDK import in a single helper that raises `AirflowOptionalProviderFeatureException`, instead of repeating a bare in-method `import` that surfaces a raw `ImportError`",
+    "category": "providers",
+    "trigger": "The same third-party SDK (e.g. `import ibmmq`) is imported inside several methods of a hook/operator with no shared helper and no optional-feature exception",
+    "rationale": "Optional extras must fail with a clear user-facing message naming the extra to install, and a single import site stops the guard logic from drifting between methods",
+    "evidence": [
+      {
+        "pr": 62790,
+        "url": "https://github.com/apache/airflow/pull/62790#discussion_r2984868945",
+        "excerpt": "these imports should fail with a clear, user-facing `AirflowOptionalProviderFeatureException` rather than a raw `ImportError`"
+      }
+    ],
+    "scope_paths": [
+      "providers/ibm/mq/src/airflow/providers/ibm/mq/hooks/",
+      "providers/"
+    ]
+  }
+]

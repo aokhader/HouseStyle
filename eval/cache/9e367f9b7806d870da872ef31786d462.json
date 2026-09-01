@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding is about swallowing OSError/EOFError and silently dropping task results, while the human targets the unreliable `empty()` check plus blocking `get()` race in the same function.",
+  "judge": "agent"
+}

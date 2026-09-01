@@ -1,0 +1,255 @@
+[
+  {
+    "rule": "Setup-failure tests must assert the exception whose retry semantics match the intent: ConfigEntryNotReady when setup should be retried, ConfigEntryError when the failure is fatal.",
+    "category": "correctness",
+    "trigger": "A test named or documented as \"not ready\" asserts ConfigEntryError (or vice versa) around async_setup_entry.",
+    "rationale": "The two exceptions mean different things to the config entry machinery - one schedules a retry, the other marks the entry failed - so asserting the wrong one hides which behavior the integration actually has.",
+    "evidence": [
+      {
+        "pr": 165325,
+        "url": "https://github.com/home-assistant/core/pull/165325#discussion_r2927186883",
+        "excerpt": "test name/docstring says \"not ready\", but the assertion expects ConfigEntryError"
+      }
+    ],
+    "scope_paths": ["tests/components/ollama/test_init.py", "tests/components/"]
+  },
+  {
+    "rule": "Tests must reference the integration's own constants for config entry data and option keys instead of repeating raw string literals.",
+    "category": "testing",
+    "trigger": "A test passes a bare string key into options={...} or data={...} of a config entry where the integration's const.py defines a constant for it.",
+    "rationale": "Raw strings let the test keep passing after the integration renames the option, silently losing coverage.",
+    "evidence": [
+      {
+        "pr": 168064,
+        "url": "https://github.com/home-assistant/core/pull/168064#discussion_r3105853652",
+        "excerpt": "Use the integration constant for the option key (instead of the raw string)"
+      }
+    ],
+    "scope_paths": ["tests/components/onedrive/", "tests/components/"]
+  },
+  {
+    "rule": "Service-call tests must pass values that are valid under the service schema (the integration's direction/mode constants), not stand-in primitives.",
+    "category": "testing",
+    "trigger": "A test invokes an integration service or helper with integers/placeholders where the service schema expects domain constants such as DIR_LEFT/DIR_UP.",
+    "rationale": "Schema-invalid values exercise a code path production calls never reach, so the test proves nothing about the real service.",
+    "evidence": [
+      {
+        "pr": 163173,
+        "url": "https://github.com/home-assistant/core/pull/163173#discussion_r3002971446",
+        "excerpt": "Use real pan/tilt direction values ... so the test matches the service schema"
+      }
+    ],
+    "scope_paths": ["tests/components/onvif/", "tests/components/"]
+  },
+  {
+    "rule": "Bluetooth integration tests must drive the integration through the public injection helpers (e.g. inject_bluetooth_service_info) rather than calling a coordinator's private _async_handle_bluetooth_event.",
+    "category": "testing",
+    "trigger": "A test calls coordinator._async_handle_bluetooth_event(...) or another underscore-prefixed coordinator callback to simulate an advertisement.",
+    "rationale": "Only the injection helpers run the same dispatch path as real passive scanning; calling the private callback skips the plumbing under test.",
+    "evidence": [
+      {
+        "pr": 167393,
+        "url": "https://github.com/home-assistant/core/pull/167393#discussion_r3052792386",
+        "excerpt": "Use the public Bluetooth test helpers instead of calling the coordinator's protected _async_handle_bluetooth_event"
+      }
+    ],
+    "scope_paths": ["tests/components/opendisplay/", "tests/components/"]
+  },
+  {
+    "rule": "Do not re-serialize existing JSON test fixtures; leave non-ASCII text as literal UTF-8 rather than \\u escapes.",
+    "category": "testing",
+    "trigger": "A diff in tests/components/*/fixtures/*.json rewrites accented characters as \\uXXXX escapes or otherwise reformats untouched fixture lines.",
+    "rationale": "Re-encoding produces churn unrelated to the change and makes the recorded device payloads harder to read against the vendor API.",
+    "evidence": [
+      {
+        "pr": 171899,
+        "url": "https://github.com/home-assistant/core/pull/171899#discussion_r3291411456",
+        "excerpt": "Revert the Unicode-escaped label ... to avoid unnecessary fixture churn"
+      }
+    ],
+    "scope_paths": ["tests/components/overkiz/fixtures/", "tests/components/"]
+  },
+  {
+    "rule": "Tests must not assert known-incorrect integration behavior as the expected value; leave the assertion out or mark it xfail until the integration is fixed.",
+    "category": "testing",
+    "trigger": "A parametrized test case is accompanied by a comment calling the expected value a known bug or a follow-up fix.",
+    "rationale": "Baking the bug into the suite means the eventual fix has to change tests that appear to be protecting correct behavior.",
+    "evidence": [
+      {
+        "pr": 165670,
+        "url": "https://github.com/home-assistant/core/pull/165670#discussion_r3069711312",
+        "excerpt": "This bakes a known incorrect behavior into the test suite"
+      }
+    ],
+    "scope_paths": ["tests/components/overkiz/", "tests/components/"]
+  },
+  {
+    "rule": "Patch third-party helpers at the integration's import site (homeassistant.components.<domain>.<name>) rather than patching the library or stdlib module globally.",
+    "category": "testing",
+    "trigger": "A test calls patch(\"shutil.which\", ...) or patch(\"<library>.<func>\", ...) for a symbol the integration imported into its own module namespace.",
+    "rationale": "Patching the global module can miss the reference the integration actually resolves and leaks the patch across unrelated code.",
+    "evidence": [
+      {
+        "pr": 163114,
+        "url": "https://github.com/home-assistant/core/pull/163114#discussion_r2911871847",
+        "excerpt": "patch(\"homeassistant.components.picotts.shutil.which\", return_value=\"/usr/local/bin/pico2wave\")"
+      }
+    ],
+    "scope_paths": ["tests/components/picotts/", "tests/components/"]
+  },
+  {
+    "rule": "Do not add test fixtures - JSON fixture files, conftest fixtures, or fixture parameters in a test signature - that no test actually consumes.",
+    "category": "testing",
+    "trigger": "A PR adds a file under tests/components/*/fixtures/, a fixture in conftest.py, or a parameter such as snapshot to a test signature that is never referenced.",
+    "rationale": "Unused fixtures are dead test infrastructure; in a dependency-bump PR they also fall outside the stated scope and verify nothing.",
+    "evidence": [
+      {
+        "pr": 176439,
+        "url": "https://github.com/home-assistant/core/pull/176439#discussion_r3573072207",
+        "excerpt": "No test or fixture loader references anna_v4 ... falls outside the stated dependency-upgrade scope"
+      },
+      {
+        "pr": 160409,
+        "url": "https://github.com/home-assistant/core/pull/160409#discussion_r2891005324",
+        "excerpt": "fixture defined in conftest.py is not used by any test ... dead code"
+      },
+      {
+        "pr": 167470,
+        "url": "https://github.com/home-assistant/core/pull/167470#discussion_r3037266907",
+        "excerpt": "remove the unused snapshot fixture parameter"
+      }
+    ],
+    "scope_paths": ["tests/components/plugwise/fixtures/", "tests/components/qube_heatpump/conftest.py", "tests/components/roborock/", "tests/components/"]
+  },
+  {
+    "rule": "Give each entity a translation_key so its name (and therefore its entity_id suffix) is distinct from the device name instead of the entity_id collapsing to button.<device>.",
+    "category": "naming",
+    "trigger": "A new entity snapshot shows original_name/object_id_base as None and an entity_id equal to the bare device or container slug.",
+    "rationale": "Without a translated entity name the entity is indistinguishable from the device and collides with sibling entities on the same device.",
+    "evidence": [
+      {
+        "pr": 167163,
+        "url": "https://github.com/home-assistant/core/pull/167163#discussion_r3027481405",
+        "excerpt": "Ensure the recreate button gets a distinct translated name ... rather than inheriting only the container name"
+      }
+    ],
+    "scope_paths": ["tests/components/portainer/", "homeassistant/components/portainer/"]
+  },
+  {
+    "rule": "Tests that expect a translated HomeAssistantError must assert translation_domain and translation_key on the raised exception, not merely that some HomeAssistantError was raised.",
+    "category": "testing",
+    "trigger": "pytest.raises(HomeAssistantError) around a service call in a test that parametrizes a translation_key without asserting it.",
+    "rationale": "Bare pytest.raises passes for any failure, so the user-facing translated message the PR added is never actually verified.",
+    "evidence": [
+      {
+        "pr": 163685,
+        "url": "https://github.com/home-assistant/core/pull/163685#discussion_r2854570613",
+        "excerpt": "parametrizes translation_key but never asserts it ... only checks that some HomeAssistantError is raised"
+      }
+    ],
+    "scope_paths": ["tests/components/portainer/", "tests/components/"]
+  },
+  {
+    "rule": "Every translation_key introduced by an entity must have a matching entry added to the integration's strings.json in the same PR.",
+    "category": "docs",
+    "trigger": "A new entity description or renamed entity appears in code/snapshots without a corresponding key under entity in strings.json.",
+    "rationale": "Entity names are translated from strings.json; a missing key leaves the entity unnamed for every language.",
+    "evidence": [
+      {
+        "pr": 165890,
+        "url": "https://github.com/home-assistant/core/pull/165890#discussion_r2970171438",
+        "excerpt": "I think you still need to add it to the strings.json"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/proxmoxve/", "tests/components/proxmoxve/", "homeassistant/components/"]
+  },
+  {
+    "rule": "Entity-platform tests must assert the exact expected entity count (or snapshot the entities), never a loose lower bound.",
+    "category": "testing",
+    "trigger": "assert len(states) >= N in a platform test, especially where a nearby comment claims a precise entity count.",
+    "rationale": "A >= assertion cannot detect entities that silently stopped being created, and the comment and the bound drift apart.",
+    "evidence": [
+      {
+        "pr": 160409,
+        "url": "https://github.com/home-assistant/core/pull/160409#discussion_r2890130581",
+        "excerpt": "comment says \"20 regular + 1 status = 21\" but the assertion uses >= 10"
+      }
+    ],
+    "scope_paths": ["tests/components/qube_heatpump/", "tests/components/"]
+  },
+  {
+    "rule": "Media source tests must construct MediaSourceItem with the integration's own DOMAIN and a bare item identifier, not another integration's domain or a full media-source:// URI.",
+    "category": "testing",
+    "trigger": "MediaSourceItem(hass, \"<other-domain>\", f\"{media_source.URI_SCHEME}{DOMAIN}\", ...) in a media source test.",
+    "rationale": "Copy-paste values from another integration's tests still pass while describing the wrong item, misleading the next reader.",
+    "evidence": [
+      {
+        "pr": 175714,
+        "url": "https://github.com/home-assistant/core/pull/175714#discussion_r3525526034",
+        "excerpt": "copy-paste artifact from the immich tests ... should use DOMAIN and an empty identifier"
+      }
+    ],
+    "scope_paths": ["tests/components/radio_browser/", "tests/components/"]
+  },
+  {
+    "rule": "Recorder platform unit-conversion maps must be string-to-string; do not use None keys or empty-string units in the mapping.",
+    "category": "correctness",
+    "trigger": "A recorder platform test or implementation supplies a unit map entry like {None: \"\"} where the annotation is dict[str, dict[str, str]].",
+    "rationale": "The documented contract maps one unit string onto another; a None key contradicts the annotation and relies on undefined behavior.",
+    "evidence": [
+      {
+        "pr": 164893,
+        "url": "https://github.com/home-assistant/core/pull/164893#discussion_r2956338290",
+        "excerpt": "uses {None: \"\"} as a unit mapping ... contradicts the return type annotation"
+      }
+    ],
+    "scope_paths": ["tests/components/recorder/", "homeassistant/components/recorder/"]
+  },
+  {
+    "rule": "Syrupy snapshot names must be regenerated from the actual parametrization ids rather than hand-written, so they match the parameter values exactly.",
+    "category": "testing",
+    "trigger": "A hand-edited .ambr entry whose bracketed id (e.g. [megane_e-tech]) differs from the parametrize source values (megane_e_tech).",
+    "rationale": "A mismatched name makes Syrupy report the snapshot as missing and unexpected, failing the suite.",
+    "evidence": [
+      {
+        "pr": 164358,
+        "url": "https://github.com/home-assistant/core/pull/164358#discussion_r2865571700",
+        "excerpt": "Syrupy will treat these as missing/unexpected snapshots and fail"
+      }
+    ],
+    "scope_paths": ["tests/components/renault/snapshots/", "tests/components/"]
+  },
+  {
+    "rule": "Tests must not mutate a shared module-level CONFIG dict; copy it and set options on the nested integration config the integration actually reads.",
+    "category": "testing",
+    "trigger": "A test assigns into a module-level CONFIG constant (config[CONF_X] = ...) rather than building a local copy of the nested domain config.",
+    "rationale": "The mutation leaks into every other test in the module, and the top-level key is not where the integration reads the setting.",
+    "evidence": [
+      {
+        "pr": 169157,
+        "url": "https://github.com/home-assistant/core/pull/169157#discussion_r3142362379",
+        "excerpt": "Set the reconnect interval on the nested rflink config (and avoid mutating the shared CONFIG dict)"
+      }
+    ],
+    "scope_paths": ["tests/components/rflink/", "tests/components/"]
+  },
+  {
+    "rule": "A test's name and docstring must describe exactly the behavior it asserts; when they disagree with the assertions or with the PR's stated behavior, one of them is wrong and must be corrected before merge.",
+    "category": "testing",
+    "trigger": "A test docstring describes a different outcome, service, or exception than the assertions in its body (including copied docstrings from a neighboring test).",
+    "rationale": "Home Assistant requires a docstring on every test, so a stale one actively misleads reviewers about which behavior is protected.",
+    "evidence": [
+      {
+        "pr": 165924,
+        "url": "https://github.com/home-assistant/core/pull/165924#discussion_r2957570643",
+        "excerpt": "align the test expectations/docstring with the intended behavior"
+      },
+      {
+        "pr": 167470,
+        "url": "https://github.com/home-assistant/core/pull/167470#discussion_r3037266907",
+        "excerpt": "Update this test's docstring and signature to reflect that it asserts ServiceNotSupported"
+      }
+    ],
+    "scope_paths": ["tests/components/risco/", "tests/components/roborock/", "tests/components/"]
+  }
+]

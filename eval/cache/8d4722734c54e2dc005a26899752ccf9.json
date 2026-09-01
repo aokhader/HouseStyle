@@ -1,0 +1,5 @@
+{
+  "verdict": "PARTIAL",
+  "why": "Both are about the same risk of losing dag_display_name/task_display_name when unloaded relationships are cleared, but the human asks for a regression test while the finding asks to confirm/fix the eager-loading in the collection query.",
+  "judge": "agent"
+}

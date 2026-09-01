@@ -1,0 +1,334 @@
+[
+  {
+    "rule": "When calling public hassio/supervisor helpers such as get_os_info, catch HassioNotReadyError and re-raise it as PlatformNotReady (with translation_domain and translation_key) instead of treating a None return as the failure fallback.",
+    "category": "correctness",
+    "trigger": "Platform setup calls a hassio helper (get_os_info, get_host_info, ...) and guards the result with `if x is None` or `None if x is None else ...` rather than catching HassioNotReadyError.",
+    "rationale": "The public hassio helpers no longer return None on failure; swallowing the missing data leaves the platform permanently empty instead of letting HA retry setup later.",
+    "evidence": [
+      {
+        "pr": 172929,
+        "url": "https://github.com/home-assistant/core/pull/172929#discussion_r3414474108",
+        "excerpt": "public hassio helpers don't return `None` as a fallback anymore, they raise `HassioNotReadyError`"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "When a platform only creates entities for keys that happen to be present in coordinator.data at setup time, add a coordinator listener that creates those entities later when the data first appears.",
+    "category": "correctness",
+    "trigger": "async_setup_entry builds entities inside `if <key> in coordinator.data` (or iterates an optional sub-structure) with no coordinator.async_add_listener registered to add entities on later refreshes.",
+    "rationale": "If the optional data is missing at startup (module offline, API omission) the entities never exist until the user reloads the integration.",
+    "evidence": [
+      {
+        "pr": 164984,
+        "url": "https://github.com/home-assistant/core/pull/164984#discussion_r2896637553",
+        "excerpt": "no mechanism (such as subscribing to coordinator updates) to add these entities later"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Do not set the `name` field on an entity description that also has a translation_key; entity naming comes from strings.json.",
+    "category": "naming",
+    "trigger": "An EntityDescription literal declares both `translation_key=` and `name=` (or declares `name=` in an integration whose strings.json carries entity names).",
+    "rationale": "The translation system already provides the entity name, so a literal name is redundant and bypasses localization.",
+    "evidence": [
+      {
+        "pr": 163079,
+        "url": "https://github.com/home-assistant/core/pull/163079#discussion_r2810056307",
+        "excerpt": "`name` field should be removed from entity descriptions when using `translation_key`"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Every new enum state value exposed by an entity must ship a matching translation entry under the entity's `state` block in strings.json in the same PR.",
+    "category": "docs",
+    "trigger": "A diff adds new device-class/enum state constants or `options` values to an entity without adding the corresponding keys to the integration's strings.json.",
+    "rationale": "Untranslated states surface raw internal identifiers in the UI and break CI translation checks.",
+    "evidence": [
+      {
+        "pr": 173463,
+        "url": "https://github.com/home-assistant/core/pull/173463#discussion_r3453677246",
+        "excerpt": "there were no translations added for the states so I added these"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Error and warning messages raised from integrations that can have multiple config entries or devices must identify the failing entry or device (title, host, entry_id, or device name).",
+    "category": "correctness",
+    "trigger": "A _LOGGER.warning/_LOGGER.error or UpdateFailed/ConfigEntryError message is a fixed string with no entry or device identifier, in a coordinator or callback that serves several entries/devices (e.g. gathering over `client.beds.values()`).",
+    "rationale": "Users commonly configure several instances of the same integration; an anonymous message makes it impossible to tell which panel or device misbehaved.",
+    "evidence": [
+      {
+        "pr": 165924,
+        "url": "https://github.com/home-assistant/core/pull/165924#discussion_r2959919718",
+        "excerpt": "doesn't identify which config entry/panel triggered it. If multiple Risco entries are configured"
+      },
+      {
+        "pr": 172276,
+        "url": "https://github.com/home-assistant/core/pull/172276#discussion_r3305953213",
+        "excerpt": "messages don't identify which bed failed, which makes troubleshooting harder when multiple beds"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Coordinator-based platforms must not set PARALLEL_UPDATES to a positive number; use 0 (or omit it) so CoordinatorEntity updates are not serialized.",
+    "category": "async",
+    "trigger": "A platform module whose entities derive from CoordinatorEntity adds `PARALLEL_UPDATES = 1` (or any value > 0).",
+    "rationale": "Serializing async_update on coordinator entities defeats the coordinator debouncer's request batching and increases cloud API calls and rate-limit risk.",
+    "evidence": [
+      {
+        "pr": 168042,
+        "url": "https://github.com/home-assistant/core/pull/168042#discussion_r3069344597",
+        "excerpt": "Set `PARALLEL_UPDATES` to `0` (or drop it) for this coordinator-based platform"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "When adding an entity description whose value_fn can return None, extend the integration's mock fixture data so the entity is actually created, and regenerate the platform snapshot to cover it.",
+    "category": "testing",
+    "trigger": "A new EntityDescription is added to a platform but tests/components/<domain>/ fixtures or mock_data.py contain no value for the key it reads, so the entity is skipped at setup.",
+    "rationale": "Entities absent from the fixtures never appear in the snapshot tests, so the new code path ships untested.",
+    "evidence": [
+      {
+        "pr": 165886,
+        "url": "https://github.com/home-assistant/core/pull/165886#discussion_r2951518772",
+        "excerpt": "isn't covered by the existing snapshot tests because the Q7 B01 test fixture ... without"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/", "tests/components/"]
+  },
+  {
+    "rule": "Do not rename existing translation keys in strings.json; keep the established key even when its name is inconsistent, because renaming discards all existing translations.",
+    "category": "docs",
+    "trigger": "A strings.json diff removes an existing key and adds the same content under a different key name (renaming/reprefixing), rather than only adding new keys.",
+    "rationale": "Translated strings are keyed by name in the translation backend; a rename silently drops every language's existing translation.",
+    "evidence": [
+      {
+        "pr": 159575,
+        "url": "https://github.com/home-assistant/core/pull/159575#discussion_r2652222813",
+        "excerpt": "can you revert this so we don't lose translations?"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Do not expose one translated enum state per vendor error code; collapse variants that are not individually actionable for the user into a single shared state.",
+    "category": "api-design",
+    "trigger": "A strings.json or enum diff adds many near-identical state values distinguished only by a device error number (e.g. drying_error, drying_error_e_12, drying_error_e_13).",
+    "rationale": "Reviewers ask whether each value is actually meaningful to the user; low-value device codes belong mapped onto one state rather than multiplying user-facing states.",
+    "evidence": [
+      {
+        "pr": 159575,
+        "url": "https://github.com/home-assistant/core/pull/159575#discussion_r2652224378",
+        "excerpt": "Do you think these are actually valuable to show to the user?"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Register push-update listeners in async_added_to_hass unconditionally via async_on_remove; do not hasattr-guard the listener API to paper over an imprecise attribute type.",
+    "category": "correctness",
+    "trigger": "async_added_to_hass wraps `add_update_listener` (or similar subscription call) in `if hasattr(self._trait, ...)` while sibling platforms in the same integration register it unconditionally.",
+    "rationale": "The guard is always true at runtime and only hides that the attribute is typed as a base class that does not declare the listener API; fix the type instead of the call site.",
+    "evidence": [
+      {
+        "pr": 174851,
+        "url": "https://github.com/home-assistant/core/pull/174851#discussion_r3482839371",
+        "excerpt": "deviates from that convention and silently masks a typing mismatch"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/roborock/"]
+  },
+  {
+    "rule": "Values passed in translation_placeholders must be deterministically formatted user-facing strings; never interpolate a raw Python container repr such as str(set) or str(dict).",
+    "category": "correctness",
+    "trigger": "A HomeAssistantError/ServiceValidationError raise builds translation_placeholders from str() of a set, list, or dict.",
+    "rationale": "Set ordering is non-deterministic and the repr leaks braces and quotes into a message shown to the user.",
+    "evidence": [
+      {
+        "pr": 163760,
+        "url": "https://github.com/home-assistant/core/pull/163760#discussion_r2836939543",
+        "excerpt": "produces a set representation with non-deterministic ordering (and curly braces)"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Config entry and subentry migrations must preserve any value the user already has, defaulting a new option only when its key is absent.",
+    "category": "correctness",
+    "trigger": "async_migrate_entry / async_update_subentry writes `data={**entry.data, CONF_NEW: False}`, i.e. the new default is spread after the existing data and overwrites it.",
+    "rationale": "Migrations run on entries that may already carry the option; overwriting silently resets user configuration.",
+    "evidence": [
+      {
+        "pr": 169060,
+        "url": "https://github.com/home-assistant/core/pull/169060#discussion_r3139201199",
+        "excerpt": "only defaulting it when the key is missing, instead of overwriting it to False"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "A change that alters behavior users may already depend on must be declared as a breaking change in the PR description.",
+    "category": "commit-hygiene",
+    "trigger": "A diff changes existing runtime behavior (initial coordinator data, default values, emitted states) in a PR whose description has no breaking-change section.",
+    "rationale": "Release notes are generated from the PR description; without the note, users relying on the old behavior get no warning.",
+    "evidence": [
+      {
+        "pr": 158533,
+        "url": "https://github.com/home-assistant/core/pull/158533#discussion_r2813619860",
+        "excerpt": "should we also update the PR description to note that as a breaking change"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Raise ConfigEntryError, ConfigEntryNotReady and similar user-facing exceptions with translation_domain and translation_key plus an `exceptions` entry in strings.json, not a hard-coded English message.",
+    "category": "docs",
+    "trigger": "An integration raises ConfigEntryError/ConfigEntryAuthFailed/HomeAssistantError with a literal English string argument.",
+    "rationale": "Setup errors are shown in the UI and must be localizable and consistent with the HA exception-translation guidelines.",
+    "evidence": [
+      {
+        "pr": 168737,
+        "url": "https://github.com/home-assistant/core/pull/168737#discussion_r3252398919",
+        "excerpt": "Prefer exception translations by raising `ConfigEntryError` with `translation_domain=DOMAIN` and a `translation_key`"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Trigger, condition and action YAML target selectors must list every domain the feature applies to, including the matching input_* helper domain.",
+    "category": "api-design",
+    "trigger": "A triggers.yaml / conditions.yaml / services.yaml target entity selector names a single `domain:` where the corresponding helper domain (input_select, input_boolean, input_number, ...) also implements the behavior.",
+    "rationale": "The selector drives both the UI picker and config validation, so omitting the helper domain makes the feature unusable for those entities.",
+    "evidence": [
+      {
+        "pr": 165378,
+        "url": "https://github.com/home-assistant/core/pull/165378#discussion_r2923414602",
+        "excerpt": "the UI (and config validation expectations) won't allow targeting `input_select.*` entities"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/select/", "homeassistant/components/"]
+  },
+  {
+    "rule": "Device-quirk workarounds must not be added to a core entity base class without an architecture proposal that pins down the exact semantics (thresholds, drift windows, behaviors).",
+    "category": "api-design",
+    "trigger": "A diff adds normalization/heuristic logic (e.g. _normalize_uptime with an implicit tolerance) to homeassistant/components/<domain>/__init__.py entity base classes.",
+    "rationale": "Core base-class behavior affects every integration, so reviewers require the proposal to state the precise rule rather than an undocumented tolerance.",
+    "evidence": [
+      {
+        "pr": 164266,
+        "url": "https://github.com/home-assistant/core/pull/164266#discussion_r3044636144",
+        "excerpt": "The proposal does not specify the drift time."
+      }
+    ],
+    "scope_paths": ["homeassistant/components/sensor/", "homeassistant/helpers/"]
+  },
+  {
+    "rule": "New entity service/command implementations (play_media, browse_media, and similar) need behavior tests that call them; a snapshot-only platform test is not sufficient coverage.",
+    "category": "testing",
+    "trigger": "A platform gains async_play_media/async_browse_media/other command methods while tests/components/<domain>/ only contains snapshot assertions.",
+    "rationale": "Snapshot tests exercise entity creation and attributes only, so the newly added command paths ship untested.",
+    "evidence": [
+      {
+        "pr": 168494,
+        "url": "https://github.com/home-assistant/core/pull/168494#discussion_r3106949164",
+        "excerpt": "newly introduced but not covered by the current snapshot-only test"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/", "tests/components/"]
+  },
+  {
+    "rule": "Validate user-supplied service arguments before converting them and raise HomeAssistantError/ServiceValidationError; never let a raw ValueError or TypeError from a cast or library call reach the user.",
+    "category": "correctness",
+    "trigger": "An entity service method passes a user-provided value straight into int()/float()/enum lookup, or into a library call, without try/except translating the failure into a HA error.",
+    "rationale": "Bare Python exceptions surface as unhandled errors instead of an actionable, translatable message.",
+    "evidence": [
+      {
+        "pr": 168494,
+        "url": "https://github.com/home-assistant/core/pull/168494#discussion_r3106902453",
+        "excerpt": "raise a user-facing error when invalid (instead of letting `ValueError` bubble up)"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Do not report fabricated progress values from an update entity; omit in_progress/update_percentage when the device does not expose a real percentage.",
+    "category": "api-design",
+    "trigger": "An UpdateEntity property returns hard-coded percentages (e.g. 75 while installing, 25 otherwise) derived from a status enum rather than a device-reported number.",
+    "rationale": "Made-up percentages misrepresent device state to users; reviewers prefer dropping the property over inventing numbers.",
+    "evidence": [
+      {
+        "pr": 163255,
+        "url": "https://github.com/home-assistant/core/pull/163255#discussion_r2848963147",
+        "excerpt": "making up artificial percentages also isn't great either. So can we get rid of it?"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Normalize MAC and Bluetooth addresses with homeassistant.helpers.device_registry.format_mac before putting them into device registry connections.",
+    "category": "correctness",
+    "trigger": "A device_info/connections set is built with a raw address or an ad-hoc `.lower()` for CONNECTION_NETWORK_MAC or CONNECTION_BLUETOOTH.",
+    "rationale": "HA does not normalize these connection values itself, so an unnormalized address (dash- or dot-separated) prevents device matching across integrations.",
+    "evidence": [
+      {
+        "pr": 165472,
+        "url": "https://github.com/home-assistant/core/pull/165472#discussion_r2932419067",
+        "excerpt": "Consider using `homeassistant.helpers.device_registry.format_mac` for the bluetooth address"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Mappings derived from device capability data must be rebuilt when used or refreshed on update events, not computed once in __init__.",
+    "category": "correctness",
+    "trigger": "An entity caches a dict built from device status/capabilities in __init__ and a service method reads that cache with a slugify/raw fallback when the key is missing.",
+    "rationale": "Capability lists can be empty at init or change later via push events, leaving the cache stale and sending an invalid identifier to the vendor API.",
+    "evidence": [
+      {
+        "pr": 160034,
+        "url": "https://github.com/home-assistant/core/pull/160034#discussion_r2834073329",
+        "excerpt": "the mapping can be empty/stale and the fallback will send the slugified value"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Do not change the value of an existing entity state or state attribute (for example by slugifying it); keep the raw value and add a map from API keys to HA translation keys for display.",
+    "category": "api-design",
+    "trigger": "A diff wraps a previously exposed attribute value in slugify()/lower()/rename, changing what `attributes.<name>` reports for existing installs.",
+    "rationale": "Automations and scripts match on the current attribute values, so silently rewriting them breaks user configurations; translations are the supported way to change what is displayed.",
+    "evidence": [
+      {
+        "pr": 160034,
+        "url": "https://github.com/home-assistant/core/pull/160034#discussion_r2834073275",
+        "excerpt": "This can break existing automations/scripts that match on `attributes.source`."
+      },
+      {
+        "pr": 160034,
+        "url": "https://github.com/home-assistant/core/pull/160034#discussion_r3023293731",
+        "excerpt": "Please introduce the map translating API keys to HA translation keys"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  },
+  {
+    "rule": "Split a user-visible bug fix into its own minimal PR so it can be cherry-picked into a patch release, and land test fixtures or refactors in a follow-up.",
+    "category": "commit-hygiene",
+    "trigger": "A PR mixes a small behavioral bugfix with large fixture/snapshot additions in the same change.",
+    "rationale": "Only small self-contained changes can be cherry-picked to the release branch; bundling them with fixtures also guarantees merge conflicts.",
+    "evidence": [
+      {
+        "pr": 165198,
+        "url": "https://github.com/home-assistant/core/pull/165198#discussion_r2905887094",
+        "excerpt": "add the bugfix in a preliminary PR without the fixture (= can be cherry-picked)"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/"]
+  }
+]

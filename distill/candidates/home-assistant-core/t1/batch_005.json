@@ -1,0 +1,289 @@
+[
+  {
+    "rule": "Do not add another per-refresh client call inside a coordinator's `_async_update_data`; obtain the extra field from the existing bulk call, bundle the requests, or document the added request cost.",
+    "category": "performance",
+    "trigger": "A diff adds a new `await self.client.<something>()` line inside `_async_update_data` alongside existing client calls.",
+    "rationale": "Every additional call is paid at the polling interval, raising latency and load on the device or cloud API; reviewers expect a coordinator refresh to be a single round trip.",
+    "evidence": [
+      {
+        "pr": 170114,
+        "url": "https://github.com/home-assistant/core/pull/170114#discussion_r3304620722",
+        "excerpt": "coordinator update now performs an additional client call every refresh cycle, increasing latency and load"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "Entity properties must not assume `self.coordinator.data` is populated; check `is not None` before dereferencing it and return `None`/unavailable otherwise.",
+    "category": "correctness",
+    "trigger": "An entity property or `available` override dereferences `self.coordinator.data.<attr>` with no `is not None` guard.",
+    "rationale": "DataUpdateCoordinator starts with `data=None` and `last_update_success=True`, so entity properties can be evaluated before the first successful refresh and raise AttributeError.",
+    "evidence": [
+      {
+        "pr": 170114,
+        "url": "https://github.com/home-assistant/core/pull/170114#discussion_r3306568281",
+        "excerpt": "`self.coordinator.data` can be `None` before the first successful refresh"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/select.py",
+      "homeassistant/components/*/sensor.py",
+      "homeassistant/components/*/binary_sensor.py"
+    ]
+  },
+  {
+    "rule": "Entity names in `strings.json` must read as a natural sentence-cased phrase rather than a prefixed label with a colon, and related keys should share a common suffix instead of a common prefix.",
+    "category": "naming",
+    "trigger": "New `entity.<platform>.<key>.name` entries whose values share a leading word plus colon, or whose keys share a leading token such as `alarm_`.",
+    "rationale": "These names are rendered verbatim in the frontend, where a sentence reads better than a prefixed label; a suffix groups the related keys without hijacking the display name.",
+    "evidence": [
+      {
+        "pr": 166611,
+        "url": "https://github.com/home-assistant/core/pull/166611#discussion_r3132165332",
+        "excerpt": "they'd read better as a sentence given how these are displayed in the frontend"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/strings.json"
+    ]
+  },
+  {
+    "rule": "Do not splat a remote payload dict into an event entity's attributes; nest it under a dedicated `data` key so payload keys cannot overwrite reserved attributes.",
+    "category": "correctness",
+    "trigger": "`self._trigger_event(...)` (or event attribute construction) that merges `**data.get(\"data\", {})` into the top-level attribute dict.",
+    "rationale": "Keys supplied by the remote service can silently override reserved attributes such as `event_type`, `action` and `tag`, corrupting the event entity's state.",
+    "evidence": [
+      {
+        "pr": 166577,
+        "url": "https://github.com/home-assistant/core/pull/166577#discussion_r2993596088",
+        "excerpt": "Prevent custom payload keys from overwriting reserved event attributes by filtering or nesting"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/event.py"
+    ]
+  },
+  {
+    "rule": "A dependency version-bump PR must not carry `fixes #<issue>` references for feature requests that the bump does not actually implement.",
+    "category": "commit-hygiene",
+    "trigger": "A diff touching only a `manifest.json` `requirements` pin while the PR description contains issue-closing keywords.",
+    "rationale": "Merging would auto-close the referenced feature requests before their implementation lands, losing track of the outstanding work.",
+    "evidence": [
+      {
+        "pr": 177369,
+        "url": "https://github.com/home-assistant/core/pull/177369#discussion_r3656426805",
+        "excerpt": "This version bump does not add the cross-reference attributes or scheduled-event switches requested"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/manifest.json"
+    ]
+  },
+  {
+    "rule": "Do not set `_attr_translation_key` on an entity whose device class already yields the correct default name; rely on the device-class default translation instead.",
+    "category": "naming",
+    "trigger": "A new entity class that sets `_attr_device_class` together with a `_attr_translation_key` whose meaning merely restates that device class.",
+    "rationale": "A redundant translation key adds a string to maintain and diverges from the shared device-class wording users already recognise across integrations.",
+    "evidence": [
+      {
+        "pr": 174404,
+        "url": "https://github.com/home-assistant/core/pull/174404#discussion_r3450111191",
+        "excerpt": "I would rather don't set `_attr_translation_key` and go with the default translation"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/binary_sensor.py",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "Schedule integration background work with `entry.async_create_background_task`/`entry.async_create_task` rather than `hass.async_create_task`, so the task is tracked and cancelled when the config entry unloads.",
+    "category": "async",
+    "trigger": "`hass.async_create_task(` called from integration setup, a coordinator listener, or any entry-scoped callback.",
+    "rationale": "Tasks created on `hass` outlive the config entry and keep running after unload or reload; entry-scoped tasks are cancelled automatically.",
+    "evidence": [
+      {
+        "pr": 167816,
+        "url": "https://github.com/home-assistant/core/pull/167816#discussion_r3061552951",
+        "excerpt": "instead of `hass.async_create_task(...)` so it is tracked and cancelled automatically when the config entry unloads"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/__init__.py",
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "When interpolating a caught exception into a `ConfigEntryNotReady` message, fall back to the exception type name so exceptions with an empty `str()` do not produce a blank setup-failure message.",
+    "category": "correctness",
+    "trigger": "`raise ConfigEntryNotReady(f\"...: {exc}\")` where the except clause catches `TimeoutError` or other exceptions that stringify to an empty value.",
+    "rationale": "The setup-failure message is surfaced to the user; a message ending in a colon with nothing after it gives no clue what went wrong.",
+    "evidence": [
+      {
+        "pr": 168268,
+        "url": "https://github.com/home-assistant/core/pull/168268#discussion_r3097436602",
+        "excerpt": "so TimeoutError/empty-string exceptions don't produce a blank '...devices list: ' message"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/__init__.py"
+    ]
+  },
+  {
+    "rule": "`quality_scale.yaml` statuses must match what the integration actually implements; mark a rule `todo` (or `exempt` with a comment) rather than `done` when the corresponding code is missing.",
+    "category": "providers",
+    "trigger": "A `quality_scale.yaml` diff marking a rule `done` with no matching implementation in the integration, e.g. `reauthentication-flow: done` without an `async_step_reauth` in `config_flow.py`.",
+    "rationale": "The quality scale is a validated promise about the integration's tier; a false `done` fails hassfest rule validation and misleads maintainers and users.",
+    "evidence": [
+      {
+        "pr": 167738,
+        "url": "https://github.com/home-assistant/core/pull/167738#discussion_r3068209198",
+        "excerpt": "since the integration currently has no reauthentication step"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/quality_scale.yaml"
+    ]
+  },
+  {
+    "rule": "Media source identifier parsing must validate the identifier before assigning its parts and raise a translated `Unresolvable`/`BrowseError`; a malformed or empty identifier must never surface as an `UnboundLocalError` or `AttributeError`.",
+    "category": "correctness",
+    "trigger": "A `from_identifier`/`async_resolve_media` implementation that splits an identifier and assigns fields inside a loop without checking that any parts exist.",
+    "rationale": "Identifiers come from the frontend and can be empty or truncated; media source errors are expected to be translated HA errors, not raw Python failures.",
+    "evidence": [
+      {
+        "pr": 162001,
+        "url": "https://github.com/home-assistant/core/pull/162001#discussion_r2848004476",
+        "excerpt": "will raise `UnboundLocalError` if the identifier string is empty or contains no parts"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/media_source.py"
+    ]
+  },
+  {
+    "rule": "Do not re-scan `hass.config_entries` for an entry that a helper on the same code path already resolved; return the entry from that helper or call `async_entry_for_domain_unique_id` once.",
+    "category": "performance",
+    "trigger": "A `for entry in self._get_config_entries()` loop or a repeated `async_entry_for_domain_unique_id` call following a helper that already looked the same entry up.",
+    "rationale": "The lookup is repeated on every browse/resolve call and the duplicated code paths can drift about which entry is authoritative.",
+    "evidence": [
+      {
+        "pr": 162001,
+        "url": "https://github.com/home-assistant/core/pull/162001#discussion_r3376276369",
+        "excerpt": "already looks up the config entry internally and validates it exists"
+      },
+      {
+        "pr": 162001,
+        "url": "https://github.com/home-assistant/core/pull/162001#discussion_r3370015988",
+        "excerpt": "iterates all entries to find the same entry again just to get its title"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/media_source.py"
+    ]
+  },
+  {
+    "rule": "Never suppress `asyncio.CancelledError` around long-lived awaits in a coordinator; catch it explicitly, cancel/await the pending future, and re-raise when the current task is genuinely being cancelled.",
+    "category": "async",
+    "trigger": "`with suppress(..., asyncio.CancelledError, ...)` or `except asyncio.CancelledError: pass` wrapping an awaited IDLE/long-poll future.",
+    "rationale": "Swallowing cancellation prevents the coordinator from shutting down promptly and blocks Home Assistant's stop and reload paths.",
+    "evidence": [
+      {
+        "pr": 168662,
+        "url": "https://github.com/home-assistant/core/pull/168662#discussion_r3113974809",
+        "excerpt": "Don't suppress task cancellation here; handle `asyncio.CancelledError` so the coordinator can shut down"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "Integrations must not read private attributes of Home Assistant core helper objects; use a public API, or document why none exists and what upstream change would break the access.",
+    "category": "api-design",
+    "trigger": "An underscore-prefixed attribute access on a core object (e.g. `self.stream._thread`), typically marked with `# noqa: SLF001`.",
+    "rationale": "Core internals change without notice between releases, so the integration breaks silently on upgrade.",
+    "evidence": [
+      {
+        "pr": 173064,
+        "url": "https://github.com/home-assistant/core/pull/173064#discussion_r3360024184",
+        "excerpt": "relies on a private implementation detail of the `Stream` class, making this fragile"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/camera.py"
+    ]
+  },
+  {
+    "rule": "A sensor whose value can be a non-numeric enum state must not unconditionally declare a numeric state class; make the state class conditional on the numeric variant or model the numeric and enum representations separately.",
+    "category": "correctness",
+    "trigger": "A state-class mapping or entity description assigning `SensorStateClass.MEASUREMENT`/`TOTAL*` to a key for which `strings.json` also defines enum `state` values.",
+    "rationale": "A measurement sensor reporting a non-numeric state produces recorder warnings and breaks long-term statistics for that entity.",
+    "evidence": [
+      {
+        "pr": 176069,
+        "url": "https://github.com/home-assistant/core/pull/176069#discussion_r3550195388",
+        "excerpt": "a measurement sensor with a non-numeric state triggers recorder warnings and breaks long-term statistics"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/sensor.py",
+      "homeassistant/components/*/strings.json"
+    ]
+  },
+  {
+    "rule": "Do device registration and stale-device cleanup once in the coordinator's `_async_setup`, not in `_async_update_data`.",
+    "category": "api-design",
+    "trigger": "Device registry writes or `async_cleanup_stale_devices(...)` called from `_async_update_data`.",
+    "rationale": "`_async_update_data` runs on every refresh (every 30 seconds here), so registry operations are repeated needlessly; `_async_setup` exists for one-time initialisation after the first successful call.",
+    "evidence": [
+      {
+        "pr": 160953,
+        "url": "https://github.com/home-assistant/core/pull/160953#discussion_r2691952284",
+        "excerpt": "should be performed once during setup in `_async_setup`, not on every update in `_async_update_data`"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "Do not call `_LOGGER.exception` for expected communication failures inside `_async_update_data`; log a warning with the error message or let the coordinator report the failure.",
+    "category": "correctness",
+    "trigger": "`_LOGGER.exception(...)` in an except block of a coordinator update method handling connection/HTTP errors.",
+    "rationale": "DataUpdateCoordinator already logs update failures, so emitting a full traceback on every failed poll is log spam.",
+    "evidence": [
+      {
+        "pr": 160953,
+        "url": "https://github.com/home-assistant/core/pull/160953#discussion_r2990266704",
+        "excerpt": "DataUpdateCoordinator already logs update failures and this can cause repeated log spam"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "Config flow steps must catch the client library's connection, timeout and authentication exceptions and map them to specific abort reasons or `errors` keys (`cannot_connect`, `invalid_auth`, `not_found`) rather than raising or falling back to `unknown`.",
+    "category": "correctness",
+    "trigger": "A `config_flow.py` step (including DHCP/discovery steps) that calls the library with no except clause, or whose only handling maps every failure to `reason=\"unknown\"`.",
+    "rationale": "The abort reason or error key is exactly what the user sees in the setup dialog; an unhandled exception or a generic `unknown` gives them nothing actionable.",
+    "evidence": [
+      {
+        "pr": 160953,
+        "url": "https://github.com/home-assistant/core/pull/160953#discussion_r3336753916",
+        "excerpt": "so the config flow shows the correct error reason (e.g., auth vs not_found)"
+      },
+      {
+        "pr": 169597,
+        "url": "https://github.com/home-assistant/core/pull/169597#discussion_r3173272992",
+        "excerpt": "so the flow aborts/shows errors cleanly instead of raising unhandled exceptions"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/config_flow.py"
+    ]
+  }
+]

@@ -1,0 +1,245 @@
+{
+  "merges": [
+    {
+      "rule": "User-facing text in strings.json must follow Home Assistant string style: sentence case with only the brand or product name capitalised and spelled the same way as the neighbouring entries, `for example` spelled out instead of e.g., no slash-joined noun pairs, and literal example values wrapped in backticks rather than quotes.",
+      "category": "docs",
+      "trigger": "An added or changed strings.json value uses title case or capitalises a common noun mid-sentence while neighbouring entries are sentence case, spells the brand differently from existing entries in the same file, contains a slash-joined noun pair or e.g., or quotes an example value.",
+      "rationale": "Every integration's strings feed the same UI and the same translation pipeline, so reviewers hold new entries to the style the surrounding entries already use rather than letting each integration drift.",
+      "kind": "convention",
+      "cluster_ids": ["A:14", "B:12"]
+    },
+    {
+      "rule": "Entity names must come from strings.json: give every new entity an _attr_translation_key (or a description translation_key) with a matching entry under `entity`, and do not also set a literal name on that description.",
+      "category": "naming",
+      "trigger": "A new entity or EntityDescription sets _attr_device_class or a literal name with no translation_key, declares both translation_key= and name=, or a snapshot shows original_name/object_id_base as None with an entity_id equal to the bare device or container slug.",
+      "rationale": "A name written in code cannot be translated and collapses the entity_id onto the device name; reviewers expect the translation key to be the single source of the displayed name.",
+      "kind": "convention",
+      "cluster_ids": ["A:25", "A:138", "B:123"]
+    },
+    {
+      "rule": "strings.json and the code must correspond in both directions and in the same PR: every translation key, error key, entity name, enum state and options value the code can reference must have an entry, and no entry may be added that nothing references or removed while code still uses it.",
+      "category": "docs",
+      "trigger": "A diff adds exception, error or entity translation keys that no code references, adds a raise path nothing can reach, adds new device-class/enum state constants or options values without the corresponding strings.json keys, or deletes a `name` under a key that code still sets as translation_key.",
+      "rationale": "The frontend falls back to the raw key when an entry is missing, and a stale entry hides which messages are actually reachable, so reviewers check both directions on every strings.json change.",
+      "kind": "convention",
+      "cluster_ids": ["A:99", "B:56"]
+    },
+    {
+      "rule": "An exception translation key must be written for the specific failure that raises it: do not reuse one key across unrelated exception types or borrow a service/action key for the coordinator update path - split or broaden the key instead, and pass the underlying error text as its placeholder rather than a hardcoded generic string.",
+      "category": "docs",
+      "trigger": "A raise site uses a translation_key whose strings.json message names a different or narrower failure than the exception being raised - one key reused for several exception classes, or _async_update_data raising UpdateFailed with a service error key and a literal placeholder.",
+      "rationale": "The translated message is the only thing the user sees, so a borrowed key tells them the wrong thing about what failed.",
+      "kind": "convention",
+      "cluster_ids": ["A:51", "B:47"]
+    },
+    {
+      "rule": "Missing or None device data must be handled explicitly and surface as unknown: guard coordinator.data, list indexing and device lookups before dereferencing them, and return None rather than crashing, raising UpdateFailed, or collapsing the absent value into the false/off branch.",
+      "category": "correctness",
+      "trigger": "A native_value/is_on/available property or an EntityDescription value_fn dereferences self.coordinator.data, indexes a library result or looks a device up by id with no None or membership guard; or a state expression such as `result.get(key) == \"0\"`, `bool(data.get(key, False))` or `\"a\" if flag else \"b\"` turns a possible None into a boolean.",
+      "rationale": "Devices drop fields and go offline; reviewers want the entity to report unknown so users can see the data is missing, rather than a traceback in the log or a confidently wrong `off`.",
+      "kind": "convention",
+      "cluster_ids": ["A:49", "B:3"]
+    },
+    {
+      "rule": "Anything derived from device or coordinator data must be recomputed on every update path rather than frozen at construction: populate attributes and capability mappings from one shared method called from both __init__ and the update callback, assign on all sibling branches of a conditional, and clear a cached value when the new payload no longer contains it, before writing state.",
+      "category": "correctness",
+      "trigger": "An entity __init__ assigns a subset of the _attr_* values its update callback assigns or caches a dict built from device status/capabilities; a state-derivation method sets an attribute in one branch and leaves it untouched in the elif/else; or an update callback calls async_write_ha_state on an early-return branch without resetting the value or availability.",
+      "rationale": "A value computed once in __init__ or on only one branch goes stale the moment the device changes, and users see an attribute that never updates.",
+      "kind": "convention",
+      "cluster_ids": ["A:23", "A:150"]
+    },
+    {
+      "rule": "Compose _attr_unique_id and DeviceInfo identifiers from every identifier that can vary - the parent node, hub or device id alongside the config entry id and the description key, plus a per-entity suffix - whenever the resource or entity is only unique inside its parent.",
+      "category": "correctness",
+      "trigger": "A unique_id or identifiers f-string is built from only the config entry id/unique id plus a description key or resource name for a resource enumerated per device, node or hub; or a comprehension creates several entities of the same class from one device object with the unique_id derived only from the device id.",
+      "rationale": "Registry collisions silently drop entities, so reviewers check that every component of the identity that can repeat ends up in the id.",
+      "kind": "convention",
+      "cluster_ids": ["A:39", "B:36"]
+    },
+    {
+      "rule": "Key long-lived caches and lookup dictionaries by a stable identifier such as the unique_id, never by a value that changes at runtime such as the entity's display name or its entity_id.",
+      "category": "correctness",
+      "trigger": "A module-level or hass.data dict is keyed by a human-readable name variable, or indexed by entity.entity_id in async_added_to_hass and deleted by entity.entity_id in async_will_remove_from_hass.",
+      "rationale": "Users rename entities and devices, and a cache keyed on the display name or entity_id silently leaks entries and stops matching after the first rename.",
+      "kind": "convention",
+      "cluster_ids": ["A:13", "B:71"]
+    },
+    {
+      "rule": "Sensor entity descriptions must set suggested_display_precision explicitly, alongside the native and suggested units, instead of relying on the device-class default.",
+      "category": "api-design",
+      "trigger": "A SensorEntityDescription declares device_class/state_class and a native unit for a numeric value but omits suggested_display_precision.",
+      "rationale": "The device-class default rarely matches the precision the device actually reports, and the registry options it produces are what the entity snapshots pin.",
+      "kind": "convention",
+      "cluster_ids": ["A:44", "B:39"]
+    },
+    {
+      "rule": "Declare entity attributes through the _attr_* attributes or an EntityDescription only: not as a @property returning a constant, not as a bare un-prefixed class attribute, and never duplicated into a legacy private attribute alongside its _attr_ counterpart.",
+      "category": "api-design",
+      "trigger": "An entity class body contains `translation_key = ...` without the _attr_ prefix and outside an EntityDescription, defines a supported_features property returning a constant flag combination, or assigns both self._attr_name and self._name to the same value.",
+      "rationale": "The _attr_ family is the mechanism the base Entity actually reads; anything else either has no effect at all or duplicates state that then drifts apart.",
+      "kind": "convention",
+      "cluster_ids": ["A:56", "A:106", "B:55"]
+    },
+    {
+      "rule": "async_turn_on must never leave the device off: a zero percentage or brightness must be clamped to the minimum running value or treated as if it had not been supplied so the default applies, rather than mapped onto the device's off state.",
+      "category": "correctness",
+      "trigger": "async_turn_on branches on `percentage is not None` and forwards 0 to a setter that maps it to an OFF mode, or converts ATTR_BRIGHTNESS with a truthiness guard such as `if brightness:` so a 0 reaches the device.",
+      "rationale": "A turn_on that switches the device off contradicts the platform contract and leaves the entity state and the device disagreeing.",
+      "kind": "convention",
+      "cluster_ids": ["A:62", "B:49"]
+    },
+    {
+      "rule": "Encode device values through the semantics the pinned library declares - its enum members and its documented units - never through magic integers, divisors or thresholds written into integration code.",
+      "category": "providers",
+      "trigger": "An entity description literal contains a state or value mapping keyed by bare integers instead of library enum members, or integration code divides, scales or range-checks a raw library value against a literal before assigning it.",
+      "rationale": "The library owns the device protocol; a constant copied into the integration goes silently wrong when the library changes it, and a reviewer cannot tell whether it was ever right.",
+      "kind": "convention",
+      "cluster_ids": ["A:34", "A:81"]
+    },
+    {
+      "rule": "Do not feature-detect on the integration's own pinned library with hasattr/getattr/callable: the manifest pins the version, so call the API directly and unconditionally - including registering update listeners in async_added_to_hass through async_on_remove.",
+      "category": "providers",
+      "trigger": "A setup or platform filter such as `if callable(getattr(node, \"method\", None))` applied to objects from the requirement package, or an async_added_to_hass that wraps add_update_listener or a similar subscription in `if hasattr(...)` while sibling platforms register it unconditionally.",
+      "rationale": "A pinned requirement means the attribute is either present or the pin is wrong; the guard only hides a typing or version mistake, and here it silently skips the subscription so the entity never updates.",
+      "kind": "convention",
+      "cluster_ids": ["A:143", "B:53"]
+    },
+    {
+      "rule": "Handle each failure class on its own branch: only an authentication failure (401) may start a reauth flow, and it must raise its own message saying reauthentication is required; an authorization failure (403) must raise ConfigEntryError because new credentials cannot fix it; and connection, timeout and server-side failures must be reported the way the sibling setup path reports them.",
+      "category": "correctness",
+      "trigger": "An except clause groups an authentication error together with connection/transport errors into one HomeAssistantError, or a config-flow/coordinator branch converts a broad API exception or any 4xx into a specific abort/error key or calls async_start_reauth without inspecting the status code.",
+      "rationale": "Reauth prompts the user for credentials, so pointing it at a network outage or a permissions problem sends them down a path that cannot possibly succeed.",
+      "kind": "convention",
+      "cluster_ids": ["A:7", "A:128"]
+    },
+    {
+      "rule": "A domain's triggers.yaml, conditions.yaml and services.yaml must describe the full surface the implementation accepts - every field the schema takes, including the common `for` duration, and every domain the feature applies to, including the matching input_* helper domains - and a refactor may add entries but must never drop or rename existing ones.",
+      "category": "api-design",
+      "trigger": "A triggers.yaml / conditions.yaml / services.yaml diff removes or omits a field the schema still supports, or a target entity selector names a single domain where the corresponding helper domain (input_select, input_boolean, input_number, ...) also implements the behaviour.",
+      "rationale": "These YAML descriptors are the only thing the UI editor sees, so anything missing from them is unreachable for users even though the code supports it.",
+      "kind": "convention",
+      "cluster_ids": ["A:29", "A:146"]
+    },
+    {
+      "rule": "Normalize a device- or payload-supplied unit before it reaches the entity: map it onto Home Assistant's canonical units for the entity's device_class, fall back to the entity description's default when it is unrecognized, and turn an empty string into None rather than passing it through.",
+      "category": "correctness",
+      "trigger": "A payload, MQTT property or discovery value is assigned directly to self._attr_native_unit_of_measurement or an entity description unit without mapping it through the canonical unit constants, including a `\"unit\": \"\"` value carried from a fixture or datapoint.",
+      "rationale": "An unrecognized or empty unit breaks unit conversion and long-term statistics, and surfaces to users as an entity with an empty unit_of_measurement.",
+      "kind": "convention",
+      "cluster_ids": ["A:131", "B:137"]
+    },
+    {
+      "rule": "Resolve the config entry a service call targets with homeassistant.helpers.service.async_get_config_entry rather than hand-rolled lookups, so a missing, wrong-domain or unloaded entry raises ServiceValidationError instead of a generic or unhandled error.",
+      "category": "api-design",
+      "trigger": "An integration service handler defines its own _async_get_config_entry-style function over hass.config_entries, or resolves an entry and then raises HomeAssistantError, asserts, or proceeds without a ServiceValidationError path when it is missing or not loaded.",
+      "rationale": "The core helper already produces the translated ServiceValidationError users expect for this case, and every integration re-implementing it produces a different message for the same situation.",
+      "kind": "convention",
+      "cluster_ids": ["B:5", "B:60"]
+    },
+    {
+      "rule": "A new entity platform module, or a new entity description added to an existing descriptions tuple, must come with tests whose fixture data actually creates the entity and exercises each value its mapping declares, plus regenerated and committed snapshot files; any hard-coded expected-entity list must follow the order the descriptions are iterated during setup.",
+      "category": "testing",
+      "trigger": "A diff adds homeassistant/components/<domain>/<platform>.py or appends an EntityDescription (including a state_mapping/options dict) without a matching added or extended tests/components/<domain>/test_<platform>.py, updated fixtures, or regenerated snapshot.",
+      "rationale": "An untested description is indistinguishable from a typo, and the snapshot is what proves the entity, its unit and its state actually materialise for the fixture device.",
+      "kind": "convention",
+      "cluster_ids": ["A:12", "B:93"]
+    },
+    {
+      "rule": "Commit only .ambr snapshots produced by running pytest --snapshot-update against the current code: never hand-write, hand-append or hand-edit snapshot blocks or their parametrization ids, and regenerate rather than leaving stale duplicate entries for one unique_id.",
+      "category": "testing",
+      "trigger": "A diff to tests/components/*/snapshots/*.ambr deviates from generator output - a manually written EntityRegistryEntrySnapshot block, a duplicated `# ---` divider, a bracketed id that does not match the parametrize source values, or two entries sharing a unique_id under different entity_ids.",
+      "rationale": "A hand-edited snapshot asserts what the author believed rather than what the code produces, which is the one thing the snapshot exists to catch.",
+      "kind": "convention",
+      "cluster_ids": ["B:105", "B:126"]
+    },
+    {
+      "rule": "A value that already has a name must be imported, not restated: use the integration's and core's own constants and helpers (DOMAIN, CONF_*, STATE_*, identifier helpers) wherever a literal would otherwise be written, in tests as well as in code, and define a value used by more than one module once - in the integration's const.py for code, in the shared test module for tests.",
+      "category": "api-design",
+      "trigger": "A raw literal such as the domain name, `unavailable`, or a config/option key appears in a module, test or conftest where the integration or homeassistant.const already defines a constant; an identifier is recomputed inline where the integration has a helper; or a constant, command map or tuning literal (delay, timeout, threshold, TEST_*) is added to a second module while the same value is already named elsewhere in that integration.",
+      "rationale": "Duplicated literals drift apart silently, so reviewers ask for a single definition that a rename or a retune cannot leave half the code and tests behind on.",
+      "kind": "convention",
+      "cluster_ids": ["B:14", "B:85"]
+    },
+    {
+      "rule": "Migration tests must start from a realistic pre-migration state and cover every variant the migration can encounter: seed the entity registry with the entities an existing install would already have and assert they are re-associated with the new device or subentry, and exercise each stored value shape and each unique_id format the integration has produced, without one format's pattern matching another's ids.",
+      "category": "testing",
+      "trigger": "A diff modifies async_migrate_entry, an import step, or normalization of stored config entry data while its tests add no case for the newly handled input variants, derive old-format unique_ids by string slicing or suffix matching, skip entries where a component such as the channel is None, or assert only that subentries and devices were created without registering the old entities beforehand.",
+      "rationale": "A migration runs once per install and cannot be re-run, so an untested variant leaves those users with orphaned entities and no way back.",
+      "kind": "convention",
+      "cluster_ids": ["A:125", "B:114", "B:129"]
+    },
+    {
+      "rule": "When code newly depends on optional or loosely typed payload fields, add a test with a reduced payload - fields omitted, null, or carrying an unexpected value - asserting that setup does not raise, that only the always-available entities are created, that the value helpers return None instead of raising, and that absent data reads as unknown rather than as false or zero.",
+      "category": "testing",
+      "trigger": "A platform's async_setup_entry gains `if <key> in data` guards around entity creation, new value_fn helpers introduce `return None` paths, a property returns bool | None, or payload data is fed into a SensorDeviceClass/SensorStateClass lookup, while the fixtures contain only fully populated, well-formed payloads.",
+      "rationale": "Real devices omit fields and firmware versions differ; the fully populated fixture is the case that already works, so the degraded payload is the one worth a test.",
+      "kind": "convention",
+      "cluster_ids": ["A:133", "B:57", "B:81"]
+    },
+    {
+      "rule": "A branch the diff adds must be tested in every outcome it can take, not only the one that motivated the change: the rejection as well as the acceptance, the success path as well as the failure path, the suppressed case as well as the reported one, and each distinct error or translation variant the new code can produce.",
+      "category": "testing",
+      "trigger": "A diff adds a conditional - an auth guard such as @require_admin on a view, a legacy vs non-legacy platform-loading branch, a device-quirk `available` override, a config-flow fallback path, a new hassfest validation, a caller-is-a-built-in-integration check, or a repair issue that selects among translation keys - while the accompanying tests exercise only one side of it.",
+      "rationale": "The untested side is exactly the behaviour the change introduces, so reviewers here treat a half-covered branch as an untested change.",
+      "kind": "convention",
+      "cluster_ids": ["A:28", "A:35", "A:117", "B:79", "B:80", "B:88", "B:110"]
+    },
+    {
+      "rule": "When shared code gains a branch, add coverage for every consumer of it, not only the one the change was written for - each flow that calls a shared config-flow helper including reauth, and each subclass of a modified trigger or helper base class, including subclasses whose semantics the change would alter.",
+      "category": "testing",
+      "trigger": "A diff adds a fallback or conditional inside validate_input() or another helper shared by the user/discovery/reauth steps, or changes an EntityTriggerBase-style base class, while the test diff touches only one calling flow or only one subclass implementation.",
+      "rationale": "Shared helpers are shared precisely because several callers depend on them, and the caller nobody tested is the one that breaks.",
+      "kind": "convention",
+      "cluster_ids": ["B:21", "B:152"]
+    },
+    {
+      "rule": "A parametrized test must span the whole input space the implementation accepts, including its edge and negative values: every supported entity domain plus an unsupported one proving it does not match, and the combined-flags and zero/empty value alongside the individual enum members.",
+      "category": "testing",
+      "trigger": "A new or edited parametrization lists only individual enum members where the code interprets bitwise capability flags, or only one supported domain (e.g. only `person`) for a trigger or condition that also handles others, with no unsupported-entity or empty-value case.",
+      "rationale": "Interpretation bugs live in the combined and empty cases, and a matcher with no negative case cannot show that it stops matching everything else.",
+      "kind": "convention",
+      "cluster_ids": ["B:100", "B:115"]
+    },
+    {
+      "rule": "Every fixture, fixture file, module-level TEST_* constant, test-signature parameter and parametrization added must be consumed by a test in the same PR, or removed - including a parametrize over a fixture name that the test signature does not take.",
+      "category": "testing",
+      "trigger": "A diff adds a conftest fixture, a file under tests/components/*/fixtures/, a helper such as init_*_integration, or a test-signature parameter that no test in the diff references; leaves one behind after the test that used it changed; or applies @pytest.mark.parametrize over a fixture name to a test whose signature omits that name.",
+      "rationale": "Scaffolding nothing reads is dead weight the next contributor has to reason about, and a parametrization the signature ignores runs the same test twice while looking like coverage.",
+      "kind": "convention",
+      "cluster_ids": ["B:94", "B:113"]
+    },
+    {
+      "rule": "A test's name and docstring must describe exactly the platform, service, failure and outcome its body actually exercises: patch the dependency so the named path really happens - a failing side_effect for a failure test rather than a benign empty result - and when a copied or parametrized test disagrees with its body, fix whichever of the two is wrong before merge.",
+      "category": "testing",
+      "trigger": "A module or test docstring names a different platform, service or exception than the file/body asserts, including a docstring copied from a neighbouring test or one describing only a subset of the parametrize list; or a test named for a startup/discovery failure patches the helper to return an empty result and asserts a generic abort reason.",
+      "rationale": "Reviewers read the name and docstring to know what is covered, so a test whose body does something else leaves the named path uncovered and nobody notices.",
+      "kind": "convention",
+      "cluster_ids": ["B:83", "B:106"]
+    },
+    {
+      "rule": "A test double must match the real callable it replaces: patch coroutine functions with new_callable=AsyncMock and synchronous ones with MagicMock, never spec a whole library object as AsyncMock when it also exposes synchronous listener or registration methods, and give replacement functions *args and **kwargs so they accept the arguments the integration passes.",
+      "category": "testing",
+      "trigger": "patch(\"<library>.<Class>.<async_method>\", return_value=...) without new_callable=AsyncMock; a patch, AsyncMock(spec=...) or fixture annotation whose sync-vs-async kind does not match the awaited-ness of the target in the integration code; or a zero-argument stub substituted for a library method the integration calls with arguments.",
+      "rationale": "A mismatched double either hands back a non-awaitable MagicMock or throws on the real call signature, so the test passes or fails for a reason unrelated to the code under test.",
+      "kind": "convention",
+      "cluster_ids": ["B:89", "B:134"]
+    },
+    {
+      "rule": "Drive and inspect an integration through its public test helpers and registries - inject_bluetooth_service_info, the entity registry - never through private coordinator callbacks or internal hass.data structures.",
+      "category": "testing",
+      "trigger": "A test calls coordinator._async_handle_bluetooth_event(...) or another underscore-prefixed coordinator callback to simulate an advertisement, or does hass.data[\"entity_components\"][\"<platform>\"].get_entity(entity_id) to inspect an entity object.",
+      "rationale": "Tests written against internals pin implementation details instead of behaviour, and break on every refactor the public surface would have survived.",
+      "kind": "convention",
+      "cluster_ids": ["B:119", "B:139"]
+    },
+    {
+      "rule": "Advance coordinator intervals with the freezer - freezer.tick(...) followed by async_fire_time_changed(hass) - rather than a separately computed dt_util.utcnow() + timedelta timestamp, and never one captured before the config entries were set up.",
+      "category": "testing",
+      "trigger": "async_fire_time_changed(hass, dt_util.utcnow() + timedelta(...)) in a test that also uses the freezer fixture, or a `now` assigned before async_setup_component / hass.config_entries.async_setup and then used as the base for the fired time.",
+      "rationale": "A timestamp taken before setup can land before the timer the entity scheduled, so the refresh never fires and the test asserts on stale state or passes for the wrong reason.",
+      "kind": "convention",
+      "cluster_ids": ["B:136", "B:147"]
+    }
+  ],
+  "demote": ["A:107", "B:111", "B:121"]
+}

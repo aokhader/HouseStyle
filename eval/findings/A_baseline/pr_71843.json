@@ -1,0 +1,7 @@
+{"pr": 71843,
+ "findings": [
+   {"path": ".github/workflows/ts-sdk-release.yml",
+    "line": 169,
+    "category": "correctness",
+    "message": "This npm-capability gate lives in the `publish` job, so it fires only after the whole build has run and after a human has approved the `ts-sdk-npm-release` environment — and its remedy (\"raise the node-version pin\") requires editing the workflow and re-cutting the release. Since the two jobs pin the same `node-version`, run this check in `build` (or install an explicit `npm@>=11.15.0` here) so a stale pin fails before anyone is asked to approve a deployment."}
+ ]}

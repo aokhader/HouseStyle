@@ -1,0 +1,873 @@
+{
+  "repo": "apache/airflow",
+  "generated_at": "2026-09-01T21:51:59.402888+00:00",
+  "held_out_prs": 30,
+  "line_window": 5,
+  "match_rule": "MATCH or PARTIAL",
+  "judge": {
+    "backend": "cache",
+    "cache_hit": 43,
+    "judged": 0,
+    "queued": 0,
+    "unresolved_pairs": 0
+  },
+  "conditions": {
+    "A_baseline": {
+      "label": "stock review, no mined rules",
+      "prs": 30,
+      "findings": 72,
+      "ground_truth": 203,
+      "matched": 9,
+      "recall": 0.0443,
+      "precision": 0.125,
+      "recall_ceiling": 0.3547,
+      "findings_per_pr": 2.4,
+      "prs_with_at_least_one_finding": 30,
+      "by_category": {
+        "api-design": {
+          "findings": 13,
+          "matched": 1,
+          "precision": 0.0769
+        },
+        "async": {
+          "findings": 3,
+          "matched": 1,
+          "precision": 0.3333
+        },
+        "commit-hygiene": {
+          "findings": 1,
+          "matched": 1,
+          "precision": 1.0
+        },
+        "correctness": {
+          "findings": 26,
+          "matched": 3,
+          "precision": 0.1154
+        },
+        "database": {
+          "findings": 2,
+          "matched": 0,
+          "precision": 0.0
+        },
+        "docs": {
+          "findings": 6,
+          "matched": 0,
+          "precision": 0.0
+        },
+        "performance": {
+          "findings": 5,
+          "matched": 1,
+          "precision": 0.2
+        },
+        "providers": {
+          "findings": 4,
+          "matched": 1,
+          "precision": 0.25
+        },
+        "security": {
+          "findings": 6,
+          "matched": 0,
+          "precision": 0.0
+        },
+        "testing": {
+          "findings": 6,
+          "matched": 1,
+          "precision": 0.1667
+        }
+      },
+      "top_rules_by_matches": []
+    },
+    "B_housestyle": {
+      "label": "House Style, Airflow rules",
+      "prs": 30,
+      "findings": 12,
+      "ground_truth": 203,
+      "matched": 1,
+      "recall": 0.0049,
+      "precision": 0.0833,
+      "recall_ceiling": 0.0591,
+      "findings_per_pr": 0.4,
+      "prs_with_at_least_one_finding": 8,
+      "by_category": {
+        "api-design": {
+          "findings": 3,
+          "matched": 0,
+          "precision": 0.0
+        },
+        "commit-hygiene": {
+          "findings": 1,
+          "matched": 0,
+          "precision": 0.0
+        },
+        "docs": {
+          "findings": 3,
+          "matched": 1,
+          "precision": 0.3333
+        },
+        "testing": {
+          "findings": 5,
+          "matched": 0,
+          "precision": 0.0
+        }
+      },
+      "top_rules_by_matches": [
+        [
+          "airflow-r011",
+          1
+        ]
+      ]
+    },
+    "C_generic": {
+      "label": "House Style, Home Assistant rules on Airflow PRs (unscoped)",
+      "prs": 30,
+      "findings": 11,
+      "ground_truth": 203,
+      "matched": 0,
+      "recall": 0.0,
+      "precision": 0.0,
+      "recall_ceiling": 0.0542,
+      "findings_per_pr": 0.37,
+      "prs_with_at_least_one_finding": 6,
+      "by_category": {
+        "api-design": {
+          "findings": 4,
+          "matched": 0,
+          "precision": 0.0
+        },
+        "correctness": {
+          "findings": 1,
+          "matched": 0,
+          "precision": 0.0
+        },
+        "testing": {
+          "findings": 6,
+          "matched": 0,
+          "precision": 0.0
+        }
+      },
+      "top_rules_by_matches": []
+    }
+  },
+  "per_pr": [
+    {
+      "condition": "A_baseline",
+      "pr": 52330,
+      "findings": 3,
+      "ground_truth": 19,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 64422,
+      "findings": 3,
+      "ground_truth": 11,
+      "matched": 1,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 66269,
+      "findings": 2,
+      "ground_truth": 9,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 66929,
+      "findings": 2,
+      "ground_truth": 9,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 66930,
+      "findings": 1,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 67532,
+      "findings": 3,
+      "ground_truth": 14,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 67881,
+      "findings": 3,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 68627,
+      "findings": 2,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 68833,
+      "findings": 3,
+      "ground_truth": 7,
+      "matched": 2,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 69748,
+      "findings": 3,
+      "ground_truth": 4,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 69827,
+      "findings": 2,
+      "ground_truth": 9,
+      "matched": 1,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 69965,
+      "findings": 1,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 70238,
+      "findings": 2,
+      "ground_truth": 12,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 70302,
+      "findings": 1,
+      "ground_truth": 6,
+      "matched": 1,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 70416,
+      "findings": 2,
+      "ground_truth": 15,
+      "matched": 1,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 70517,
+      "findings": 3,
+      "ground_truth": 16,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71067,
+      "findings": 2,
+      "ground_truth": 8,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71073,
+      "findings": 2,
+      "ground_truth": 4,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71113,
+      "findings": 3,
+      "ground_truth": 3,
+      "matched": 1,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71346,
+      "findings": 4,
+      "ground_truth": 1,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71387,
+      "findings": 5,
+      "ground_truth": 2,
+      "matched": 1,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71399,
+      "findings": 2,
+      "ground_truth": 4,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71621,
+      "findings": 2,
+      "ground_truth": 0,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71752,
+      "findings": 1,
+      "ground_truth": 5,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71754,
+      "findings": 2,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71802,
+      "findings": 2,
+      "ground_truth": 8,
+      "matched": 1,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71842,
+      "findings": 2,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71843,
+      "findings": 1,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71920,
+      "findings": 4,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "A_baseline",
+      "pr": 71946,
+      "findings": 4,
+      "ground_truth": 1,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 52330,
+      "findings": 2,
+      "ground_truth": 19,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 64422,
+      "findings": 1,
+      "ground_truth": 11,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 66269,
+      "findings": 0,
+      "ground_truth": 9,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 66929,
+      "findings": 1,
+      "ground_truth": 9,
+      "matched": 1,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 66930,
+      "findings": 1,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 67532,
+      "findings": 1,
+      "ground_truth": 14,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 67881,
+      "findings": 0,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 68627,
+      "findings": 0,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 68833,
+      "findings": 0,
+      "ground_truth": 7,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 69748,
+      "findings": 0,
+      "ground_truth": 4,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 69827,
+      "findings": 0,
+      "ground_truth": 9,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 69965,
+      "findings": 0,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 70238,
+      "findings": 0,
+      "ground_truth": 12,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 70302,
+      "findings": 0,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 70416,
+      "findings": 0,
+      "ground_truth": 15,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 70517,
+      "findings": 0,
+      "ground_truth": 16,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71067,
+      "findings": 0,
+      "ground_truth": 8,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71073,
+      "findings": 2,
+      "ground_truth": 4,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71113,
+      "findings": 0,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71346,
+      "findings": 2,
+      "ground_truth": 1,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71387,
+      "findings": 2,
+      "ground_truth": 2,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71399,
+      "findings": 0,
+      "ground_truth": 4,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71621,
+      "findings": 0,
+      "ground_truth": 0,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71752,
+      "findings": 0,
+      "ground_truth": 5,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71754,
+      "findings": 0,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71802,
+      "findings": 0,
+      "ground_truth": 8,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71842,
+      "findings": 0,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71843,
+      "findings": 0,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71920,
+      "findings": 0,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "B_housestyle",
+      "pr": 71946,
+      "findings": 0,
+      "ground_truth": 1,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 52330,
+      "findings": 4,
+      "ground_truth": 19,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 64422,
+      "findings": 2,
+      "ground_truth": 11,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 66269,
+      "findings": 0,
+      "ground_truth": 9,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 66929,
+      "findings": 1,
+      "ground_truth": 9,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 66930,
+      "findings": 0,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 67532,
+      "findings": 2,
+      "ground_truth": 14,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 67881,
+      "findings": 0,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 68627,
+      "findings": 0,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 68833,
+      "findings": 0,
+      "ground_truth": 7,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 69748,
+      "findings": 0,
+      "ground_truth": 4,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 69827,
+      "findings": 0,
+      "ground_truth": 9,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 69965,
+      "findings": 0,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 70238,
+      "findings": 0,
+      "ground_truth": 12,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 70302,
+      "findings": 0,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 70416,
+      "findings": 1,
+      "ground_truth": 15,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 70517,
+      "findings": 0,
+      "ground_truth": 16,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71067,
+      "findings": 0,
+      "ground_truth": 8,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71073,
+      "findings": 0,
+      "ground_truth": 4,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71113,
+      "findings": 1,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71346,
+      "findings": 0,
+      "ground_truth": 1,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71387,
+      "findings": 0,
+      "ground_truth": 2,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71399,
+      "findings": 0,
+      "ground_truth": 4,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71621,
+      "findings": 0,
+      "ground_truth": 0,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71752,
+      "findings": 0,
+      "ground_truth": 5,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71754,
+      "findings": 0,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71802,
+      "findings": 0,
+      "ground_truth": 8,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71842,
+      "findings": 0,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71843,
+      "findings": 0,
+      "ground_truth": 6,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71920,
+      "findings": 0,
+      "ground_truth": 3,
+      "matched": 0,
+      "unresolved_pairs": 0
+    },
+    {
+      "condition": "C_generic",
+      "pr": 71946,
+      "findings": 0,
+      "ground_truth": 1,
+      "matched": 0,
+      "unresolved_pairs": 0
+    }
+  ]
+}

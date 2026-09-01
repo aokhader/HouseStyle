@@ -1,0 +1,8 @@
+{"pr": 71113,
+ "findings": [
+   {"rule_id": "hass-r002",
+    "path": "airflow-core/tests/unit/api_fastapi/core_api/routes/public/test_backfills.py",
+    "line": 335,
+    "category": "api-design",
+    "message": "This PR gives the detail string a name -- `BACKFILL_NOT_FOUND` in `airflow.api_fastapi.core_api.security` -- and the routes now import it instead of restating it, but the new assertions here (and at 1543, 1619, 1663) hard-code the literal \"Backfill not found\" again. Import `BACKFILL_NOT_FOUND` and assert against it, so a reword of the detail cannot leave the tests asserting the old text."}
+ ]}

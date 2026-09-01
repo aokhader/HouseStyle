@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding is about the poll loop lacking exception handling and never yielding an error event, while the human is about the timeout deadline being recomputed per run so it does not survive triggerer restarts.",
+  "judge": "agent"
+}

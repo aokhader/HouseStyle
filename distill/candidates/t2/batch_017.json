@@ -1,0 +1,337 @@
+[
+  {
+    "rule": "Provider operators must raise an Airflow exception type (`AirflowException`, `AirflowFailException`, `AirflowTaskTimeout`) when a deferred trigger reports an error or timeout; never raise a bare `RuntimeError`",
+    "category": "correctness",
+    "trigger": "An `execute_complete()` (or other trigger-event handler) body contains `raise RuntimeError(event[\"message\"])` or another non-Airflow builtin exception on the failure/timeout branch",
+    "rationale": "Airflow classifies task failures by exception type; a bare `RuntimeError` breaks consistent failure semantics for users and conflicts with the deferrable-operator patterns used everywhere else in the same operator",
+    "evidence": [
+      {
+        "pr": 64051,
+        "url": "https://github.com/apache/airflow/pull/64051#discussion_r3025331365",
+        "excerpt": "raising `RuntimeError` makes it harder to classify failures consistently"
+      },
+      {
+        "pr": 64119,
+        "url": "https://github.com/apache/airflow/pull/64119#discussion_r3025331522",
+        "excerpt": "Raising a bare `RuntimeError` here is inconsistent with the rest of this operator"
+      },
+      {
+        "pr": 64051,
+        "url": "https://github.com/apache/airflow/pull/64051#discussion_r3066494627",
+        "excerpt": "raise one consistent Airflow exception type for timeouts/errors"
+      }
+    ],
+    "scope_paths": [
+      "providers/airbyte/src/airflow/providers/airbyte/operators/airbyte.py",
+      "providers/*/src/airflow/providers/*/operators/"
+    ]
+  },
+  {
+    "rule": "Imports of a provider's optional extra dependencies must be wrapped in `try/except ImportError` and re-raised with a message naming the extra to install (e.g. `apache-airflow-providers-akeyless[cloud_id]`)",
+    "category": "providers",
+    "trigger": "A function body imports a third-party package that is declared as an optional extra rather than a required provider dependency, without a surrounding `try/except ImportError`",
+    "rationale": "Users who select an auth/feature path without installing the extra otherwise get a bare `ImportError` with no indication of which extra to install",
+    "evidence": [
+      {
+        "pr": 64754,
+        "url": "https://github.com/apache/airflow/pull/64754#discussion_r3066502813",
+        "excerpt": "Catch `ImportError` and raise a clearer exception that explains how to install the dependency"
+      }
+    ],
+    "scope_paths": [
+      "providers/akeyless/src/airflow/providers/akeyless/hooks/akeyless.py",
+      "providers/*/src/airflow/providers/*/hooks/"
+    ]
+  },
+  {
+    "rule": "Provider howto `.rst` pages must describe the typical use case for each operator, not merely restate or link the underlying boto3/vendor API call",
+    "category": "docs",
+    "trigger": "A new `providers/*/docs/operators/*.rst` page consists only of `literalinclude` example blocks plus a Reference link to the vendor API documentation",
+    "rationale": "Provider documentation is user-facing; describing only the wrapped API call leaves users unable to tell when they should reach for the operator",
+    "evidence": [
+      {
+        "pr": 69886,
+        "url": "https://github.com/apache/airflow/pull/69886#discussion_r3589679340",
+        "excerpt": "worth adding a sentence or two describing the typical use case for each operator"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/docs/operators/"
+    ]
+  },
+  {
+    "rule": "Do not add per-task INFO logging to an executor's scheduler-loop methods; submission acknowledgements belong at debug level and exceptions already collected into `failure_reasons` must not be logged again individually",
+    "category": "performance",
+    "trigger": "A new `self.log.info(...)` call is added inside `attempt_task_runs()` or another per-task loop in an executor, especially one reporting success on API acceptance or echoing an exception that is also appended to `failure_reasons`",
+    "rationale": "The executor loop runs for every task on every scheduler iteration, so per-task INFO lines are log spam; a successful control-plane submission is also not task success, since the task can still fail in ECS or in the container",
+    "evidence": [
+      {
+        "pr": 54038,
+        "url": "https://github.com/apache/airflow/pull/54038#discussion_r2248893386",
+        "excerpt": "This doesn't mean it was successful per se, just that the control plane accepted"
+      },
+      {
+        "pr": 54038,
+        "url": "https://github.com/apache/airflow/pull/54038#discussion_r2248884132",
+        "excerpt": "we should fix that instead of logging each one to reduce spam"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/executors/ecs/ecs_executor.py",
+      "providers/amazon/src/airflow/providers/amazon/aws/executors/"
+    ]
+  },
+  {
+    "rule": "Do not alias the `airflow.executors.workloads` import (`import workloads as wl`) to dodge a name collision; rename the local parameter instead",
+    "category": "naming",
+    "trigger": "An executor method such as `_process_workloads` declares a parameter named `workloads` and the body then does `from airflow.executors import workloads as <alias>`",
+    "rationale": "The aliased import exists only because the parameter shadows the module name, adding confusion for no benefit; the parameter is the thing that should be renamed",
+    "evidence": [
+      {
+        "pr": 63657,
+        "url": "https://github.com/apache/airflow/pull/63657#discussion_r3102848163",
+        "excerpt": "Rename the parameter and you don't need the added confusion of the `as`"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/executors/ecs/ecs_executor.py",
+      "providers/*/src/airflow/providers/*/executors/"
+    ]
+  },
+  {
+    "rule": "A change that silently alters which driver, backend or default an existing provider user gets must be recorded in that provider's `docs/changelog.rst` in the same PR",
+    "category": "docs",
+    "trigger": "A hook rewrites a connection URI drivername, swaps a client library, or changes a default without a corresponding entry added to `providers/<name>/docs/changelog.rst`",
+    "rationale": "Users with both libraries installed are moved from one driver to another with no signal; the changelog is the only place they would learn their runtime changed",
+    "evidence": [
+      {
+        "pr": 69526,
+        "url": "https://github.com/apache/airflow/pull/69526#discussion_r3597361110",
+        "excerpt": "a Redshift user with both drivers installed silently moves from psycopg2 to psycopg3"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/hooks/redshift_sql.py",
+      "providers/amazon/docs/changelog.rst"
+    ]
+  },
+  {
+    "rule": "Name generator/paginating hook methods with an `iter_` prefix (`iter_file_metadata`), not `yield_`",
+    "category": "naming",
+    "trigger": "A new public hook method that yields items is named `yield_*` or otherwise not prefixed `iter_`",
+    "rationale": "Airflow's established prefix for lazy iteration helpers is `iter_`; `yield_` describes the implementation mechanism rather than the returned iterator",
+    "evidence": [
+      {
+        "pr": 55070,
+        "url": "https://github.com/apache/airflow/pull/55070#discussion_r2323600312",
+        "excerpt": "probably `iter_file_metadata` would be better"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/hooks/s3.py",
+      "providers/*/src/airflow/providers/*/hooks/"
+    ]
+  },
+  {
+    "rule": "Use `state` rather than `status` for the lifecycle-value parameter and comparisons in a module whose surrounding code already speaks in terms of state",
+    "category": "naming",
+    "trigger": "A new helper such as `_handle_state(...)` takes a parameter named `status` while the neighbouring code, constants and comparisons in the same module use `state`",
+    "rationale": "Mixing the two terms in one module makes the state comparisons read as if they operate on a different concept than the surrounding code",
+    "evidence": [
+      {
+        "pr": 62240,
+        "url": "https://github.com/apache/airflow/pull/62240#discussion_r2843401744",
+        "excerpt": "We're using state everywhere else so the comparisons look a bit strange."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/hooks/sagemaker_unified_studio_notebook.py"
+    ]
+  },
+  {
+    "rule": "Operator-link persistence called from `execute_complete()` must be guarded on the required context keys being present (e.g. `context.get(\"task_instance\")`) rather than assuming a full task-instance context",
+    "category": "correctness",
+    "trigger": "`execute_complete()` unconditionally calls a `_persist_links`/`*Link.persist(context)` helper that dereferences `context[\"task_instance\"]`",
+    "rationale": "This repo's unit tests invoke `execute_complete` with an empty dict, and the persist path additionally makes AWS API calls, so an unguarded call raises instead of resuming the task",
+    "evidence": [
+      {
+        "pr": 64745,
+        "url": "https://github.com/apache/airflow/pull/64745#discussion_r3041387406",
+        "excerpt": "In this repo's unit tests `execute_complete` is invoked with an empty dict"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/batch.py",
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/"
+    ]
+  },
+  {
+    "rule": "Operator-link persistence helpers must return early when `self.do_xcom_push` is False, before making any provider API call needed to build the link",
+    "category": "performance",
+    "trigger": "A `_persist_*_link()` helper calls a hook/describe API to assemble link data and then calls `SomeLink.persist(...)` without first checking `do_xcom_push`",
+    "rationale": "`Link.persist()` is a no-op when xcom push is disabled, so the preceding describe call is a wasted (and billed) provider API request",
+    "evidence": [
+      {
+        "pr": 64745,
+        "url": "https://github.com/apache/airflow/pull/64745#discussion_r3068402865",
+        "excerpt": "Consider returning early in `_persist_cloudwatch_link()` when `not self.do_xcom_push` to avoid unnecessary AWS API usage"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/batch.py",
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/"
+    ]
+  },
+  {
+    "rule": "Do not downgrade a caught `AirflowException` from a log/metadata lookup to INFO with a transient-sounding message; keep it at warning unless the transient case is distinguished from the error case",
+    "category": "correctness",
+    "trigger": "An `except AirflowException` handler around a call like `get_job_all_awslogs_info()` is changed from `self.log.warning` to `self.log.info` with wording such as \"not yet available\"",
+    "rationale": "The same exception is also raised for non-transient conditions such as an unsupported job type, so the reassuring INFO message hides real configuration problems",
+    "evidence": [
+      {
+        "pr": 64745,
+        "url": "https://github.com/apache/airflow/pull/64745#discussion_r3041387472",
+        "excerpt": "this message/level is misleading and can hide real configuration issues"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/batch.py"
+    ]
+  },
+  {
+    "rule": "Service state categories (terminal, modifiable, stopped sets) must live on the hook and be composed from the hook's existing state enum, not redefined as tuples/frozensets on the operator",
+    "category": "providers",
+    "trigger": "A new operator or trigger class declares module- or class-level state groupings such as `TERMINAL_STATES = frozenset({...})` with literal state strings while the hook already exposes a state enum",
+    "rationale": "Operator and trigger both need the same categories; duplicating them on the operator invites code drift, and a new enum alongside the existing one fragments the state vocabulary",
+    "evidence": [
+      {
+        "pr": 67524,
+        "url": "https://github.com/apache/airflow/pull/67524#discussion_r3329166985",
+        "excerpt": "better to just reuse the existing enum class instead of creating a new enum class"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/dms.py",
+      "providers/amazon/src/airflow/providers/amazon/aws/hooks/"
+    ]
+  },
+  {
+    "rule": "A public operator `__init__` parameter must not be reduced to a stored-but-unread attribute; either keep the behaviour it selects or remove the parameter as an explicit breaking change",
+    "category": "api-design",
+    "trigger": "A refactor assigns `self.<param> = <param>` for a documented operator parameter (e.g. `wait_policy`) while `execute()` stops consulting it and reads a derived flag instead",
+    "rationale": "Operator constructor parameters are public API; leaving one assigned but inert silently drops documented behaviour for users who still pass it",
+    "evidence": [
+      {
+        "pr": 56158,
+        "url": "https://github.com/apache/airflow/pull/56158#discussion_r2384375000",
+        "excerpt": "The `wait_policy` is still being stored but never used in the execute method."
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/emr.py",
+      "providers/*/src/airflow/providers/*/operators/"
+    ]
+  },
+  {
+    "rule": "`execute_complete()` must branch explicitly on each trigger event status; do not treat everything that is not `success` as a single failure/cancel path",
+    "category": "correctness",
+    "trigger": "`execute_complete` checks `if validated_event[\"status\"] == \"success\": return ...` and then falls through to cancellation or failure handling for all remaining statuses",
+    "rationale": "A status added to the trigger later is silently swallowed into the cancel path; explicit status branches keep the operator's resume semantics honest as the trigger evolves",
+    "evidence": [
+      {
+        "pr": 64770,
+        "url": "https://github.com/apache/airflow/pull/64770#discussion_r3096872099",
+        "excerpt": "In the future another status might get swallowed into this path"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/emr.py",
+      "providers/*/src/airflow/providers/*/operators/"
+    ]
+  },
+  {
+    "rule": "Wrap boto3 calls in `except botocore.exceptions.ClientError`/`BotoCoreError` rather than `except Exception`, so programming errors propagate instead of silently taking the fallback path",
+    "category": "providers",
+    "trigger": "A `try` block around a boto client call (`self.hook.conn.<api>(...)`) is followed by `except Exception` with a `log.warning` and a fall-through to the default behaviour",
+    "rationale": "A broad handler also swallows `KeyError`/`AttributeError` from the response-parsing code, so the operator quietly reverts to the behaviour the change was meant to prevent (e.g. duplicate job runs)",
+    "evidence": [
+      {
+        "pr": 62560,
+        "url": "https://github.com/apache/airflow/pull/62560#discussion_r2906152434",
+        "excerpt": "Catch boto exceptions more narrowly (e.g., `botocore.exceptions.ClientError` / `BotoCoreError`) and let unexpected exceptions propagate"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/glue.py",
+      "providers/amazon/src/airflow/providers/amazon/aws/"
+    ]
+  },
+  {
+    "rule": "AWS operators must build `template_fields` with the `aws_template_fields(...)` helper instead of unpacking `*AwsBaseOperator.template_fields` into a manual tuple",
+    "category": "api-design",
+    "trigger": "A class deriving from `AwsBaseOperator` declares `template_fields: tuple[str, ...] = (*AwsBaseOperator.template_fields, \"foo\", \"bar\")`",
+    "rationale": "`aws_template_fields()` is the pattern used throughout the Amazon provider; hand-unpacking the base tuple is the older form that was simply never cleaned up in this module",
+    "evidence": [
+      {
+        "pr": 66721,
+        "url": "https://github.com/apache/airflow/pull/66721#discussion_r3230390317",
+        "excerpt": "there is a cleaner way that is used throughout AMPP"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/glue_catalog.py",
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/"
+    ]
+  },
+  {
+    "rule": "A method named as a deferral resume callback (`method_name=` on `self.defer(...)`) must take `context` as its first positional parameter, with `event` and any extra state as keyword arguments",
+    "category": "async",
+    "trigger": "A method passed as `method_name=\"...\"` to `self.defer()` declares a domain parameter (e.g. `import_task_id`) before `context`",
+    "rationale": "Airflow resumes a deferred task by calling `method(context, **next_kwargs)` with `event` injected into `next_kwargs`, so a leading domain parameter raises `TypeError: multiple values for argument` at resume time",
+    "evidence": [
+      {
+        "pr": 64274,
+        "url": "https://github.com/apache/airflow/pull/64274#discussion_r3066501546",
+        "excerpt": "Airflow calls the next method as `method(context, **next_kwargs)` (with `event` injected into `next_kwargs`)"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/neptune_analytics.py",
+      "providers/*/src/airflow/providers/*/operators/"
+    ]
+  },
+  {
+    "rule": "Expose new hook functionality as explicit optional parameters on the hook method rather than smuggling it through `**kwargs` from the operator",
+    "category": "api-design",
+    "trigger": "An operator builds a dict of extra arguments and passes it as `**extra_args` into a hook method (e.g. `copy_object`) whose signature does not name those parameters",
+    "rationale": "Adding optional parameters is non-breaking and makes the contract part of the public API; `**kwargs` forwarding leaves the behaviour dependent on an undocumented pass-through that tests alone must protect",
+    "evidence": [
+      {
+        "pr": 60597,
+        "url": "https://github.com/apache/airflow/pull/60597#discussion_r2695460817",
+        "excerpt": "Adding optional parameters would be non-breaking here and would make the contract more explicit"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/s3.py",
+      "providers/amazon/src/airflow/providers/amazon/aws/hooks/s3.py"
+    ]
+  },
+  {
+    "rule": "Hooks must normalise vendor API responses into the snake_case keys their operators consume; operators must not index a raw boto response key the hook never produces",
+    "category": "providers",
+    "trigger": "An operator reads `response[\"some_snake_case_id\"]` from a hook call whose implementation returns the raw boto response (e.g. `{\"notebookRunId\": ...}`) as the tests demonstrate",
+    "rationale": "The mismatch is invisible until runtime, where it raises `KeyError`; the hook is the layer that owns translating the vendor response shape",
+    "evidence": [
+      {
+        "pr": 62240,
+        "url": "https://github.com/apache/airflow/pull/62240#discussion_r3066479034",
+        "excerpt": "This will raise a `KeyError` at runtime unless the hook normalizes the response (recommended)"
+      }
+    ],
+    "scope_paths": [
+      "providers/amazon/src/airflow/providers/amazon/aws/operators/sagemaker_unified_studio_notebook.py",
+      "providers/amazon/src/airflow/providers/amazon/aws/hooks/sagemaker_unified_studio_notebook.py"
+    ]
+  }
+]

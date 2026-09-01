@@ -1,0 +1,11 @@
+{"pr": 71073,
+ "findings": [
+   {"path": "providers/common/ai/src/airflow/providers/common/ai/operators/llm_branch.py",
+    "line": 148,
+    "category": "providers",
+    "message": "This flips the default behaviour of an already-shipped operator: rejection used to fail the task (downstream `upstream_failed`) and now silently skips downstream instead, with `fail_on_reject=False` as the default. That needs a newsfragment/changelog entry for the provider so existing DAGs relying on the failure semantics aren't surprised on upgrade."},
+   {"path": "providers/common/ai/src/airflow/providers/common/ai/operators/llm_branch.py",
+    "line": 80,
+    "category": "api-design",
+    "message": "`fail_on_reject` is only consulted on the `require_approval=True` resume path, so setting it with `require_approval=False` is silently a no-op. Worth either validating that combination in `__init__` or calling it out explicitly in the docstring."}
+ ]}

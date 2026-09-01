@@ -1,0 +1,5 @@
+{
+  "verdict": "PARTIAL",
+  "why": "Both target the same GitHub-App dispatch condition and its relationship to __init__ validation, but the finding wants the truthiness test made consistent while the human wants the branch and its attribute deleted as redundant.",
+  "judge": "agent"
+}

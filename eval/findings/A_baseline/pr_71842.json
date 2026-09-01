@@ -1,0 +1,11 @@
+{"pr": 71842,
+ "findings": [
+   {"path": "providers/microsoft/azure/src/airflow/providers/microsoft/azure/hooks/msgraph.py",
+    "line": 640,
+    "category": "security",
+    "message": "For a guard whose whole job is to stop a tampered response from redirecting the bearer token, `startswith(\"http\")` is too weak a test for \"absolute\". It is case-sensitive, so \"HTTP://attacker.example/...\" skips the check entirely, and it misses scheme-relative \"//attacker.example/...\", which httpx resolves against the base URL's scheme and sends off-host. Decide on absoluteness from urlparse instead — e.g. treat the URL as absolute (and validate it) whenever it has a netloc, and reject any scheme that is not http/https."},
+   {"path": "providers/microsoft/azure/src/airflow/providers/microsoft/azure/hooks/msgraph.py",
+    "line": 622,
+    "category": "correctness",
+    "message": "`_authentication_provider` is private Kiota state and these are typing.cast calls, which do nothing at runtime. If the adapter was built with anything other than a bearer-token provider, `provider.access_token_provider` raises AttributeError and every paginated run breaks — and a Kiota rename turns the same code into a hard failure with no type-check warning. Please read the provider defensively (getattr / isinstance) and fall back to just self.allowed_netloc when the allowed-hosts list cannot be obtained."}
+ ]}

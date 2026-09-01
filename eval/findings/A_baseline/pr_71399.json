@@ -1,0 +1,11 @@
+{"pr": 71399,
+ "findings": [
+   {"path": "ts-sdk/.pre-commit-config.yaml",
+    "line": 81,
+    "category": "testing",
+    "message": "The hook is registered at `stages: [manual]`, and nothing in this PR invokes it from a CI workflow — so the packaging check only runs when someone remembers the `prek run --hook-stage manual` incantation from the README. What is meant to catch a broken tarball before release? Either wire it into a CI job (release/nightly is fine given the npm install cost) or say in the README which pipeline owns it."},
+   {"path": "ts-sdk/scripts/verify-package.mjs",
+    "line": 67,
+    "category": "correctness",
+    "message": "`Object.values(conditions)` only flattens one level, so a nested conditional export — `{\"import\": {\"types\": \"./dist/index.d.ts\", \"default\": \"./dist/index.js\"}}`, the shape people reach for first — yields objects and blows up in the `target.replace` on the next line with an opaque `TypeError`. That contradicts the docstring's promise that new export shapes extend the check rather than escaping it; recurse over nested condition objects, or fail with a message that names the offending subpath."}
+ ]}

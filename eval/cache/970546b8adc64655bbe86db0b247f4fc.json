@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding objects to a non-JSON comment inside a json code-block breaking the docs build, whereas the human is suggesting adding an inline annotation for user clarity.",
+  "judge": "agent"
+}

@@ -1,0 +1,5 @@
+{
+  "verdict": "MATCH",
+  "why": "Both flag that this fixture duplicates the existing test-client/token-signer plumbing and should be replaced by a shared role-scoped client helper.",
+  "judge": "agent"
+}

@@ -1,0 +1,311 @@
+[
+  {
+    "rule": "Map raw device values to Home Assistant states using enum members exposed by the integration's library rather than magic integers embedded in an entity description.",
+    "category": "providers",
+    "trigger": "An entity description literal contains a state/value mapping keyed by bare integers (e.g. `state_mapping={1000: \"standby\", 1001: \"charging\"}`) instead of library enum members.",
+    "rationale": "Hard-coded protocol constants silently break when the upstream library renumbers or extends its enum; binding to the library's enum makes the breakage a visible import/attribute error instead of a wrong state.",
+    "evidence": [
+      {
+        "pr": 170729,
+        "url": "https://github.com/home-assistant/core/pull/170729#discussion_r3244249469",
+        "excerpt": "prefer mapping enum members rather than magic integers to avoid silent breakage"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "Tests must exercise every value declared in an entity description's state mapping, not just the value present in the default fixture.",
+    "category": "testing",
+    "trigger": "A diff adds or extends a `state_mapping`/options dict on an entity description while the accompanying tests only assert the fixture's default value.",
+    "rationale": "A mapping entry never hit by a test is an untested translation of device data; reviewers treat each declared state as a case the fixtures must drive.",
+    "evidence": [
+      {
+        "pr": 170729,
+        "url": "https://github.com/home-assistant/core/pull/170729#discussion_r3244249469",
+        "excerpt": "it never exercises the charging (1001) or discharging (1002) mappings"
+      }
+    ],
+    "scope_paths": [
+      "tests/components/*/",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "When an entity description's `key` is renamed, update the matching `translation_key` and its `strings.json` entries, or document in a comment why the old translation key is deliberately kept.",
+    "category": "naming",
+    "trigger": "A diff changes the `key=` of an entity description but leaves the adjacent `translation_key=` unchanged.",
+    "rationale": "A translation key that no longer names the data it describes misleads the next maintainer and hides whether the user-visible string is still accurate.",
+    "evidence": [
+      {
+        "pr": 173091,
+        "url": "https://github.com/home-assistant/core/pull/173091#discussion_r3408332605",
+        "excerpt": "translation_key is still realtime_command but the underlying key has been changed"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/sensor.py",
+      "homeassistant/components/*/strings.json"
+    ]
+  },
+  {
+    "rule": "Reuse the shared `[%key:common::config_flow::data::*%]` translation references for standard config-flow fields (host, password, ssl, username, port) instead of introducing new literal labels.",
+    "category": "docs",
+    "trigger": "A new or edited `strings.json` config_flow `data` block gives a plain string label for a field that already exists under `common::config_flow::data`.",
+    "rationale": "Every new literal string enters the translation pipeline and must be maintained and re-translated separately, while the common keys are already translated across all integrations.",
+    "evidence": [
+      {
+        "pr": 167308,
+        "url": "https://github.com/home-assistant/core/pull/167308#discussion_r3033378847",
+        "excerpt": "Use the shared common translation key for the SSL field label"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/strings.json"
+    ]
+  },
+  {
+    "rule": "Every third-party module an integration imports must be declared in that integration's `manifest.json` requirements; do not swap an import to a differently named distribution without updating requirements.",
+    "category": "providers",
+    "trigger": "A diff changes or adds a top-level import of a non-stdlib, non-homeassistant module in `homeassistant/components/<domain>/` without a corresponding `manifest.json` requirements change.",
+    "rationale": "An undeclared dependency is not installed for that integration, so the module raises ModuleNotFoundError at runtime for every user rather than failing in CI.",
+    "evidence": [
+      {
+        "pr": 172186,
+        "url": "https://github.com/home-assistant/core/pull/172186#discussion_r3299733425",
+        "excerpt": "if serialx is intentionally required, add it to the integration requirements"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/",
+      "homeassistant/components/*/manifest.json"
+    ]
+  },
+  {
+    "rule": "A legacy YAML platform reduced to an import/repair-issue stub must still report successful setup - return a no-op service or `True` rather than `None` - so the legacy platform helper does not log a setup failure.",
+    "category": "providers",
+    "trigger": "`async_get_service`, `async_get_scanner` or a comparable legacy platform entry point is rewritten to only create an issue/start an import flow and then return `None`.",
+    "rationale": "`notify.legacy` and `device_tracker.legacy` interpret a `None` return as failed setup and emit an error-level log on every start, so users see a spurious error alongside the intended repair issue.",
+    "evidence": [
+      {
+        "pr": 166838,
+        "url": "https://github.com/home-assistant/core/pull/166838#discussion_r3007513086",
+        "excerpt": "consider returning a minimal no-op BaseNotificationService while still creating the repair issue"
+      },
+      {
+        "pr": 167308,
+        "url": "https://github.com/home-assistant/core/pull/167308#discussion_r3035511525",
+        "excerpt": "device_tracker/legacy will treat setup as failed and log an error"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/notify.py",
+      "homeassistant/components/*/device_tracker.py"
+    ]
+  },
+  {
+    "rule": "Handle the import flow's abort reasons before raising the `deprecated_yaml` repair issue, so a failed import does not tell the user their YAML was successfully migrated.",
+    "category": "providers",
+    "trigger": "A YAML import path calls `async_create_issue(..., translation_key=\"deprecated_yaml\")` unconditionally after starting an import flow, without branching on the flow's abort reason.",
+    "rationale": "The repair issue is the user's instruction to delete their YAML; issuing it when the import aborted loses their configuration.",
+    "evidence": [
+      {
+        "pr": 167308,
+        "url": "https://github.com/home-assistant/core/pull/167308#discussion_r3035511525",
+        "excerpt": "handle import abort reasons before creating the deprecated_yaml issue"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/device_tracker.py",
+      "homeassistant/components/*/notify.py"
+    ]
+  },
+  {
+    "rule": "Do not abort a reconfigure flow on unique-id mismatch when the existing entry still carries the integration's legacy unique_id; match the legacy value and migrate the entry to the new scheme.",
+    "category": "correctness",
+    "trigger": "A config flow computes a new-style unique id, calls `async_set_unique_id(...)` and then `_abort_if_unique_id_mismatch()` in the `SOURCE_RECONFIGURE` branch, in a diff that changes how the unique id is derived.",
+    "rationale": "Existing installs keep the old unique_id until migration runs, so an unconditional mismatch abort permanently blocks reconfigure for every already-installed user after the upgrade.",
+    "evidence": [
+      {
+        "pr": 165200,
+        "url": "https://github.com/home-assistant/core/pull/165200#discussion_r2905635595",
+        "excerpt": "will abort for existing installs whose config entry unique_id is still the legacy serial number"
+      },
+      {
+        "pr": 165200,
+        "url": "https://github.com/home-assistant/core/pull/165200#discussion_r2996230695",
+        "excerpt": "blocking reconfigure until a reload/restart triggers migration"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/config_flow.py"
+    ]
+  },
+  {
+    "rule": "Never assign to a config flow's `VERSION` or `MINOR_VERSION` at runtime; they are class-level constants describing the entry schema, and migrations must be driven by `async_migrate_entry`.",
+    "category": "api-design",
+    "trigger": "A diff contains `self.VERSION = ...` or `self.MINOR_VERSION = ...` inside a config-flow step or handler body.",
+    "rationale": "Entry schema versions describe the data format, not a per-flow decision; mutating them on the instance makes the stored version depend on which branch a user happened to hit.",
+    "evidence": [
+      {
+        "pr": 165200,
+        "url": "https://github.com/home-assistant/core/pull/165200#discussion_r3021544942",
+        "excerpt": "I also think we should not modify the constants on runtime"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/config_flow.py"
+    ]
+  },
+  {
+    "rule": "Reserve the `async_`/`_async_` prefix for coroutine functions and callbacks that run on the event loop; rename synchronous helpers to a plain `_setup_*`-style name.",
+    "category": "naming",
+    "trigger": "A diff adds a `def _async_foo(...)`/`def async_foo(...)` that is not `async def` and contains no `await`.",
+    "rationale": "The prefix is how reviewers judge at a glance whether a call is safe to make from the event loop; a synchronous body behind it hides potential blocking work.",
+    "evidence": [
+      {
+        "pr": 165876,
+        "url": "https://github.com/home-assistant/core/pull/165876#discussion_r3067617770",
+        "excerpt": "These helpers are synchronous functions but are named with the _async_ prefix"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/__init__.py",
+      "homeassistant/components/"
+    ]
+  },
+  {
+    "rule": "Do not name a variable `platform` when it holds an entity domain such as `switch` or `select`; call it `domain`/`entity_domain` and keep `platform` for the Home Assistant platform concept.",
+    "category": "naming",
+    "trigger": "A loop or parameter named `platform` is assigned entity-domain strings and passed to registry helpers such as entity-unique-id lookups.",
+    "rationale": "`platform` already has a precise meaning in Home Assistant (the integration providing entities for a domain), so reusing it for the domain makes registry code read backwards.",
+    "evidence": [
+      {
+        "pr": 165876,
+        "url": "https://github.com/home-assistant/core/pull/165876#discussion_r3067714433",
+        "excerpt": "avoid confusion with Home Assistant \"platform\" terminology"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/__init__.py"
+    ]
+  },
+  {
+    "rule": "An entity's state property must read the same field the command method writes; after a successful command, update the entity's own state optimistically and write it rather than waiting for a library field that may not refresh.",
+    "category": "correctness",
+    "trigger": "A state property (e.g. `current_option`, `is_on`) reads one library attribute (`last_state`) while `async_select_option`/`async_turn_*` sets a different one (`state`), with no `async_write_ha_state` of the new value.",
+    "rationale": "If the library does not mirror the setter into the read field, the UI keeps showing the previous value after a successful command and looks broken to the user.",
+    "evidence": [
+      {
+        "pr": 165876,
+        "url": "https://github.com/home-assistant/core/pull/165876#discussion_r3067722822",
+        "excerpt": "update the entity's current option optimistically after setting the device state (and write it)"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/select.py",
+      "homeassistant/components/*/switch.py",
+      "homeassistant/components/*/light.py"
+    ]
+  },
+  {
+    "rule": "Do not zero or clear brightness (or other level attributes) in a light's `async_turn_off`; leave the last level intact so it can be restored on the next turn-on.",
+    "category": "correctness",
+    "trigger": "`async_turn_off` in a light platform sets `self._attr_brightness = 0` or otherwise resets a level attribute.",
+    "rationale": "An off light has no brightness in Home Assistant's model, and discarding the value destroys the level used to restore the light and to seed the next turn-on command.",
+    "evidence": [
+      {
+        "pr": 170841,
+        "url": "https://github.com/home-assistant/core/pull/170841#discussion_r3295964928",
+        "excerpt": "off devices have no brightness. by setting to 0 you have now lost the brightness"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/light.py"
+    ]
+  },
+  {
+    "rule": "`_handle_coordinator_update` must refresh every entity attribute derived from coordinator data, including the entity name, not just a subset.",
+    "category": "correctness",
+    "trigger": "A `_handle_coordinator_update` override assigns some `_attr_*` values from the coordinator payload while other displayed attributes derived from the same payload are left untouched.",
+    "rationale": "Attributes not refreshed on the coordinator callback stay frozen at their setup-time values, so the entity shows stale device information indefinitely.",
+    "evidence": [
+      {
+        "pr": 167308,
+        "url": "https://github.com/home-assistant/core/pull/167308#discussion_r3033378833",
+        "excerpt": "Update the entity name when the coordinator data changes (e.g., when the hostname changes)"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/device_tracker.py",
+      "homeassistant/components/*/"
+    ]
+  },
+  {
+    "rule": "Do not add per-update lookups that can only ever apply to a subset of devices; gate them behind a setup-time check or cached reference so unaffected devices pay nothing on each update.",
+    "category": "performance",
+    "trigger": "An `available`/update path calls a topology lookup such as `node.get_compose_parent(...)` plus an attribute read on every invocation, unconditionally.",
+    "rationale": "These paths run on every attribute update for every entity, so work that is meaningless for non-bridge nodes multiplies across the whole device set.",
+    "evidence": [
+      {
+        "pr": 169983,
+        "url": "https://github.com/home-assistant/core/pull/169983#discussion_r3201359962",
+        "excerpt": "adds work on every update for composed devices that can never have BridgedDeviceBasicInformation.Reachable"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/matter/entity.py",
+      "homeassistant/components/*/entity.py"
+    ]
+  },
+  {
+    "rule": "Make availability precedence explicit when combining a bridged/composed parent's Reachable with the child endpoint's own: return the parent's verdict directly instead of falling through to the child's attribute.",
+    "category": "correctness",
+    "trigger": "An `available` property checks a parent endpoint's `Reachable` attribute and then continues on to read the child endpoint's `Reachable` when the parent is reachable.",
+    "rationale": "If both endpoints expose the cluster, a stale child value silently overrides a reachable parent, producing inconsistent availability for the same physical device.",
+    "evidence": [
+      {
+        "pr": 169983,
+        "url": "https://github.com/home-assistant/core/pull/169983#discussion_r3242307088",
+        "excerpt": "Consider returning True directly when the parent reports reachable, to make precedence explicit"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/matter/entity.py"
+    ]
+  },
+  {
+    "rule": "When deserializing stored KNX telegram values, accept every payload type the DPT layer can produce (str for DPT 16, dict for DPTComplex) rather than narrowing to numeric/bool types.",
+    "category": "correctness",
+    "trigger": "A restore/serialization path filters telegram payloads with `isinstance(value, (int, float, bool))` or a similarly narrow type check.",
+    "rationale": "KNX datapoint types decode to strings and structured dicts as well as numbers, so a numeric-only filter silently discards valid restored telegram values.",
+    "evidence": [
+      {
+        "pr": 169700,
+        "url": "https://github.com/home-assistant/core/pull/169700#discussion_r3200804181",
+        "excerpt": "This could be str (DPT 16) or dict (DPTComplex) too?"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/knx/telegrams.py"
+    ]
+  },
+  {
+    "rule": "A change that reroutes an existing device/event action to a new action type must be called out as a behavioral change in the PR description and release notes, even when it is the intended bug fix.",
+    "category": "docs",
+    "trigger": "A diff adds a branch that maps a previously unhandled event type to a new action constant, changing which action existing automations receive.",
+    "rationale": "Automations users already built against the old fall-through action stop firing, so the change needs to reach them through release notes rather than as a silent regression.",
+    "evidence": [
+      {
+        "pr": 172634,
+        "url": "https://github.com/home-assistant/core/pull/172634#discussion_r3329413766",
+        "excerpt": "should be documented (and called out in release notes)"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/lutron_caseta/__init__.py",
+      "homeassistant/components/*/__init__.py"
+    ]
+  }
+]

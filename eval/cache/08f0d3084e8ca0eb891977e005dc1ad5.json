@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding is about duplicated authorization logic drifting from requires_access_dag; the human is about the changed 404 detail strings and the now-unreachable handler branches.",
+  "judge": "agent"
+}

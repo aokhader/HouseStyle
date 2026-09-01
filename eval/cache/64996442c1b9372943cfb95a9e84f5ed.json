@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding concerns stub re-export syntax; the human is asking for the PR to be split or renamed, which is a scoping request unrelated to the code defect.",
+  "judge": "agent"
+}

@@ -1,0 +1,333 @@
+[
+  {
+    "rule": "Pass only raw identifiers (entity_id, chat_id) in translation_placeholders and keep the explanatory wording inside the translation string itself.",
+    "category": "docs",
+    "trigger": "A ServiceValidationError/HomeAssistantError raised with translation_placeholders whose value is an f-string containing English prose such as f\"Notify entity not found: {entity_id}\".",
+    "rationale": "Prose baked into a placeholder cannot be translated; the string must describe the missing-entity condition and the placeholder only supplies the id.",
+    "evidence": [
+      {
+        "pr": 159745,
+        "url": "https://github.com/home-assistant/core/pull/159745#discussion_r2647830084",
+        "excerpt": "the translation should talk about missing entity and the translation placeholder should just"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/telegram_bot/"]
+  },
+  {
+    "rule": "When a shared config-flow helper such as validate_input gains a new branch, add test coverage for every flow that calls it, including reauth.",
+    "category": "testing",
+    "trigger": "A diff adds a fallback or conditional inside validate_input() (or another helper shared by user/DHCP/reauth steps) while the test diff only touches the user or discovery flow.",
+    "rationale": "Reauth reuses the same helper, so an untested branch there regresses silently even when the file already has dedicated reauth coverage.",
+    "evidence": [
+      {
+        "pr": 169660,
+        "url": "https://github.com/home-assistant/core/pull/169660#discussion_r3177090008",
+        "excerpt": "Add a reauth test for legacy devices that only expose the serial"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/teltonika/config_flow.py",
+      "tests/components/teltonika/"
+    ]
+  },
+  {
+    "rule": "Annotate values that hold Home Assistant unit constants with their enum type (e.g. UnitOfTemperature) rather than str.",
+    "category": "api-design",
+    "trigger": "An attribute or return annotation typed str while the value comes from hass.config.units.temperature_unit or a UnitOfTemperature member.",
+    "rationale": "The unit enums are the public contract for unit handling; typing them as str hides mismatches from type checkers and from readers of the trigger code.",
+    "evidence": [
+      {
+        "pr": 165247,
+        "url": "https://github.com/home-assistant/core/pull/165247#discussion_r2909752390",
+        "excerpt": "it says it returns `str` but returns a `UnitOfTemperature`"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/temperature/"]
+  },
+  {
+    "rule": "Numeric state validation for template entities must keep booleans invalid; test with type(result) in (int, float) instead of isinstance.",
+    "category": "correctness",
+    "trigger": "A numeric-state check in a template platform written as isinstance(result, (int, float)).",
+    "rationale": "bool subclasses int, so isinstance silently starts accepting template output like True as a numeric sensor state, changing documented behaviour.",
+    "evidence": [
+      {
+        "pr": 164339,
+        "url": "https://github.com/home-assistant/core/pull/164339#discussion_r2865021497",
+        "excerpt": "`isinstance(result, (int, float))` will also match `bool` (since `bool` is a subclass"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/template/"]
+  },
+  {
+    "rule": "Template entity setup helpers must raise or log when their backing option is unset instead of silently doing nothing.",
+    "category": "correctness",
+    "trigger": "setup_state_template() or a sibling setup_* helper on TemplateEntity/TriggerEntity that returns early when the corresponding _*_option attribute is None.",
+    "rationale": "The state template has special rendering and error semantics; skipping it produces entities that never go unknown/unavailable and the failure is hard to diagnose.",
+    "evidence": [
+      {
+        "pr": 162737,
+        "url": "https://github.com/home-assistant/core/pull/162737#discussion_r2864240442",
+        "excerpt": "silently does nothing when `_state_option` is unset"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/template/"]
+  },
+  {
+    "rule": "Do not raise repair issues off a template render that failed; only compare against a successfully rendered result.",
+    "category": "correctness",
+    "trigger": "A repair issue (async_create_issue / async_create_*_issue) created after assigning `result or []` from a template render that can yield None.",
+    "rationale": "A transient or invalid render otherwise looks like a real configuration change and prompts the user to repair something that did not change.",
+    "evidence": [
+      {
+        "pr": 167805,
+        "url": "https://github.com/home-assistant/core/pull/167805#discussion_r3072635648",
+        "excerpt": "Avoid raising a segments-changed repair issue when the segments template failed to parse"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/template/"]
+  },
+  {
+    "rule": "In config flow tests take the flow id from the result returned by start_reauth_flow rather than re-fetching it via hass.config_entries.flow.async_progress().",
+    "category": "testing",
+    "trigger": "A test calls entry.start_reauth_flow(hass) and then asserts on async_progress() to obtain flows[0][\"flow_id\"].",
+    "rationale": "The returned result already carries the flow id, so the extra progress lookup is redundant boilerplate in config-flow test coverage.",
+    "evidence": [
+      {
+        "pr": 160475,
+        "url": "https://github.com/home-assistant/core/pull/160475#discussion_r2924838828",
+        "excerpt": "nit: you can just use the first result to get the flow id"
+      }
+    ],
+    "scope_paths": [
+      "tests/components/tesla_fleet/",
+      "homeassistant/components/tesla_fleet/"
+    ]
+  },
+  {
+    "rule": "Pass hass as the first argument to ConfigEntry.async_create_background_task, or use hass.async_create_background_task when entry lifecycle tying is not needed.",
+    "category": "async",
+    "trigger": "entry.async_create_background_task( called with only a coroutine and a name.",
+    "rationale": "The entry-bound helper's signature starts with hass; omitting it raises TypeError at runtime on the rarely exercised code path that schedules the task.",
+    "evidence": [
+      {
+        "pr": 162143,
+        "url": "https://github.com/home-assistant/core/pull/162143#discussion_r2937427589",
+        "excerpt": "`ConfigEntry.async_create_background_task` requires `hass` as the first argument"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/teslemetry/"]
+  },
+  {
+    "rule": "Trigger entry reloads from coordinator/runtime callbacks with hass.config_entries.async_schedule_reload, and update the tracked baseline so the condition cannot re-fire.",
+    "category": "async",
+    "trigger": "A coordinator update handler that compares against cached known_* state and schedules hass.config_entries.async_reload on every difference.",
+    "rationale": "Without debouncing and without refreshing the baseline, repeated coordinator updates or a failed reload keep queueing reloads and cause reload storms.",
+    "evidence": [
+      {
+        "pr": 162143,
+        "url": "https://github.com/home-assistant/core/pull/162143#discussion_r2937652724",
+        "excerpt": "Consider using `hass.config_entries.async_schedule_reload(entry.entry_id)` (debounced) and/or updating the tracked baseline"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/teslemetry/"]
+  },
+  {
+    "rule": "Only pass translation_placeholders that the referenced translation string actually consumes, and do not source them from library exception attributes that may not exist.",
+    "category": "correctness",
+    "trigger": "UpdateFailed/HomeAssistantError raised with translation_placeholders whose keys do not appear in the integration's strings.json entry, or built from e.message.",
+    "rationale": "An unused placeholder is dead weight and reading e.message couples the integration to an attribute that is not consistent across the library's exception types.",
+    "evidence": [
+      {
+        "pr": 162143,
+        "url": "https://github.com/home-assistant/core/pull/162143#discussion_r2938697487",
+        "excerpt": "This placeholder is currently unused and also introduces a dependency on an exception attribute"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/teslemetry/"]
+  },
+  {
+    "rule": "A coordinator that translates one client exception must translate all of the client errors its calls can raise, including aiohttp.ClientConnectionError.",
+    "category": "correctness",
+    "trigger": "_async_update_data adds an `except ClientResponseError` branch raising a translated UpdateFailed while other aiohttp errors reachable from the same call stay unhandled.",
+    "rationale": "Unwrapped connection failures land in last_exception as raw exceptions and get logged as unexpected errors instead of a translated update failure.",
+    "evidence": [
+      {
+        "pr": 166047,
+        "url": "https://github.com/home-assistant/core/pull/166047#discussion_r2964213568",
+        "excerpt": "Those connection failures will still end up as raw exceptions in `last_exception`"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/tessie/"]
+  },
+  {
+    "rule": "Match todo items by casefolding both the requested value and the stored uid/summary rather than comparing against a tuple of raw values.",
+    "category": "correctness",
+    "trigger": "An intent or service handler comparing a user-supplied item against todo_item.uid / todo_item.summary with `in (...)`.",
+    "rationale": "Voice and intent input does not preserve casing, so unnormalized comparison makes completing an item by name work only sometimes.",
+    "evidence": [
+      {
+        "pr": 160177,
+        "url": "https://github.com/home-assistant/core/pull/160177#discussion_r3022004281",
+        "excerpt": "Normalize both sides of the comparison (and avoid the tuple `in` check)"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/todo/"]
+  },
+  {
+    "rule": "Set _attr_unique_id once in __init__ from identifiers known at setup; never assign or recompute it inside update() or a coordinator callback.",
+    "category": "api-design",
+    "trigger": "An assignment to self._attr_unique_id (or self.entity_id-derived ids) inside update(), async_update(), or _handle_coordinator_update().",
+    "rationale": "Unique ids must be stable and present when the entity is added; deriving them during refresh risks registering None after a failed first poll and silently changing ids later.",
+    "evidence": [
+      {
+        "pr": 165790,
+        "url": "https://github.com/home-assistant/core/pull/165790#discussion_r2947575250",
+        "excerpt": "Unique IDs are expected to be stable and available when the entity is first added"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/touchline/"]
+  },
+  {
+    "rule": "Entity descriptions must be defined inside the integration; map external quirk/library keys onto Home Assistant owned EntityDescription objects instead of synthesizing descriptions from library data.",
+    "category": "api-design",
+    "trigger": "A helper that constructs an EntityDescription with key=<library quirk attribute> from an object supplied by the vendor library or quirks registry.",
+    "rationale": "The entity definition (translation keys, device classes, categories) is Home Assistant's contract with users and must not be delegated to an external package.",
+    "evidence": [
+      {
+        "pr": 166952,
+        "url": "https://github.com/home-assistant/core/pull/166952#discussion_r3044360001",
+        "excerpt": "The entity definition should stay within Home Assistant."
+      }
+    ],
+    "scope_paths": ["homeassistant/components/tuya/"]
+  },
+  {
+    "rule": "When a Tuya device category is aliased to another category on one platform, add the same alias on every platform that already supports that category.",
+    "category": "providers",
+    "trigger": "A new DeviceCategory entry added to a platform description map without the matching CATEGORY[DeviceCategory.X] = CATEGORY[DeviceCategory.Y] alias present in the sibling platforms.",
+    "rationale": "Device categories are aliased per platform in switch.py and number.py; missing one platform leaves those devices without the controls the others expose.",
+    "evidence": [
+      {
+        "pr": 169966,
+        "url": "https://github.com/home-assistant/core/pull/169966#discussion_r3213926528",
+        "excerpt": "Add a DGHSXJ to SP category alias for buttons so low-power camera devices"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/tuya/"]
+  },
+  {
+    "rule": "Factor repeated per-platform quirk registry lookup and entity construction into a shared helper module rather than copying the pattern into each platform.",
+    "category": "api-design",
+    "trigger": "A third or later platform file adding its own _get_quirk_entities() with the same TUYA_QUIRKS_REGISTRY.get_quirk_for_device + list comprehension shape.",
+    "rationale": "The common-modules expectation of the quality scale: duplicated registry plumbing across platforms drifts and must live in the integration's util module.",
+    "evidence": [
+      {
+        "pr": 166952,
+        "url": "https://github.com/home-assistant/core/pull/166952#discussion_r3021362869",
+        "excerpt": "Consider extracting this repeated quirk-entity construction pattern into a shared helper"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/tuya/"]
+  },
+  {
+    "rule": "When one device yields several entities on the same platform, include a per-entity suffix in the unique_id so the entities cannot collide in the registry.",
+    "category": "correctness",
+    "trigger": "A list comprehension creating multiple entities of the same class from one device object where unique_id derives only from the device id.",
+    "rationale": "Every entity built that way gets the identical `tuya.<device_id>` unique id, so all but one are dropped by the entity registry.",
+    "evidence": [
+      {
+        "pr": 166952,
+        "url": "https://github.com/home-assistant/core/pull/166952#discussion_r3021523993",
+        "excerpt": "every TuyaFanEntity created here will get the same unique_id and collide"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/tuya/"]
+  },
+  {
+    "rule": "Unit conversion must run device-native to entity unit when reading a property and entity to device unit when writing, so set/read round-trips agree.",
+    "category": "correctness",
+    "trigger": "A TemperatureConverter.convert (or similar) call in a state property whose from/to arguments are the reverse of the matching call in async_set_*.",
+    "rationale": "Swapped arguments silently return nonsense values (23 C read back as -5) and break round-trip semantics between set and read.",
+    "evidence": [
+      {
+        "pr": 171183,
+        "url": "https://github.com/home-assistant/core/pull/171183#discussion_r3264815934",
+        "excerpt": "The conversion direction in `target_temperature` is reversed"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/tuya/"]
+  },
+  {
+    "rule": "Resolve an entity's native unit through the fixed precedence: no device_class first, then a device-reported unit, then NUMBER_DEVICE_CLASS_UNITS, then DEVICE_CLASS_UNITS, then the description default, and only finally drop the device_class.",
+    "category": "api-design",
+    "trigger": "A new branch inserted into _validate_device_class_unit or an equivalent unit-resolution routine ahead of the existing DEVICE_CLASS_UNITS checks.",
+    "rationale": "Unit validation order determines which unit wins for a device_class; inserting device-reported units out of order lets an unsupported unit survive validation.",
+    "evidence": [
+      {
+        "pr": 170432,
+        "url": "https://github.com/home-assistant/core/pull/170432#discussion_r3264146656",
+        "excerpt": "I also think the order should be adjusted"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/tuya/"]
+  },
+  {
+    "rule": "Energy sensor entity descriptions must set suggested_display_precision alongside native and suggested units so the registry options match the snapshots.",
+    "category": "api-design",
+    "trigger": "A SensorEntityDescription with device_class=SensorDeviceClass.ENERGY that sets native_unit_of_measurement but no suggested_display_precision.",
+    "rationale": "The snapshot fixtures record suggested_display_precision in the entity options; omitting it in the description makes the entity and its snapshot disagree.",
+    "evidence": [
+      {
+        "pr": 160392,
+        "url": "https://github.com/home-assistant/core/pull/160392#discussion_r3031875520",
+        "excerpt": "Add `suggested_display_precision=2` to all energy sensor descriptions to match the snapshot expectations"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/tuya/"]
+  },
+  {
+    "rule": "Name and translate a config switch after the setting it toggles, not after the action the underlying device performs.",
+    "category": "naming",
+    "trigger": "A SwitchEntityDescription with entity_category=CONFIG whose translation_key reads as an imperative action (trigger_*, start_*) for a device capability that is merely enabled.",
+    "rationale": "Users read the switch name as what pressing it does; an enable/disable toggle named after the action misrepresents the control.",
+    "evidence": [
+      {
+        "pr": 169966,
+        "url": "https://github.com/home-assistant/core/pull/169966#discussion_r3200671557",
+        "excerpt": "Rename the `ipc_auto_siren` switch to reflect that it enables/disables an automatic siren"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/tuya/"]
+  },
+  {
+    "rule": "Add tests that make the integration library raise during an entity action and assert the resulting HomeAssistantError carries the expected translation_domain and translation_key.",
+    "category": "testing",
+    "trigger": "A platform gains a try/except around a library call that raises HomeAssistantError with translation_domain/translation_key, with no matching failure test.",
+    "rationale": "The translated error path is user-visible behaviour; without a test the translation key can be renamed or dropped without anything failing.",
+    "evidence": [
+      {
+        "pr": 168559,
+        "url": "https://github.com/home-assistant/core/pull/168559#discussion_r3113281714",
+        "excerpt": "assert that the button press service call raises HomeAssistantError with translation_domain=unifi"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/unifi/",
+      "tests/components/unifi/"
+    ]
+  },
+  {
+    "rule": "Keep a pull request's contents aligned with its title and description; a manifest requirement bump must not be shipped under a feature title, nor a feature under a bump title.",
+    "category": "commit-hygiene",
+    "trigger": "A PR whose only code change is a requirements version bump in manifest.json while the title/description promise a new entity or feature.",
+    "rationale": "Release notes and reviewer expectations are built from the PR title; a mismatch hides what actually changed in the integration.",
+    "evidence": [
+      {
+        "pr": 166918,
+        "url": "https://github.com/home-assistant/core/pull/166918#discussion_r3022020759",
+        "excerpt": "Align the PR contents with the PR title/description by including the UniFi WAN"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/unifi/manifest.json"]
+  }
+]

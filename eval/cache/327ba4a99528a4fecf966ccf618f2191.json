@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "Both concern the same npm version gate, but the finding asks to move the check earlier into the build job, whereas the human asks that the failure print the detected and required versions instead of a bare process.exit(1).",
+  "judge": "agent"
+}

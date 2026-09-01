@@ -1,0 +1,15 @@
+{"pr": 52330,
+ "findings": [
+   {"path": "providers/apache/arrow/src/airflow/providers/apache/arrow/hooks/adbc.py",
+    "line": 63,
+    "category": "correctness",
+    "message": "Two problems with rewriting placeholders by regex over the whole statement. It substitutes anywhere, including inside string literals - with the default `%s` placeholder a perfectly normal `WHERE name LIKE '%something%'` becomes `LIKE '$1omething%'` and the query silently changes meaning. And the `$1, $2, ...` output is PostgreSQL-specific, while the class docstring advertises \"any database supported by an ADBC driver\"; adbc_driver_sqlite and Flight SQL want `?`, so this rewrite breaks them. Can the paramstyle come from the driver (or the dialect) rather than being hard-coded, and can the substitution be done during SQL generation where the placeholder positions are known instead of by scanning finished SQL?"},
+   {"path": "providers/apache/arrow/src/airflow/providers/apache/arrow/hooks/adbc.py",
+    "line": 128,
+    "category": "correctness",
+    "message": "`importlib_resources.files(self.driver)` imports the named module, so when the driver is *not* installed as a Python wheel this raises ModuleNotFoundError right here - which means the three fallbacks below (sys.prefix/lib, conda bin, and letting the driver manager search LD_LIBRARY_PATH) are unreachable in exactly the situation they were written for. This needs a try/except around the first lookup. Worth noting too that `driver` comes straight from connection extras, so this imports an arbitrary user-named module."},
+   {"path": "providers/apache/arrow/src/airflow/providers/apache/arrow/hooks/adbc.py",
+    "line": 153,
+    "category": "correctness",
+    "message": "Should this be `\"://\"` rather than `\"::\"`? The UI relabels `host` to \"Connection URL\", so the intent looks like \"if the user already gave us a full URL, pass it through\" - but `postgresql://user@host:5432/db` contains no `::`, so it falls through to get_uri() and gets its scheme rewritten instead. As written the only thing that matches is a bare IPv6 literal, which would then be returned as the entire URI."}
+ ]}

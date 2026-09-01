@@ -1,0 +1,306 @@
+[
+  {
+    "rule": "Import SnapshotAssertion from syrupy.assertion and snapshot_platform from tests.common; do not pull SnapshotAssertion out of tests.common.",
+    "category": "testing",
+    "trigger": "A test file adds `from tests.common import SnapshotAssertion` (alone or alongside snapshot_platform).",
+    "rationale": "tests.common does not export SnapshotAssertion, so the file fails at collection time and diverges from every other test module.",
+    "evidence": [
+      {
+        "pr": 172639,
+        "url": "https://github.com/home-assistant/core/pull/172639#discussion_r3329567256",
+        "excerpt": "If tests.common doesn't export SnapshotAssertion, this will raise an ImportError at collection"
+      }
+    ],
+    "scope_paths": ["tests/components/schlage/", "tests/components/"]
+  },
+  {
+    "rule": "Keep a PR to its stated change; unrelated test improvements such as renaming fixtures or introducing parametrization belong in a separate PR.",
+    "category": "commit-hygiene",
+    "trigger": "A PR whose stated purpose is one small change also renames fixtures, restructures parametrization, or refactors unrelated tests in the same diff.",
+    "rationale": "Reviewers merge small focused PRs quickly; bundled refactors enlarge the diff and delay the actual fix.",
+    "evidence": [
+      {
+        "pr": 169957,
+        "url": "https://github.com/home-assistant/core/pull/169957#discussion_r3312293919",
+        "excerpt": "those improvements to the tests are great, but they should be on a separate PR"
+      }
+    ],
+    "scope_paths": ["tests/components/sense/", "tests/components/"]
+  },
+  {
+    "rule": "Do not leave test fixtures or module-level test constants defined but never referenced; remove them or wire them into the tests that need them.",
+    "category": "testing",
+    "trigger": "A conftest fixture or a TEST_* constant is added or left behind in a diff with no test referencing it.",
+    "rationale": "Unreferenced test scaffolding is dead code that makes the suite harder to maintain and hides which source of truth is real.",
+    "evidence": [
+      {
+        "pr": 166609,
+        "url": "https://github.com/home-assistant/core/pull/166609#discussion_r2995742815",
+        "excerpt": "Remove or start using the new fixtures; they are currently defined but not referenced"
+      },
+      {
+        "pr": 164621,
+        "url": "https://github.com/home-assistant/core/pull/164621#discussion_r2874132426",
+        "excerpt": "TEST_OBJECT_ID is now unused ... Consider removing it to avoid dead code"
+      }
+    ],
+    "scope_paths": ["tests/components/sfr_box/conftest.py", "tests/components/template/", "tests/components/"]
+  },
+  {
+    "rule": "Config entry migration tests must seed the entity registry with the entities a pre-migration install would already have, and assert they are re-associated with the new device or subentry.",
+    "category": "testing",
+    "trigger": "A migration test asserts only that subentries/devices were created, without registering the old entities beforehand.",
+    "rationale": "The re-association of existing registry entries is the riskiest part of a migration and is untested if only fresh objects are created.",
+    "evidence": [
+      {
+        "pr": 175048,
+        "url": "https://github.com/home-assistant/core/pull/175048#discussion_r3500143932",
+        "excerpt": "That re-association path is currently untested; adding such an entity ... would close the gap"
+      }
+    ],
+    "scope_paths": ["tests/components/steam_online/", "tests/components/"]
+  },
+  {
+    "rule": "Tests must not branch on entity_id with if/elif to pick expected values; parametrize the expected state alongside the entity or use the snapshot_platform helper.",
+    "category": "testing",
+    "trigger": "An if/elif chain inside a test loop selecting which assertion to run per entity_id.",
+    "rationale": "Branching hides which assertions actually ran; the repo expects flat parametrized cases or a snapshot covering the whole platform.",
+    "evidence": [
+      {
+        "pr": 160215,
+        "url": "https://github.com/home-assistant/core/pull/160215#discussion_r2774734409",
+        "excerpt": "we don't want if statements in the tests ... consider to use the snapshot_platform helper"
+      }
+    ],
+    "scope_paths": ["tests/components/surepetcare/", "tests/components/"]
+  },
+  {
+    "rule": "Helpers that mutate a BluetoothServiceInfoBleak must copy the existing manufacturer_data mapping and update only the target manufacturer id, not replace the whole dict.",
+    "category": "testing",
+    "trigger": "A bluetooth test helper builds `{<mfr_id>: bytes(...)}` and assigns it as the full manufacturer_data.",
+    "rationale": "Replacing the mapping silently drops other manufacturer ids that appear in realistic advertisements.",
+    "evidence": [
+      {
+        "pr": 171876,
+        "url": "https://github.com/home-assistant/core/pull/171876#discussion_r3303477280",
+        "excerpt": "replaces the entire manufacturer_data mapping, which can accidentally drop other manufacturer IDs"
+      }
+    ],
+    "scope_paths": ["tests/components/switchbot/", "tests/components/"]
+  },
+  {
+    "rule": "Each device entry added to a shared API fixture must use a unique deviceId rather than reusing an existing device's identifier.",
+    "category": "testing",
+    "trigger": "A new object appended to tests/components/*/fixtures/*.json repeats a deviceId already present in the file.",
+    "rationale": "Duplicate ids collide during discovery and no longer reflect what the real cloud API returns.",
+    "evidence": [
+      {
+        "pr": 176587,
+        "url": "https://github.com/home-assistant/core/pull/176587#discussion_r3592229134",
+        "excerpt": "Use a unique deviceId ... to avoid accidental ID collisions in tests"
+      }
+    ],
+    "scope_paths": ["tests/components/switchbot_cloud/fixtures/", "tests/components/"]
+  },
+  {
+    "rule": "Mock every API call the exercised code path makes, including calls whose exceptions the integration suppresses; follow the fixture combination already used in the integration's test_init.py.",
+    "category": "testing",
+    "trigger": "A test adds one of a pair of related API fixtures (e.g. mock_setup_webhook) while leaving a sibling call (get_webhook_configuration) unmocked.",
+    "rationale": "An unmocked call still hits the real client; the suppressed exception makes it invisible and leaves the test's meaning unclear.",
+    "evidence": [
+      {
+        "pr": 165647,
+        "url": "https://github.com/home-assistant/core/pull/165647#discussion_r3019554345",
+        "excerpt": "the code will attempt to call the unmocked method ... poor test practice"
+      }
+    ],
+    "scope_paths": ["tests/components/switchbot_cloud/", "tests/components/"]
+  },
+  {
+    "rule": "Replacement functions substituted for a library API in tests must accept *args and **kwargs so they match the real call surface.",
+    "category": "testing",
+    "trigger": "A test defines a zero-argument stub (e.g. an async generator) that replaces a library method the integration calls with arguments.",
+    "rationale": "A signature-narrower stub raises TypeError as soon as the integration passes a filter or since= argument, making the test brittle.",
+    "evidence": [
+      {
+        "pr": 170892,
+        "url": "https://github.com/home-assistant/core/pull/170892#discussion_r3293950970",
+        "excerpt": "Make the mock accept *args, **kwargs to match the real API surface"
+      }
+    ],
+    "scope_paths": ["tests/components/syncthing/", "tests/components/"]
+  },
+  {
+    "rule": "Patch async library methods with new_callable=AsyncMock; a plain patch(..., return_value=...) yields a non-awaitable MagicMock.",
+    "category": "testing",
+    "trigger": "patch(\"<library>.<Class>.<async_method>\", return_value=...) without new_callable=AsyncMock in a conftest or test.",
+    "rationale": "The integration awaits the call, so a MagicMock return value fails at runtime with \"object ... can't be used in 'await' expression\".",
+    "evidence": [
+      {
+        "pr": 167018,
+        "url": "https://github.com/home-assistant/core/pull/167018#discussion_r3019135202",
+        "excerpt": "Use new_callable=AsyncMock when patching async methods ... mock must return an awaitable"
+      }
+    ],
+    "scope_paths": ["tests/components/tessie/conftest.py", "tests/components/"]
+  },
+  {
+    "rule": "Name a platform test after the Home Assistant service it calls rather than the underlying vendor concept.",
+    "category": "naming",
+    "trigger": "A test that calls a service such as vacuum.clean_area is renamed to describe the implementation detail (test_clean_segments).",
+    "rationale": "The test also checks the supported feature flag for that service, so the service name is what the test actually pins down.",
+    "evidence": [
+      {
+        "pr": 169599,
+        "url": "https://github.com/home-assistant/core/pull/169599#discussion_r3174173647",
+        "excerpt": "more accurate to say we're testing the service clean_area here"
+      }
+    ],
+    "scope_paths": ["tests/components/template/", "tests/components/"]
+  },
+  {
+    "rule": "Define a shared test constant once in a common test module; do not duplicate it across conftest.py and individual test files.",
+    "category": "testing",
+    "trigger": "A constant such as TEST_TIMEZONE is added to conftest.py while an identical definition already exists in a test module of the same component.",
+    "rationale": "Two copies drift apart and the tests silently start exercising different assumptions.",
+    "evidence": [
+      {
+        "pr": 173454,
+        "url": "https://github.com/home-assistant/core/pull/173454#discussion_r3389632389",
+        "excerpt": "also defined in tests/components/todo/test_init.py, which risks the two copies drifting"
+      }
+    ],
+    "scope_paths": ["tests/components/todo/", "tests/components/"]
+  },
+  {
+    "rule": "Advance coordinator intervals with freezer.tick(...) followed by async_fire_time_changed(hass); do not pass a separately computed dt_util.utcnow() + timedelta timestamp.",
+    "category": "testing",
+    "trigger": "async_fire_time_changed(hass, dt_util.utcnow() + timedelta(...)) in a test that also uses the freezer fixture.",
+    "rationale": "Two independent clocks let the fired timestamp diverge from frozen time, so the update either fires twice or not at all.",
+    "evidence": [
+      {
+        "pr": 166686,
+        "url": "https://github.com/home-assistant/core/pull/166686#discussion_r3004491091",
+        "excerpt": "Use a single time source ... calling async_fire_time_changed(hass) after freezer.tick(...)"
+      }
+    ],
+    "scope_paths": ["tests/components/transmission/", "tests/components/"]
+  },
+  {
+    "rule": "Device fixtures must be exported from the actual target device so metadata (name, product_name, category) is consistent with the datapoints they declare.",
+    "category": "testing",
+    "trigger": "A new tests/components/tuya/fixtures/*.json whose product name describes one device class while its DP set (e.g. weight, heart_rate) belongs to another.",
+    "rationale": "Inconsistent fixtures make discovery tests misleading and hard to debug against real hardware behavior.",
+    "evidence": [
+      {
+        "pr": 171412,
+        "url": "https://github.com/home-assistant/core/pull/171412#discussion_r3270557571",
+        "excerpt": "fixture metadata appears inconsistent with the exposed datapoints ... ideally by exporting the payload"
+      }
+    ],
+    "scope_paths": ["tests/components/tuya/fixtures/", "tests/components/"]
+  },
+  {
+    "rule": "An empty-string unit from a device payload must be normalized to None (or mapped to a real unit) rather than surfacing as unit_of_measurement: ''.",
+    "category": "correctness",
+    "trigger": "A discovery path or fixture carries \"unit\": \"\" for a numeric datapoint and passes it through to the entity description.",
+    "rationale": "Home Assistant expects either None or a real unit; an empty-string unit is invalid on the state attributes.",
+    "evidence": [
+      {
+        "pr": 168527,
+        "url": "https://github.com/home-assistant/core/pull/168527#discussion_r3252291444",
+        "excerpt": "Home Assistant typically expects None or a real unit like °C/°F"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/tuya/", "tests/components/tuya/fixtures/"]
+  },
+  {
+    "rule": "Tests that assert on debug log output must raise the level first with caplog.set_level(logging.DEBUG, logger=\"homeassistant.components.<domain>\").",
+    "category": "testing",
+    "trigger": "A test asserts a debug-level message appears in caplog.text without calling caplog.set_level for the integration's logger.",
+    "rationale": "Debug records are not captured at the default level, so the assertion would pass or fail for the wrong reason.",
+    "evidence": [
+      {
+        "pr": 170338,
+        "url": "https://github.com/home-assistant/core/pull/170338#discussion_r3232578713",
+        "excerpt": "Capture the debug log you assert on by setting caplog.set_level(logging.DEBUG, logger=...)"
+      }
+    ],
+    "scope_paths": ["tests/components/tuya/", "tests/components/"]
+  },
+  {
+    "rule": "Read entity metadata that is not exposed in the state through the entity registry, not by reaching into hass.data[\"entity_components\"].",
+    "category": "testing",
+    "trigger": "A test does hass.data[\"entity_components\"][\"<platform>\"].get_entity(entity_id) to inspect an entity object.",
+    "rationale": "hass.data internals are not a public test surface; the registry exposes the native unit and options the test needs.",
+    "evidence": [
+      {
+        "pr": 170432,
+        "url": "https://github.com/home-assistant/core/pull/170432#discussion_r3264633229",
+        "excerpt": "you might need to go via the entity_registry"
+      }
+    ],
+    "scope_paths": ["tests/components/tuya/", "tests/components/"]
+  },
+  {
+    "rule": "When an entity key change alters generated entity_ids, update every remaining reference to the old entity_id in the test module.",
+    "category": "testing",
+    "trigger": "A parametrization renames sensor keys (device_cpu -> cpu) while other tests in the file still assert on the old entity_id string.",
+    "rationale": "Stale entity_ids resolve to nothing, so \"no data\" assertions keep passing while validating a non-existent entity.",
+    "evidence": [
+      {
+        "pr": 168739,
+        "url": "https://github.com/home-assistant/core/pull/168739#discussion_r3120314315",
+        "excerpt": "Update the remaining temperature-sensor tests ... so the assertions continue to validate the correct entity id"
+      }
+    ],
+    "scope_paths": ["tests/components/unifi/", "tests/components/"]
+  },
+  {
+    "rule": "A test parametrized over a payload fixture must request that fixture in its signature, otherwise drop the parametrization.",
+    "category": "testing",
+    "trigger": "@pytest.mark.parametrize(\"clients_all_payload\", [...]) on a test whose signature omits clients_all_payload.",
+    "rationale": "Without the parameter the indirect payload never reaches the hub, so the code path the test claims to cover is never entered.",
+    "evidence": [
+      {
+        "pr": 168559,
+        "url": "https://github.com/home-assistant/core/pull/168559#discussion_r3107307821",
+        "excerpt": "so this test actually receives the parametrized payload and triggers the remove-clients request"
+      }
+    ],
+    "scope_paths": ["tests/components/unifi/", "tests/components/"]
+  },
+  {
+    "rule": "Never wait on wall-clock time with asyncio.sleep in tests; patch the delay or call_later so timers fire deterministically.",
+    "category": "testing",
+    "trigger": "await asyncio.sleep(<n>) used to let a scheduled callback or timer fire in a test.",
+    "rationale": "Real sleeps make the suite slow and flaky on loaded CI machines.",
+    "evidence": [
+      {
+        "pr": 161353,
+        "url": "https://github.com/home-assistant/core/pull/161353#discussion_r2835356040",
+        "excerpt": "introduces a wall-clock delay and potential flakiness ... switch to a deterministic approach"
+      }
+    ],
+    "scope_paths": ["tests/components/unifiprotect/", "tests/components/"]
+  },
+  {
+    "rule": "Assert against concrete expected values (such as the generated proxy URL prefix) rather than comparing two attributes of the object under test, which holds by construction.",
+    "category": "testing",
+    "trigger": "assert obj.attr_a == obj.attr_b where both come from the same entity under test and the implementation makes them equal.",
+    "rationale": "A self-referential assertion passes even when the entity is unconfigured, so it verifies nothing about the produced value.",
+    "evidence": [
+      {
+        "pr": 164872,
+        "url": "https://github.com/home-assistant/core/pull/164872#discussion_r3143270727",
+        "excerpt": "rather than comparing entity_picture to media_image_local (which will always be equal)"
+      },
+      {
+        "pr": 164872,
+        "url": "https://github.com/home-assistant/core/pull/164872#discussion_r3143270742",
+        "excerpt": "will pass even if entity_id is unset, and it doesn't verify the generated URL"
+      }
+    ],
+    "scope_paths": ["tests/components/universal/", "tests/components/"]
+  }
+]

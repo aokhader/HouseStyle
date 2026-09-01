@@ -51,22 +51,31 @@ flowchart LR
 ## Quickstart
 
 ```bash
+uv sync
 export GITHUB_TOKEN=ghp_...
 
-# 1. Harvest — stratified across 12 months, pre-qualified to PRs with >=3 review threads
+# 1. Harvest — stratified across 12 months, pre-qualified to PRs with >=3 review threads,
+#    30 most-recent qualified PRs fenced off as holdout
 python -m harvest.harvest --repo apache/airflow --months 12
-
-# 2. Backfill full comment bodies (one paginated REST call per PR)
 python backfill_bodies.py --repo apache/airflow
 
-# 3. Batch into tranches
-python -m distill.batch --repo apache/airflow
+# 2. Batch into tranches
+python -m distill.batch --repo apache-airflow
 
-# 4. Distil — in Bob IDE, run the prompts in docs/bob_prompts.md (Phase 2b)
+# 3. Distil — map subagents over batches, then the chunked critic and merge.
+#    Prompts are files: distill/prompts/. Full command sequence in docs/pipeline.md.
+python -m distill.critic verify --candidates distill/candidates    # evidence resolves?
+python -m distill.critic reduce --slug airflow --tranche 1 \
+    --candidates distill/candidates/t1 \
+    --clusters distill/critic/t1/clusters_merged.json
 
-# 5. Review a diff
+# 4. Review a diff
 /house-style --diff main
 ```
+
+**[docs/pipeline.md](docs/pipeline.md) is the full runbook** — every command from an empty
+checkout to a scored evaluation, including the cross-check, the eval harness and the
+dashboard.
 
 ## Repo layout
 
@@ -74,30 +83,159 @@ python -m distill.batch --repo apache/airflow
 harvest/harvest.py        GraphQL harvester, stratified + pre-qualified sampling
 backfill_bodies.py        recovers full comment bodies from the GitHub REST API
 distill/batch.py          stratified tranche construction, topical batching
-.bob/rules/               generated rulebook + AGENTS.md cross-check (committed)
-.bob/skills/house-style/  the review Skill
-eval/                     A/B/C harness, watsonx.ai semantic judge
+distill/critic.py         the reduce — support counts, scope generalisation, stable ids
+distill/crosscheck.py     mined rules vs hand-written AGENTS.md, both directions
+distill/fetch_docs.py     read-only fetch of the target repo's own documentation
+distill/prompts/          the subagent prompts, versioned as files
+.bob/rules/               generated rulebooks + cross-check (committed)
+.bob/skills/house-style/  the review Skill, and its deterministic scaffolding
+eval/                     A/B/C harness, watsonx.ai Granite judge, reviewer prompts
 dashboard/                Next.js viewer for rules, evidence and results
 bob_sessions/             Bob task session summaries (submission deliverable)
 data/                     gitignored working storage
-docs/bob_prompts.md       the phase-by-phase Bob prompt pack
+docs/pipeline.md          the full command-by-command runbook
+docs/bob_prompts.md       the phase-by-phase prompt pack and completion notes
 ```
+
+## Where the numbers come from
+
+The pipeline draws one line hard: **agents make judgement calls, code does arithmetic.**
+
+A subagent decides whether two review comments express the same expectation — that is
+taste, and no script can do it. But it never emits a support count, a scope path or an
+evidence list. It emits *clusters of candidate keys*, and `distill/critic.py` resolves each
+key against the harvested corpus, counts distinct PRs, and applies the threshold.
+
+That split is not ceremony. A support count asserted by a language model is a number nobody
+can check, and it is the number the promotion threshold acts on. Enforcing it in code also
+caught something prose never would: **7 of 912 evidence permalinks did not resolve to any
+harvested comment** — transcription slips, a digit wrong in a URL. They are dropped rather
+than counted, because a finding whose precedent does not resolve is not a finding.
+
+## Their AGENTS.md, checked against their own review history
+
+Apache Airflow ships a hand-written `AGENTS.md`. We compared it against a year of review
+history in both directions. Full detail in
+[`.bob/rules/airflow-agents-md-crosscheck.md`](.bob/rules/airflow-agents-md-crosscheck.md).
+
+**Are the mined rules documented anywhere?**
+
+| | Rules | |
+|---|---|---|
+| CONFIRMED | 6 (43%) | stated in `AGENTS.md` or contributing-docs |
+| IMPLIED | 3 (21%) | the docs gesture at it without requiring it |
+| **TRIBAL** | **5 (36%)** | **documented nowhere; lives only in review history** |
+
+CONFIRMED is the correctness check — mining found these independently, from review
+comments alone. TRIBAL is the product.
+
+**Does review history support their hand-written rules?** Of the 40 concrete,
+checkable requirements stated in Airflow's `AGENTS.md`:
+
+| | Rules |
+|---|---|
+| SUPPORTED | 14 (35%) |
+| **UNSUPPORTED** | **24 (60%)** |
+| CONTRADICTED | 2 (5%) |
+
+**UNSUPPORTED does not mean wrong**, and the report says so for each one. A rule can go
+unsupported because nobody ever violates it (`No assert in production code`), because
+tooling fixes it before a human ever sees it (`ruff format`), or because our evidence
+source cannot see it at all (commit-message rules — we mine line-level review comments).
+Separating those is the point; without this comparison nobody could tell you which of
+their own entries is which.
+
+The two CONTRADICTED are the sharp ones:
+
+- `AGENTS.md` says never add newsfragments for `providers/` — a reviewer on
+  [#63614](https://github.com/apache/airflow/pull/63614) asked a provider PR for exactly
+  that file.
+- `AGENTS.md` says resolve a `uv.lock` conflict by deleting and regenerating it — which is
+  what produced the churn a reviewer rejected on
+  [#61550](https://github.com/apache/airflow/pull/61550): *"362 lines of churn here looks
+  unrelated to this feature. Please revert or split."*
 
 ## Results
 
 Measured on **30 held-out PRs**, excluded from mining and each carrying at least three real review threads, so every one has ground truth to score against.
 
-| Condition | Recall | Precision | Findings/PR |
-|---|---|---|---|
-| A — stock Bob `/review`, no mined rules | _TBD_ | _TBD_ | _TBD_ |
-| B — House Style, Airflow rules | _TBD_ | _TBD_ | _TBD_ |
-| C — House Style, **Home Assistant** rules on Airflow PRs | _TBD_ | _TBD_ | _TBD_ |
+The corpus: **5,520 review comments** across 722 merged PRs, stratified over 12 months.
+Tranche 1 distilled to **14 rules** (499 candidates → 419 clusters → 14 promoted at
+support ≥ 3, plus 344 below-threshold candidates and 58 one-off incidents). The Home
+Assistant contrast corpus yielded **27 rules** from 375 candidates.
 
-Condition A isolates the lift as coming from the mining rather than the model. **Condition C is the ablation that matters**: both repos are large async Python infrastructure projects, so if C scored near B we would only be detecting generic Python smells.
+All three conditions ran the full 30 held-out PRs — 90 reviews, 43 judged pairs.
 
-Semantic equivalence between a generated finding and a real human comment is judged by **IBM Granite via watsonx.ai**, with every verdict cached.
+| Condition | Findings | Findings/PR | Strict matches | Lenient recall | Lenient precision |
+|---|---|---|---|---|---|
+| A — stock review, no mined rules | 72 | 2.40 | **4** | 4.4% | 12.5% |
+| B — House Style, Airflow rules | 12 | 0.40 | **0** | 0.5% | 8.3% |
+| C — House Style, **Home Assistant** rules on Airflow PRs | 11 | 0.37 | **0** | 0.0% | 0.0% |
 
-**Rule discovery saturation** — _TBD_: new-rule rate by tranche, showing the point at which additional corpus stops yielding new conventions.
+### The mined rules did not beat the baseline
+
+Stated plainly, because it is the result: **condition A anticipated more real human
+comments than condition B.** All four strict matches went to the reviewer with *no* mined
+rules. The project's central claim — that mining a repository's review history produces
+better review than stock review of the same diffs — **is not supported by this
+evaluation.**
+
+A caveat that cuts against reading too much into A's win, raised by the judge itself: four
+of A's judged pairs are the *same finding* matched against four different comments in one
+`airflow_health.py` thread. On a per-finding basis one baseline finding landed well and
+most did not. Neither condition demonstrates much here.
+
+Two readings fit the data, and this run cannot separate them:
+
+1. **The rulebook is too small.** One tranche promoted 14 rules; only 4 ever fired.
+   [`airflow-candidates.md`](.bob/rules/airflow-candidates.md) holds ~30 more patterns at
+   support 2, one tranche short of promotion. A rulebook that rarely fires cannot beat a
+   reviewer that always speaks.
+2. **The method has a ceiling.** Rules mined from what reviewers *did* flag may not
+   predict what they *will* flag next. Much of review is a specific maintainer noticing a
+   specific thing, not convention at all.
+
+What the evaluation *does* support: **the rules are genuinely repo-specific.** Condition C
+matched nothing, and only 4 of 27 Home Assistant rules fired on Airflow at all — the four
+framework-neutral ones. Whatever the Airflow rulebook is doing, it is not detecting generic
+Python smells. The Phase 3 cross-check stands on its own evidence and is unaffected by any
+of this.
+
+Condition A isolates the lift as coming from the mining rather than the model. Here it
+shows there was no lift.
+
+**Condition C is the ablation, and it runs deliberately unscoped.** With the Skill's
+normal scope filter on, C scores zero for an uninteresting reason: Home Assistant's scope
+paths (`homeassistant/components/…`) cannot intersect Airflow's tree, so **all 27 rules
+are rejected before their content is ever examined** — 0 applicable rules on all 30
+held-out PRs. That is a real result about path specificity, but it proves only that the
+*paths* differ. So C is scored with scope filtering disabled, offering every Home
+Assistant convention against every Airflow diff, which asks the question worth asking: do
+those conventions actually fire on another repository's code?
+
+Semantic equivalence between a generated finding and a real human comment is judged by
+**IBM Granite via watsonx.ai**, with every verdict cached to `eval/cache/`. An agent-judge
+backend working from the identical rubric covers the case where watsonx credentials are
+absent; both write the same cache, so adding credentials later fills in the rest without
+re-judging anything.
+
+**Ground truth** is 203 real human review comments across the 30 held-out PRs, fetched
+after mining and never seen by the miner.
+
+### Two things the numbers cannot be read without
+
+**Recall is capped by a prompt decision, not by rule quality.** Both reviewer prompts say
+*prefer silence* — report only what a human would actually comment on. That is the right
+instinct for a tool people have to live with, but it caps recall arithmetically: a
+reviewer emitting ~0.4 findings per PR cannot match 203 comments however good those
+findings are. `eval/results.json` reports a `recall_ceiling` next to recall for exactly
+this reason. The instruction is identical in both prompts, so the *comparison* is
+unaffected; only the absolute scale is.
+
+**Thirty PRs do not exercise a whole rulebook.** The rules that fired are the ones the
+project already documents. No TRIBAL rule fired — the undocumented conventions are the
+product, but they are also rarer, and 30 PRs is too small a sample to meet most of them.
+That is a limit of the evaluation's size, not evidence about those rules.
 
 ## How IBM Bob is used
 

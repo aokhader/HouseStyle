@@ -1,0 +1,5 @@
+{
+  "verdict": "MATCH",
+  "why": "The human raises the same defect, that stale rows under the end_date IS NULL filter pin the component to degraded, and proposes an upper time bound explicitly 'so degraded can recover', disagreeing only about whether a state filter is the right fix.",
+  "judge": "agent"
+}

@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "Both touch the same body-building helper, but the finding is about a KeyError on the optional properties.title and silently dropped payload fields, whereas the human asks to inline the helper and questions a separate defect, parents becoming [None] when drive_id is unset.",
+  "judge": "agent"
+}

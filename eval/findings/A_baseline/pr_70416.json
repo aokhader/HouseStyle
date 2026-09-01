@@ -1,0 +1,11 @@
+{"pr": 70416,
+ "findings": [
+   {"path": "airflow-core/src/airflow/api/common/airflow_health.py",
+    "line": 104,
+    "category": "api-design",
+    "message": "Dropping the `| None` here changes what /api/v2/monitor/health reports for a deployment that simply has no triggerer or no standalone dag processor: it used to be `null` (\"component not deployed\", and the old docs said so explicitly) and now it is `\"unhealthy\"`. Every probe or alert rule that keys off that string will start firing on deployments that were never running those components. If this is intentional it needs a newsfragment and a note in the 3.4 upgrade docs; otherwise please keep returning None when there are no job rows at all."},
+   {"path": "airflow-core/src/airflow/api/common/airflow_health.py",
+    "line": 46,
+    "category": "performance",
+    "message": "`end_date IS NULL` is not the same as \"running\" - a scheduler or triggerer killed by SIGKILL, OOM, or a pod eviction leaves a row with no end_date forever, and test_get_jobs_health_returns_unfinished_jobs_ordered_by_heartbeat locks that in by asserting a FAILED job is returned. Two consequences: `detailed_status` is pinned to \"degraded\" permanently after the first crash, which makes the new field useless as an alert signal; and this unbounded query plus the resulting `instances` array runs on every liveness/readiness probe, replacing what used to be a LIMIT 1. Please filter on `Job.state == JobState.RUNNING` too, and consider a cap on how many instances are returned."}
+ ]}

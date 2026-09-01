@@ -1,0 +1,226 @@
+[
+  {
+    "rule": "When a service option lets the user pick a combination of values, expose it as a `select` selector with `multiple: true` rather than inventing a synthetic combined option such as `both`, matching the selector shape sibling integrations already use for the same service.",
+    "category": "api-design",
+    "trigger": "A `services.yaml` diff adds or edits a `select` selector whose `options` list contains an aggregate value (`both`, `all`, `any`) alongside the individual values.",
+    "rationale": "Reviewers point at the equivalent service in another integration (Nordpool's `get_prices_for_date`) and expect the same selector shape; `multiple: true` is the platform-supported way to express a combination, so the extra option is redundant UI and diverges from the established service schema.",
+    "evidence": [
+      {
+        "pr": 175820,
+        "url": "https://github.com/home-assistant/core/pull/175820#discussion_r3533046890",
+        "excerpt": "uses for the same get_prices_for_date service a select that allows multiple options"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/services.yaml"]
+  },
+  {
+    "rule": "Exception and issue messages in `strings.json` that reuse text defined elsewhere must point at it with an exact `[%key:component::<domain>::<section>::<key>%]` reference, with no stray whitespace inside the reference path.",
+    "category": "docs",
+    "trigger": "A `strings.json` diff adds a message whose value is a `[%key:...%]` reference, or duplicates a message string already defined under `config`/`exceptions` in the same file.",
+    "rationale": "The `[%key:...%]` indirection is how the repo keeps one wording for one concept across config flow aborts and runtime exceptions; the reference is resolved by exact string match, so a single stray space silently breaks the link to the existing string.",
+    "evidence": [
+      {
+        "pr": 168064,
+        "url": "https://github.com/home-assistant/core/pull/168064#discussion_r3165372790",
+        "excerpt": "removing the stray space so it correctly points at the existing config.abort.connection_error string"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/strings.json"]
+  },
+  {
+    "rule": "Name a module-level tuple of `EntityDescription` objects after the platform it populates (`SENSOR_DESCRIPTIONS`, `SELECT_TYPES`), not after one entity or one subset of the entities it contains.",
+    "category": "naming",
+    "trigger": "A platform module (`sensor.py`, `select.py`, ...) declares a `tuple[...EntityDescription, ...]` constant, or a diff adds descriptions to an existing one so the constant now covers more than its name implies.",
+    "rationale": "These tuples are the dispatch table the platform iterates over during `async_setup_entry`; a name describing only one member misleads the next contributor adding a description and makes the entity set look narrower than it is.",
+    "evidence": [
+      {
+        "pr": 163135,
+        "url": "https://github.com/home-assistant/core/pull/163135#discussion_r2811409079",
+        "excerpt": "constant name is misleading; renaming to SENSOR_DESCRIPTIONS/QUOTA_SENSORS would make the intent clearer"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/sensor.py", "homeassistant/components/*/select.py"]
+  },
+  {
+    "rule": "Diagnostics collectors must only read known-safe attributes of the device/client object and must never invoke callables found on it.",
+    "category": "correctness",
+    "trigger": "`diagnostics.py` walks attributes of a client/device object and calls anything it finds callable (`if callable(val): val = val()`), or uses `hasattr()` followed by `getattr()` to probe for attributes.",
+    "rationale": "Downloading diagnostics is a user-triggered read-only operation; calling arbitrary methods on the library object can perform I/O, mutate device state, or emit huge unstable payloads, and attribute probing can fire `__getattr__` side effects.",
+    "evidence": [
+      {
+        "pr": 171762,
+        "url": "https://github.com/home-assistant/core/pull/171762#discussion_r3283373427",
+        "excerpt": "calling a method during diagnostics can trigger I/O, mutate device state, or produce large/unstable output"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/diagnostics.py"]
+  },
+  {
+    "rule": "Build the diagnostics payload by dumping the coordinator/client data directly into a dict; do not add a generic recursive JSON-coercion layer that walks arbitrary object graphs.",
+    "category": "api-design",
+    "trigger": "`diagnostics.py` adds a helper that recursively coerces arbitrary values (lists/dicts/sets/enums/callables) into JSON-safe values, with depth limits or type fallbacks.",
+    "rationale": "Reviewers question why integration data would ever be complex enough to need it: the library payload is expected to be dict-shaped already, and a bespoke serializer is untested surface area sitting in the diagnostics path.",
+    "evidence": [
+      {
+        "pr": 171762,
+        "url": "https://github.com/home-assistant/core/pull/171762#discussion_r3306933660",
+        "excerpt": "do we really expect the data to be this complex"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/diagnostics.py"]
+  },
+  {
+    "rule": "Production integration code must not detect or branch on test doubles; fix the fixture or the test instead of adding mock-aware code paths under `homeassistant/components/`.",
+    "category": "testing",
+    "trigger": "A file under `homeassistant/components/` references `mock_add_spec`, `unittest.mock`, `MagicMock`, or otherwise special-cases behaviour when the object appears to be a mock.",
+    "rationale": "Sniffing for mock internals is a brittle implementation detail that can be true for non-mock objects, and it bakes the shape of the test suite into shipped integration code.",
+    "evidence": [
+      {
+        "pr": 171762,
+        "url": "https://github.com/home-assistant/core/pull/171762#discussion_r3283704794",
+        "excerpt": "Detecting mocks via `hasattr(charger, \"mock_add_spec\")` is brittle"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/diagnostics.py", "homeassistant/components/"]
+  },
+  {
+    "rule": "Diagnostics output must be deterministic: never emit values rendered through a default `repr`/`str` that embeds memory addresses or other run-specific detail; use a stable representation such as the type name or `__qualname__`.",
+    "category": "testing",
+    "trigger": "`diagnostics.py` formats an unknown object into the payload via an f-string or `str()` fallback (`f\"<{type(k).__name__}: {k}>\"`) for keys or values of arbitrary type.",
+    "rationale": "Diagnostics payloads are asserted against stored snapshots, so any address- or identity-dependent text makes the snapshot test flap and makes user-submitted logs impossible to diff.",
+    "evidence": [
+      {
+        "pr": 171762,
+        "url": "https://github.com/home-assistant/core/pull/171762#discussion_r3283887790",
+        "excerpt": "This undermines deterministic diagnostics output and makes tests/logs brittle"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/diagnostics.py"]
+  },
+  {
+    "rule": "During `async_setup_entry`, configure the library client so connection and auth exceptions propagate instead of being swallowed by a client-side \"suppress errors\" mode, so setup can raise `ConfigEntryNotReady`/auth failure; keep the suppressing mode for the post-setup refresh loop only.",
+    "category": "correctness",
+    "trigger": "`__init__.py` constructs the integration's API client for setup with a flag (e.g. `initial=True`) that suppresses or only logs exceptions, then wraps the first call in try/except.",
+    "rationale": "If the client eats the first connection error, setup succeeds against an unreachable device and the user gets a config entry that can never work rather than a retrying `ConfigEntryNotReady`; the same reasoning applies to the config flow, which should validate with a throwaway client.",
+    "evidence": [
+      {
+        "pr": 167026,
+        "url": "https://github.com/home-assistant/core/pull/167026#discussion_r3022661712",
+        "excerpt": "It surpresses exceptions which we would rather catch here I think"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/__init__.py", "homeassistant/components/*/config_flow.py"]
+  },
+  {
+    "rule": "A workaround that overrides entity `available` (or any other device-quirk fallback) must ship a regression test covering both the workaround path and the genuine-failure path, asserting real unavailable events still mark the entity unavailable.",
+    "category": "testing",
+    "trigger": "`entity.py` overrides the `available` property with device- or API-type-specific special casing (e.g. only for `APIType.LOCAL`) and the PR adds no matching test.",
+    "rationale": "Availability workarounds silently mask upstream bugs; without a test pinning both directions, a later refactor either drops the fallback or leaves entities permanently available when the device really is offline.",
+    "evidence": [
+      {
+        "pr": 170118,
+        "url": "https://github.com/home-assistant/core/pull/170118#discussion_r3208816650",
+        "excerpt": "Add a regression test covering the new local-API availability fallback"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/entity.py", "tests/components/*/"]
+  },
+  {
+    "rule": "Config-flow credential validation that iterates a listing endpoint must treat an empty result as a validation failure (set `errors[\"base\"]`) rather than creating the entry, and `async_setup_entry` must apply the same check.",
+    "category": "correctness",
+    "trigger": "`config_flow.py` validates the connection by iterating an API listing (`async for _ in client.models.list(): break`) and only treats raised exceptions as failure.",
+    "rationale": "Some APIs return an empty iterator instead of raising for a bad key, so the flow otherwise happily creates a config entry that can never work; the flow and setup must agree on what counts as a working connection.",
+    "evidence": [
+      {
+        "pr": 171402,
+        "url": "https://github.com/home-assistant/core/pull/171402#discussion_r3276453741",
+        "excerpt": "Treat an empty iterator as a failed validation (e.g., set errors[\"base\"] = \"cannot_connect\")"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/config_flow.py", "homeassistant/components/*/__init__.py"]
+  },
+  {
+    "rule": "`quality_scale.yaml` exemption comments must not contradict `manifest.json`; if a rule is marked exempt because the integration \"does not poll\", the manifest `iot_class` must agree (or the comment must state precisely what it does instead).",
+    "category": "docs",
+    "trigger": "A PR adds or edits `quality_scale.yaml` entries with `status: exempt` and a justification comment about polling, actions, or discovery that conflicts with the integration's `manifest.json`.",
+    "rationale": "The quality scale file is the reviewed record of an integration's obligations; a justification that contradicts the declared `iot_class` means one of the two is wrong and the exemption cannot be trusted.",
+    "evidence": [
+      {
+        "pr": 171402,
+        "url": "https://github.com/home-assistant/core/pull/171402#discussion_r3284008139",
+        "excerpt": "This states the integration 'does not poll', but the integration metadata sets iot_class to cloud_polling"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/quality_scale.yaml", "homeassistant/components/*/manifest.json"]
+  },
+  {
+    "rule": "Import a library's exception classes from one module path consistently across the integration and its tests, and confirm that path is actually exported by the version pinned in `manifest.json`.",
+    "category": "providers",
+    "trigger": "A PR bumps a library and adds imports of its exception types, with the integration importing from the package root while the tests import the same names from a submodule (or vice versa).",
+    "rationale": "Package-level re-exports are not guaranteed by the pinned version, so a split import means the integration can fail at import time while the tests pass against the submodule path the library really exposes.",
+    "evidence": [
+      {
+        "pr": 167636,
+        "url": "https://github.com/home-assistant/core/pull/167636#discussion_r3048203569",
+        "excerpt": "Verify that these exceptions are exported at the package level in python-picnic-api2 v1.3.4"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/config_flow.py", "tests/components/*/test_config_flow.py"]
+  },
+  {
+    "rule": "A `deprecated_yaml` repair issue description must name the concrete legacy action/service names the user actually has (e.g. `tts.picotts_say`), not a templated glob like `tts.{domain}_*_say`.",
+    "category": "docs",
+    "trigger": "`strings.json` adds an `issues.deprecated_yaml` description that refers to the services being removed with a wildcard or placeholder pattern.",
+    "rationale": "The repair issue is the migration instruction the user follows; the legacy platform registers a specific default service name (and users may have overridden it), so a pattern leaves them guessing which automations to update.",
+    "evidence": [
+      {
+        "pr": 163114,
+        "url": "https://github.com/home-assistant/core/pull/163114#discussion_r3027014956",
+        "excerpt": "Consider rewording this to mention the actual legacy service name(s) to avoid confusing users"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/strings.json"]
+  },
+  {
+    "rule": "A dependency-bump PR must contain only the changes required by the version update; new user-facing entities, platforms, or features belong in a separate feature PR.",
+    "category": "commit-hygiene",
+    "trigger": "A PR whose stated purpose is bumping a library version also adds entity descriptions, dispatch entries, constants, fixtures, and tests for a new entity.",
+    "rationale": "Bump PRs are reviewed and released on a different track from features; mixing a new Select entity into one hides a user-facing change behind a compatibility label and makes the bump hard to revert.",
+    "evidence": [
+      {
+        "pr": 176439,
+        "url": "https://github.com/home-assistant/core/pull/176439#discussion_r3605109972",
+        "excerpt": "dependency-bump PRs must remain limited to changes required for the version update"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/manifest.json", "homeassistant/components/*/select.py"]
+  },
+  {
+    "rule": "When an integration runs more than one `DataUpdateCoordinator`, give each a distinct `name` (e.g. `f\"{DOMAIN}_{self.__class__.__name__}\"`) rather than passing `DOMAIN` to all of them.",
+    "category": "naming",
+    "trigger": "`coordinator.py` adds a second coordinator subclass whose `super().__init__()` passes the same `name=DOMAIN` as the existing coordinator.",
+    "rationale": "`DataUpdateCoordinator` puts `name` into every debug/error log line and update-failure message; identical names make it impossible to tell which refresh loop failed.",
+    "evidence": [
+      {
+        "pr": 165855,
+        "url": "https://github.com/home-assistant/core/pull/165855#discussion_r3067780358",
+        "excerpt": "Give the slow coordinator a distinct `name` from the main coordinator"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/coordinator.py"]
+  },
+  {
+    "rule": "A coordinator that fans out over several devices/endpoints must fetch them concurrently (`asyncio.gather(..., return_exceptions=True)`) and isolate per-item failures, keeping previous values for the ones that error instead of failing the whole refresh.",
+    "category": "async",
+    "trigger": "`_async_update_data` awaits an API call inside a `for` loop over endpoints/devices, letting the first exception abort the whole update.",
+    "rationale": "Sequential awaits serialise every device's latency, and one slow or failing endpoint marks every entity from every other endpoint unavailable.",
+    "evidence": [
+      {
+        "pr": 165855,
+        "url": "https://github.com/home-assistant/core/pull/165855#discussion_r3197250898",
+        "excerpt": "one slow/failing endpoint does not fail the entire disk-space refresh"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/coordinator.py"]
+  }
+]

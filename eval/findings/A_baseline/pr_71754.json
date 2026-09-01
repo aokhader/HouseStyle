@@ -1,0 +1,11 @@
+{"pr": 71754,
+ "findings": [
+   {"path": "scripts/ci/prek/update_ts_sdk_readme_matrix.py",
+    "line": 19,
+    "category": "correctness",
+    "message": "The upper bound pins this helper to Python 3.10 exactly, so `uv run` on a machine that only has 3.11+ will refuse to run the hook (or go download a 3.10 for it). The other prek scripts use an open-ended floor — please make this `>=3.10` unless there is a real 3.11 incompatibility here."},
+   {"path": "scripts/tests/ci/prek/test_update_ts_sdk_readme_matrix.py",
+    "line": 65,
+    "category": "testing",
+    "message": "The unreadable-constant branch of check_schema_version is the one behaviour this hook deliberately diverges on from the Java sibling (fail instead of implicit pass), and it is the only branch with no test. Please add a case where TS_SUPERVISOR is missing or its declaration no longer matches SCHEMA_VERSION_PATTERN, asserting main() returns 1 and the README is left untouched — otherwise a future tweak to the regex silently turns the check back into a pass."}
+ ]}

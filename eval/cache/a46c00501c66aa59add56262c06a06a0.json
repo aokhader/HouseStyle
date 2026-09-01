@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding is about the `X as X` re-export form required for public stub symbols, while the human questions whether `SyncCallback` should be imported at all given it is mid-rollout and unused.",
+  "judge": "agent"
+}

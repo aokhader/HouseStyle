@@ -1,0 +1,307 @@
+[
+  {
+    "rule": "Reset every entity attribute that is only computed on one branch of a state update on all the sibling branches too, so an entity never reports values left over from a previous update cycle.",
+    "category": "correctness",
+    "trigger": "An entity's async_update/state-derivation method assigns a private attribute (e.g. self._in_zones) inside one conditional branch but leaves it untouched in the elif/else branches.",
+    "rationale": "Attributes are pushed to the state machine on every update, so a tracker that falls back to location_name or loses its GPS fix keeps advertising the zone memberships computed during the last GPS update, which users read as current truth.",
+    "evidence": [
+      {
+        "pr": 166573,
+        "url": "https://github.com/home-assistant/core/pull/166573#discussion_r2993168739",
+        "excerpt": "avoid exposing stale zone memberships from a previous GPS update"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/device_tracker/"]
+  },
+  {
+    "rule": "Create shared clients and connections once during async_setup_entry, store them on entry.runtime_data, and close them in async_unload_entry; entities must consume that object rather than constructing their own instance.",
+    "category": "api-design",
+    "trigger": "An entity __init__ or helper method instantiates a client/session/resolver of the same type that the integration's __init__.py already creates and stores on entry.runtime_data.",
+    "rationale": "Entity-level construction desynchronizes the entity's reference from entry.runtime_data, so the resource created by the entity is never closed on unload and leaks; ownership must sit with the config entry that also tears it down.",
+    "evidence": [
+      {
+        "pr": 169745,
+        "url": "https://github.com/home-assistant/core/pull/169745#discussion_r3185911180",
+        "excerpt": "resolvers now intended to be created once at config-entry setup and closed from async_unload_entry"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/dnsip/",
+      "homeassistant/components/*/__init__.py",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "Trigger transition predicates for cover-backed domains must account for the opening and closing states explicitly, because a cover reports those states before is_closed is consulted and is_closed may still be None then.",
+    "category": "correctness",
+    "trigger": "An is_valid_transition (or similar) in a domain trigger.py compares ATTR_IS_CLOSED between from_state and to_state for COVER_DOMAIN entities without handling STATE_OPENING/STATE_CLOSING or a None is_closed.",
+    "rationale": "cover's state property returns opening/closing ahead of the is_closed check, so a comparison of is_closed attributes silently sees None == None and drops a legitimate transition.",
+    "evidence": [
+      {
+        "pr": 164728,
+        "url": "https://github.com/home-assistant/core/pull/164728#discussion_r2885894488",
+        "excerpt": "could have opening or closing state at the same time as is_closed"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/door/",
+      "homeassistant/components/cover/"
+    ]
+  },
+  {
+    "rule": "Refactoring a trigger's triggers.yaml field schema must preserve every field the previous schema exposed (notably the `for` duration field); removing one is a breaking change for existing automations.",
+    "category": "api-design",
+    "trigger": "A diff to triggers.yaml or a trigger field schema deletes or renames existing field keys instead of only adding new ones.",
+    "rationale": "Users have automations configured against the published field set; dropping a field during a refactor silently removes configuration capability they already depend on.",
+    "evidence": [
+      {
+        "pr": 166484,
+        "url": "https://github.com/home-assistant/core/pull/166484#discussion_r3159766541",
+        "excerpt": "Re-add the missing `for` duration field to this trigger field schema"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/triggers.yaml"]
+  },
+  {
+    "rule": "A dhcp discovery block in manifest.json that matches on hostname should also declare registered_devices so devices already in the device registry are still matched by MAC when their hostname differs.",
+    "category": "providers",
+    "trigger": "manifest.json gains a `dhcp` array whose entries only contain hostname or macaddress matchers, with no registered_devices flag.",
+    "rationale": "Hostnames are user-changeable and vendor-inconsistent; registered_devices lets an existing device registry entry pick up the DHCP update and refresh its IP even when the hostname pattern no longer matches.",
+    "evidence": [
+      {
+        "pr": 168439,
+        "url": "https://github.com/home-assistant/core/pull/168439#discussion_r3103370128",
+        "excerpt": "You could also support registered_devices, so even if the hostname is different"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/manifest.json"]
+  },
+  {
+    "rule": "Compose _attr_unique_id from every identifier that can vary inside one config entry - include the device/node id alongside the config entry unique id and the entity description key.",
+    "category": "naming",
+    "trigger": "_attr_unique_id is an f-string of only coordinator.config_entry.unique_id and description.key while the entity class is instantiated per device/node returned by the API.",
+    "rationale": "If the API ever returns more than one node of that type for a single config entry, the entities collide on unique_id and Home Assistant drops the duplicates.",
+    "evidence": [
+      {
+        "pr": 168290,
+        "url": "https://github.com/home-assistant/core/pull/168290#discussion_r3089017192",
+        "excerpt": "Include the BOX node_id in unique_id to prevent duplicate unique IDs"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/duco/",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "Every rule marked `done` in quality_scale.yaml must be backed by the code actually present in the integration; mark it todo or exempt (with a comment) when the implementation is missing.",
+    "category": "providers",
+    "trigger": "quality_scale.yaml declares a rule as done (e.g. `devices: done`) while the corresponding implementation - DeviceInfo on the entity, a reauth flow, tests - is absent from the diff.",
+    "rationale": "The quality scale file is the integration's contract with reviewers and users about what it supports; a status that overstates the code makes the scale and the accompanying comments inaccurate.",
+    "evidence": [
+      {
+        "pr": 173666,
+        "url": "https://github.com/home-assistant/core/pull/173666#discussion_r3593597596",
+        "excerpt": "Mark the devices rule as incomplete until the fan supplies `DeviceInfo`"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/quality_scale.yaml"]
+  },
+  {
+    "rule": "Device registry migrations must build properly typed set[tuple[str, str]] identifier sets (filtering out legacy shapes) instead of silencing the mismatch with `# type: ignore` on identifiers or async_update_device.",
+    "category": "correctness",
+    "trigger": "A migration helper adds `# type: ignore[comparison-overlap]` or `# type: ignore[arg-type]` around device_entry.identifiers or async_update_device(new_identifiers=...).",
+    "rationale": "DeviceRegistryEntry.identifiers and async_update_device are typed as set[tuple[str, str]]; suppressing the error hides that the legacy 3-tuple is being carried around instead of being normalized out during the migration.",
+    "evidence": [
+      {
+        "pr": 164654,
+        "url": "https://github.com/home-assistant/core/pull/164654#discussion_r2877220569",
+        "excerpt": "would be better to rebuild `new_identifiers` as a properly typed `set[tuple[str, str]]`"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/__init__.py"]
+  },
+  {
+    "rule": "async_unload_entry must await async_unload_platforms first and only stop or close runtime resources when that call returned True, returning the same value.",
+    "category": "correctness",
+    "trigger": "async_unload_entry awaits a stop/close/disconnect on entry.runtime_data before calling async_unload_platforms, or ignores the boolean it returns.",
+    "rationale": "If platform unloading fails the entry stays loaded, and tearing the listener or client down first leaves every entity of a still-loaded entry attached to dead transport.",
+    "evidence": [
+      {
+        "pr": 164412,
+        "url": "https://github.com/home-assistant/core/pull/164412#discussion_r2866487739",
+        "excerpt": "Follow the common pattern of unloading platforms first and only stopping/cleaning up runtime resources"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/__init__.py"]
+  },
+  {
+    "rule": "Log messages must not repeat the integration name, brand or domain - the logger prefix already carries it.",
+    "category": "docs",
+    "trigger": "A _LOGGER.debug/info/warning/error message string contains the integration's brand or domain name (e.g. \"EARN-E P1 UDP listener stopped\").",
+    "rationale": "Home Assistant prefixes every record with the component logger name, so repeating it produces duplicated noise in the log line.",
+    "evidence": [
+      {
+        "pr": 164412,
+        "url": "https://github.com/home-assistant/core/pull/164412#discussion_r2871795479",
+        "excerpt": "Debug log messages should not include the integration name/domain (it is added automatically)"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/coordinator.py",
+      "homeassistant/components/*/__init__.py"
+    ]
+  },
+  {
+    "rule": "User-facing text in strings.json must be sentence-cased; only the literal product/brand name keeps its capitalization, and any common noun appended to it is lowercased.",
+    "category": "docs",
+    "trigger": "A new title, name or description in strings.json capitalizes a common noun mid-sentence (e.g. \"Connect to EARN-E P1 Meter\").",
+    "rationale": "Words that translators will localize are not part of the product name, so they follow the sentence-case rule applied consistently across every translatable string.",
+    "evidence": [
+      {
+        "pr": 164412,
+        "url": "https://github.com/home-assistant/core/pull/164412#discussion_r2962451383",
+        "excerpt": "we should also sentence-case it"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/strings.json"]
+  },
+  {
+    "rule": "The field keys under services.<service>.fields in strings.json must correspond exactly to the fields that service declares in services.yaml - add to both files or neither.",
+    "category": "api-design",
+    "trigger": "strings.json adds (or keeps) a field entry under one service while that service's block in services.yaml has no matching field key.",
+    "rationale": "The pair drives both the UI form and the translation catalog; a key present in only one file confuses translators and produces UI or docs that advertise an option the service does not implement.",
+    "evidence": [
+      {
+        "pr": 169225,
+        "url": "https://github.com/home-assistant/core/pull/169225#discussion_r3254669414",
+        "excerpt": "granularity is added under services.get_gas_prices.fields, but services.yaml does not define a granularity field"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/strings.json",
+      "homeassistant/components/*/services.yaml"
+    ]
+  },
+  {
+    "rule": "Default polling intervals for local-polling integrations belong in the 30-60 second range; a SCAN_INTERVAL or update_interval under roughly 30 seconds must be justified or made configurable.",
+    "category": "performance",
+    "trigger": "A coordinator module sets SCAN_INTERVAL or DataUpdateCoordinator(update_interval=...) to a timedelta below about 30 seconds.",
+    "rationale": "Every cycle is an HTTP request plus a state change for noisy values, so an aggressive interval bloats the recorder database, distorts energy statistics granularity and can destabilize the device.",
+    "evidence": [
+      {
+        "pr": 172464,
+        "url": "https://github.com/home-assistant/core/pull/172464#discussion_r3323774063",
+        "excerpt": "well below what most Home Assistant polling integrations use (commonly 30s-60s)"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/coordinator.py"]
+  },
+  {
+    "rule": "Set suggested_display_precision explicitly on sensor entity descriptions instead of relying on the device-class default.",
+    "category": "api-design",
+    "trigger": "A new SensorEntityDescription declares device_class/state_class (and snapshot tests show a rounded value) but omits suggested_display_precision.",
+    "rationale": "The precision the tests assert then comes from framework defaults rather than the integration, so the intended display silently changes if those defaults evolve; most integrations state it on each description.",
+    "evidence": [
+      {
+        "pr": 172464,
+        "url": "https://github.com/home-assistant/core/pull/172464#discussion_r3361546396",
+        "excerpt": "explicitly setting `suggested_display_precision` on each description would make the intended behavior clear"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/sensor.py"]
+  },
+  {
+    "rule": "When a trigger platform is adapted from another domain, rewrite its comments and stated rationale to describe the new domain's entities rather than the domain it was copied from.",
+    "category": "docs",
+    "trigger": "A new homeassistant/components/<domain>/trigger.py contains comments naming a different domain's entity (e.g. \"the first time the button is pressed\" inside the event trigger).",
+    "rationale": "These per-domain trigger implementations are near-identical copies, so a carried-over comment misleads future readers about why a rule such as accepting STATE_UNKNOWN as from_state exists for this domain.",
+    "evidence": [
+      {
+        "pr": 165456,
+        "url": "https://github.com/home-assistant/core/pull/165456#discussion_r2951816902",
+        "excerpt": "comment refers to a button but this is the event trigger implementation"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/trigger.py"]
+  },
+  {
+    "rule": "A config flow that holds a live device connection must clear the client reference right after an explicit disconnect on the success path, so the flow's finally block or async_remove does not disconnect a second time.",
+    "category": "correctness",
+    "trigger": "A config_flow step calls await self._client.disconnect()/close() before async_create_entry while a finally block or async_remove also tears down self._client.",
+    "rationale": "The cleanup path always runs, so the success path disconnects twice and only contextlib.suppress hides it; nulling the reference makes the ownership explicit instead of relying on suppressed exceptions.",
+    "evidence": [
+      {
+        "pr": 165260,
+        "url": "https://github.com/home-assistant/core/pull/165260#discussion_r2946893692",
+        "excerpt": "This means `disconnect()` is called twice on the success path"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/config_flow.py"]
+  },
+  {
+    "rule": "Subentry reconfigure flows must schedule the parent entry reload explicitly rather than depending on the config entry update listener, which does not exist while the entry is unloaded or in SETUP_RETRY.",
+    "category": "correctness",
+    "trigger": "A subentry flow calls async_update_and_abort (or async_update_entry) and relies on an update listener registered in async_setup_entry to apply the change.",
+    "rationale": "Listeners are only registered once setup succeeded, so reconfiguring while the entry is retrying leaves the new configuration unapplied until the next retry happens to fire.",
+    "evidence": [
+      {
+        "pr": 160058,
+        "url": "https://github.com/home-assistant/core/pull/160058#discussion_r2937014124",
+        "excerpt": "there may be no update listeners yet, so reconfiguring a plane won't reload"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/config_flow.py"]
+  },
+  {
+    "rule": "Filter config_entry.subentries by subentry_type before counting or iterating them; never treat the whole subentries mapping as one type.",
+    "category": "correctness",
+    "trigger": "Code uses len(self.config_entry.subentries) or iterates config_entry.subentries.values() without comparing subentry.subentry_type against the expected type constant.",
+    "rationale": "A config entry may hold subentries of several types, so counting them all makes a rule such as \"API key required for more than one plane\" fire on unrelated subentries and block setup.",
+    "evidence": [
+      {
+        "pr": 160058,
+        "url": "https://github.com/home-assistant/core/pull/160058#discussion_r3006098139",
+        "excerpt": "Count plane subentries (filtered by subentry_type) instead of total subentries"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/coordinator.py",
+      "homeassistant/components/*/__init__.py"
+    ]
+  },
+  {
+    "rule": "Value helpers called during a coordinator refresh must return None for missing or empty device data instead of raising; only genuine failures may propagate as UpdateFailed.",
+    "category": "correctness",
+    "trigger": "A value_fn or state helper indexes a library result (list[0], dict[key]) inside the coordinator update path while catching only transport exceptions such as RequestException.",
+    "rationale": "An IndexError bubbling out of the coordinator update breaks the refresh for every entity of the entry, and a suitability check performed only at entity-creation time does not protect later updates.",
+    "evidence": [
+      {
+        "pr": 167905,
+        "url": "https://github.com/home-assistant/core/pull/167905#discussion_r3066571400",
+        "excerpt": "would bubble out of the coordinator update and break refreshes"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/sensor.py",
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "Do not call hass.async_add_executor_job once per item inside a loop or comprehension; collect the blocking work into a single function and schedule that on the executor one time.",
+    "category": "async",
+    "trigger": "await hass.async_add_executor_job(...) appears inside a for-loop, list comprehension, or the condition of a comprehension over entity descriptions.",
+    "rationale": "Each call is a context switch between the event loop and the executor, so a per-description call multiplies that overhead during setup where one batched executor call would do.",
+    "evidence": [
+      {
+        "pr": 167905,
+        "url": "https://github.com/home-assistant/core/pull/167905#discussion_r3065551393",
+        "excerpt": "It's not great to switch context in a loop like this"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/sensor.py",
+      "homeassistant/components/*/__init__.py"
+    ]
+  }
+]

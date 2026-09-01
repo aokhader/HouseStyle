@@ -1,0 +1,8 @@
+{"pr": 66929,
+ "findings": [
+   {"rule_id": "hass-r002",
+    "path": "providers/google/tests/system/google/cloud/gcs/example_sheets.py",
+    "line": 63,
+    "category": "api-design",
+    "message": "`GDRIVE_SECRET_ID = \"gdrive_shared_folder_id\"` (and the `get_shared_drive_id` task built on it) is copied verbatim into four system-test modules in this PR - here, example_gcs_to_sheets.py, example_sheets_to_gcs.py and example_sql_to_sheets.py. Define the secret id once in a shared test module and import it, so renaming the secret does not leave three of the four DAGs behind."}
+ ]}

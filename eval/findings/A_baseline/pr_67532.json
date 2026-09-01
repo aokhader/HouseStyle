@@ -1,0 +1,15 @@
+{"pr": 67532,
+ "findings": [
+   {"path": "providers/ibm/db2/src/airflow/providers/ibm/db2/hooks/db2.py",
+    "line": 107,
+    "category": "security",
+    "message": "The DSN is assembled by raw concatenation with `;` separators and nothing validates or escapes the values. A perfectly ordinary password containing `;` or `=` silently produces a different connection string than intended - and in the bad case a value ending in something like `;SECURITY=NONE` would turn off the TLS the operator thought they had configured, with no error anywhere. Please reject (or escape) `;` and `=` in the interpolated values, or build the connection with ibm_db's keyword form instead of a hand-rolled string."},
+   {"path": "providers/ibm/db2/src/airflow/providers/ibm/db2/hooks/db2.py",
+    "line": 130,
+    "category": "correctness",
+    "message": "Only the password goes through `quote_plus` here; login, host, and schema are interpolated raw. Db2 logins of the form `user@realm` are common and would break this URI (the `@` splits the authority in the wrong place), as would a schema containing `/`. Please quote the login and schema too - and `test_get_uri_with_special_chars_in_password` should grow a case for a login with an `@` in it."},
+   {"path": "providers/ibm/db2/tests/system/ibm/db2/example_db2.py",
+    "line": 32,
+    "category": "docs",
+    "message": "The registered connection type is `ibmdb2` (see `Db2Hook.conn_type` and provider.yaml), so `AIRFLOW_CONN_DB2_DEFAULT='db2://...'` will not resolve to this hook - anyone following this prerequisite verbatim gets an unsupported-connection-type error. It should be `ibmdb2://`. The unit-test fixtures in tests/unit/ibm/db2/hooks/test_db2.py also build Connections with `conn_type=\"db2\"`, which hides the mismatch because they patch get_connection."}
+ ]}

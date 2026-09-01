@@ -1,0 +1,371 @@
+[
+  {
+    "rule": "Derive per-config-entry values once in the integration's async_setup_entry and expose them through entry.runtime_data, rather than re-deriving them (with repeated asserts) in every platform module.",
+    "category": "api-design",
+    "trigger": "The same block fetching a client/session attribute plus assert statements to narrow it appears in two or more platform modules (binary_sensor.py, sensor.py, switch.py, cover.py) of one integration.",
+    "rationale": "__init__.py already validates the invariant before forwarding platform setup, so each platform repeating the fetch, the asserts and the explanatory comment duplicates verbatim code and re-validates something already guaranteed.",
+    "evidence": [
+      {
+        "pr": 175902,
+        "url": "https://github.com/home-assistant/core/pull/175902#discussion_r3542501981",
+        "excerpt": "Computing `parent_id` once in `__init__.py` and exposing it through `runtime_data` would remove the repeated block"
+      },
+      {
+        "pr": 175902,
+        "url": "https://github.com/home-assistant/core/pull/175902#discussion_r3541072487",
+        "excerpt": "compute `parent_id` once in `__init__.py` and expose it via a small `runtime_data` structure"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/bosch_shc/",
+      "homeassistant/components/*/binary_sensor.py",
+      "homeassistant/components/*/switch.py",
+      "homeassistant/components/*/__init__.py"
+    ]
+  },
+  {
+    "rule": "Call _abort_if_unique_id_mismatch with an explicit reason= argument that matches an abort key in strings.json instead of relying on the default reason.",
+    "category": "api-design",
+    "trigger": "A reconfigure or reauth config-flow step calls self._abort_if_unique_id_mismatch() with no arguments.",
+    "rationale": "Without the reason parameter the flow cannot display the custom translated error the integration already defines in strings.json when a user reconfigures onto a different physical device.",
+    "evidence": [
+      {
+        "pr": 164070,
+        "url": "https://github.com/home-assistant/core/pull/164070#discussion_r2854563230",
+        "excerpt": "should include the reason parameter to display the custom error message defined in strings.json"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/bsblan/config_flow.py",
+      "homeassistant/components/*/config_flow.py"
+    ]
+  },
+  {
+    "rule": "Config flow connection helpers must catch the same exception set the integration already handles during entry setup, including TimeoutError, not just the library's own error base class.",
+    "category": "correctness",
+    "trigger": "A config-flow helper awaits a device/library call inside `except <Lib>Error:` while __init__.py or the coordinator for the same integration also catches TimeoutError around the equivalent call.",
+    "rationale": "A timeout raised by initialize() or discovery bubbles out of the config flow and fails it unexpectedly, even though the runtime path already treats that condition as recoverable.",
+    "evidence": [
+      {
+        "pr": 165992,
+        "url": "https://github.com/home-assistant/core/pull/165992#discussion_r2976997228",
+        "excerpt": "A timeout during circuit discovery would currently bubble up and fail the config flow unexpectedly"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/bsblan/config_flow.py",
+      "homeassistant/components/*/config_flow.py"
+    ]
+  },
+  {
+    "rule": "Fetch per-device or per-sub-unit data concurrently inside a DataUpdateCoordinator refresh instead of awaiting the calls in a for loop.",
+    "category": "performance",
+    "trigger": "A coordinator's _async_update_data awaits a client call inside a `for` loop over circuits/zones/devices and assembles the results into a dict.",
+    "rationale": "Sequential awaits make the update duration grow linearly with the number of units, can exceed the coordinator's scan interval, and delay the remaining reads in the same refresh.",
+    "evidence": [
+      {
+        "pr": 165992,
+        "url": "https://github.com/home-assistant/core/pull/165992#discussion_r2958948201",
+        "excerpt": "increases update duration linearly and can exceed the scan interval"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/bsblan/coordinator.py",
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "Map device value ranges onto Home Assistant ranges with the existing shared range/percentage helpers used by fan and light platforms instead of hand-rolling a conversion table in const.py.",
+    "category": "api-design",
+    "trigger": "A new integration defines its own dict comprehension or arithmetic constant mapping device steps onto the 1-255 brightness range or a 0-100 percentage.",
+    "rationale": "Core already ships helpers that map a ranged value to an ordered option list, and other integrations (for example smartthings lights) use them, so per-integration mapping tables diverge from the shared behaviour.",
+    "evidence": [
+      {
+        "pr": 164536,
+        "url": "https://github.com/home-assistant/core/pull/164536#discussion_r2919203545",
+        "excerpt": "methods we regularly use in fans to map from a range to an option"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/casper_glow/const.py",
+      "homeassistant/components/*/light.py",
+      "homeassistant/components/*/fan.py"
+    ]
+  },
+  {
+    "rule": "Populate every entity _attr_* value from the device in a single shared method called from both __init__ and the state-update callback, so no attribute is left unset until the first push update.",
+    "category": "correctness",
+    "trigger": "An entity __init__ assigns a subset of _attr_* values from the device while a separate _async_handle_state_update or _handle_coordinator_update assigns a different, larger set.",
+    "rationale": "Attributes only assigned in the update handler (for example brightness) are missing at startup even though the value is already known, so the entity reports incomplete state until the device pushes.",
+    "evidence": [
+      {
+        "pr": 164536,
+        "url": "https://github.com/home-assistant/core/pull/164536#discussion_r2919218664",
+        "excerpt": "now we never set the brightness level at start"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/casper_glow/light.py",
+      "homeassistant/components/*/light.py"
+    ]
+  },
+  {
+    "rule": "Do not optimistically assign _attr_is_on (or similar state) and call async_write_ha_state after issuing a device command when the device library already reports the new state through a callback.",
+    "category": "correctness",
+    "trigger": "async_turn_on/async_turn_off sends a command and then sets _attr_* and calls self.async_write_ha_state() in an integration that registers a device state callback.",
+    "rationale": "The push callback is the authoritative source of state; writing it optimistically duplicates the update and can mask a command that the device never actually applied.",
+    "evidence": [
+      {
+        "pr": 164536,
+        "url": "https://github.com/home-assistant/core/pull/164536#discussion_r2919224061",
+        "excerpt": "Why do we optimistically write state?"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/casper_glow/light.py",
+      "homeassistant/components/*/light.py",
+      "homeassistant/components/*/switch.py"
+    ]
+  },
+  {
+    "rule": "Give every new entity an _attr_translation_key and a matching entry in strings.json, following the entity translation pattern the integration's other platforms already use.",
+    "category": "api-design",
+    "trigger": "A new entity class sets _attr_device_class or _attr_name without an _attr_translation_key, in an integration whose other platforms define translation keys.",
+    "rationale": "Without a translation key the entity falls back to an English original_name and cannot be localized, breaking the integration's established naming pattern.",
+    "evidence": [
+      {
+        "pr": 166801,
+        "url": "https://github.com/home-assistant/core/pull/166801#discussion_r3006372591",
+        "excerpt": "Add an `_attr_translation_key` (and update `strings.json`) for this new battery sensor"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/casper_glow/sensor.py",
+      "homeassistant/components/*/sensor.py",
+      "homeassistant/components/*/strings.json"
+    ]
+  },
+  {
+    "rule": "Thread the ConfigEntry explicitly through discovery callbacks that run off the event loop rather than looking entries up from hass inside those callbacks.",
+    "category": "async",
+    "trigger": "A discovery helper or zeroconf/mDNS callback executing on a non-event-loop thread reaches into hass to find a config entry or its runtime_data.",
+    "rationale": "Looking up entries via hass from the discovery thread is cross-thread access to Home Assistant internals and makes behaviour non-deterministic when multiple entries exist; the setup function already holds the entry.",
+    "evidence": [
+      {
+        "pr": 168856,
+        "url": "https://github.com/home-assistant/core/pull/168856#discussion_r3127103832",
+        "excerpt": "avoids cross-thread access to Home Assistant internals and makes multi-entry behavior deterministic"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/cast/discovery.py",
+      "homeassistant/components/*/discovery.py"
+    ]
+  },
+  {
+    "rule": "In quality_scale.yaml, mark rules that cannot apply to the integration as exempt with a short comment explaining why, instead of leaving them as todo.",
+    "category": "docs",
+    "trigger": "A quality_scale.yaml adds or keeps `todo` for a rule (reauthentication-flow, parallel-updates, discovery, etc.) that the integration structurally cannot satisfy.",
+    "rationale": "A rule such as reauthentication-flow is not applicable when the config flow only collects host and port and the integration never authenticates, so todo misrepresents the integration's real quality state.",
+    "evidence": [
+      {
+        "pr": 170491,
+        "url": "https://github.com/home-assistant/core/pull/170491#discussion_r3234553388",
+        "excerpt": "Mark `reauthentication-flow` as `exempt` (with a short comment) since the config flow only collects host/port"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/cert_expiry/quality_scale.yaml",
+      "homeassistant/components/*/quality_scale.yaml"
+    ]
+  },
+  {
+    "rule": "Reference existing translation keys with the [%key:...%] reference syntax in strings.json instead of repeating the same label or data_description text in a second step.",
+    "category": "docs",
+    "trigger": "A strings.json diff adds a data/data_description value that is textually identical to one already present under another step in the same file.",
+    "rationale": "Duplicated strings drift apart on future edits; the key-reference format keeps the two steps in sync the same way common config-flow keys already are referenced.",
+    "evidence": [
+      {
+        "pr": 170491,
+        "url": "https://github.com/home-assistant/core/pull/170491#discussion_r3271846987",
+        "excerpt": "Consider reducing duplication by referencing one set of keys from the other"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/cert_expiry/strings.json",
+      "homeassistant/components/*/strings.json"
+    ]
+  },
+  {
+    "rule": "Adding an authorization decorator such as @require_admin to an HTTP view requires a regression test asserting a non-admin user is rejected, not just the existing happy-path admin test.",
+    "category": "testing",
+    "trigger": "A diff adds @require_admin (or another auth guard) to an aiohttp view handler in homeassistant/components/*/http_api.py or http.py.",
+    "rationale": "Existing tests for these endpoints only cover the successful admin path, so an accidental removal of the guard would not be caught.",
+    "evidence": [
+      {
+        "pr": 169205,
+        "url": "https://github.com/home-assistant/core/pull/169205#discussion_r3143799133",
+        "excerpt": "Add a regression test asserting non-admin users cannot download `/api/cloud/support_package`"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/cloud/http_api.py",
+      "tests/components/cloud/",
+      "homeassistant/components/*/http_api.py"
+    ]
+  },
+  {
+    "rule": "Create entities only for the parameters/features actually present on the specific device instance, rather than iterating the full static device-definition table in async_setup_entry.",
+    "category": "api-design",
+    "trigger": "async_setup_entry loops over a module-level DEVICE_DEFINITIONS/PARAMS constant and appends an entity per entry without checking the device's reported state or capability list.",
+    "rationale": "Unconditional creation produces many permanently unknown entities and can break setup when the API mapping for a parameter/device combination is missing; sibling platforms in the same integration already filter on device.state.params.",
+    "evidence": [
+      {
+        "pr": 161527,
+        "url": "https://github.com/home-assistant/core/pull/161527#discussion_r2849224139",
+        "excerpt": "Filter the parameters to only those actually supported/present on the specific device instance"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/compit/sensor.py",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "Keep the fields exposed in a domain's triggers.yaml in sync with what the underlying trigger schema accepts, including the common `for` duration field.",
+    "category": "api-design",
+    "trigger": "A triggers.yaml diff removes or omits a field (such as `for` with a duration selector) that the entity trigger schema for that domain still supports.",
+    "rationale": "The UI builds the trigger editor from triggers.yaml, so dropping a supported field silently removes the user's ability to configure trigger delays.",
+    "evidence": [
+      {
+        "pr": 166484,
+        "url": "https://github.com/home-assistant/core/pull/166484#discussion_r3146260122",
+        "excerpt": "Add the `for` duration field back to the common trigger fields"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/cover/triggers.yaml",
+      "homeassistant/components/*/triggers.yaml"
+    ]
+  },
+  {
+    "rule": "The diagnostics TO_REDACT set must list every identifying field actually stored in the config entry, including MAC addresses and device identifiers, not only credentials.",
+    "category": "security",
+    "trigger": "A diagnostics.py defines TO_REDACT/TO_REDACT_ENTRY covering API keys, hosts and passwords while the integration's config entry data or tests also contain a MAC/serial key.",
+    "rationale": "MAC addresses are personally identifiable information and diagnostics downloads are shared in bug reports, so anything identifying stored on the entry has to be redacted.",
+    "evidence": [
+      {
+        "pr": 173481,
+        "url": "https://github.com/home-assistant/core/pull/173481#discussion_r3392109955",
+        "excerpt": "MAC addresses are personally identifiable information and should be redacted"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/daikin/diagnostics.py",
+      "homeassistant/components/*/diagnostics.py"
+    ]
+  },
+  {
+    "rule": "Selector options presented in a config flow must carry a user-facing, translatable label instead of reusing the raw internal option value.",
+    "category": "api-design",
+    "trigger": "A config flow builds SelectOptionDict(value=X, label=X) or otherwise passes an internal constant straight through as the displayed label.",
+    "rationale": "The UI renders the label verbatim, so raw values such as `manual` leak internal identifiers to users and cannot be translated.",
+    "evidence": [
+      {
+        "pr": 166923,
+        "url": "https://github.com/home-assistant/core/pull/166923#discussion_r3080265592",
+        "excerpt": "Use a user-facing label (or selector option translation) for the manual-port choice"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/denon_rs232/config_flow.py",
+      "homeassistant/components/*/config_flow.py"
+    ]
+  },
+  {
+    "rule": "HomeAssistantError raised from an entity service handler must name the rejected value and, where a fixed set exists, the accepted values.",
+    "category": "api-design",
+    "trigger": "An entity service method raises HomeAssistantError with a bare static message such as `Invalid source` after a lookup against a mapping constant returns None.",
+    "rationale": "These errors surface directly in service-call failures and automation traces, so a message without the offending value is not actionable for users or automations.",
+    "evidence": [
+      {
+        "pr": 166923,
+        "url": "https://github.com/home-assistant/core/pull/166923#discussion_r3013447941",
+        "excerpt": "Include the requested source (and ideally the valid sources) in this HomeAssistantError message"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/denon_rs232/media_player.py",
+      "homeassistant/components/*/media_player.py"
+    ]
+  },
+  {
+    "rule": "Clamp incoming entity-service values to their documented Home Assistant range before converting them into device units.",
+    "category": "correctness",
+    "trigger": "async_set_volume_level (or a similar service handler) multiplies the incoming 0..1 float by a device range and offset without bounding it first.",
+    "rationale": "Out-of-range service data would otherwise be converted into invalid device values (for example an out-of-band dB level) and passed straight to the device library.",
+    "evidence": [
+      {
+        "pr": 166923,
+        "url": "https://github.com/home-assistant/core/pull/166923#discussion_r3028834775",
+        "excerpt": "Clamp `volume` to the expected 0..1 range before converting to dB"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/denon_rs232/media_player.py",
+      "homeassistant/components/*/media_player.py"
+    ]
+  },
+  {
+    "rule": "Interpret values returned by an integration's pinned library in the units that library version documents and tests, and validate ranges in those same units.",
+    "category": "providers",
+    "trigger": "Integration code applies a magic divisor or threshold to a raw value from the third-party library (for example dividing a tuner frequency by 100 and comparing against a hard-coded maximum).",
+    "rationale": "The pinned dependency documents and tests 105000 as 105.0 MHz, so a mismatched unit assumption makes the range check discard every normal response and report the wrong value.",
+    "evidence": [
+      {
+        "pr": 176610,
+        "url": "https://github.com/home-assistant/core/pull/176610#discussion_r3595315377",
+        "excerpt": "Parse the dependency's six-digit tuner value as kHz and validate the FM range"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/denon_rs232/media_player.py",
+      "homeassistant/components/*/media_player.py",
+      "homeassistant/components/*/manifest.json"
+    ]
+  },
+  {
+    "rule": "When platform setup branches between the legacy and non-legacy path, add test coverage for the non-legacy branch that routes to EntityComponent.async_setup_platform, not only the legacy one.",
+    "category": "testing",
+    "trigger": "A diff changes discovery or platform-loading code that checks platform.type != PLATFORM_TYPE_LEGACY and delegates to component.async_setup_platform.",
+    "rationale": "Untested non-legacy routing hides regressions such as missing EntityComponent config initialization, which only appear for discovered platforms that are not legacy.",
+    "evidence": [
+      {
+        "pr": 171507,
+        "url": "https://github.com/home-assistant/core/pull/171507#discussion_r3274180609",
+        "excerpt": "Add coverage for the non-legacy discovery path that routes to EntityComponent.async_setup_platform"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/device_tracker/__init__.py",
+      "tests/components/device_tracker/"
+    ]
+  },
+  {
+    "rule": "Do not override a @final base-entity property and silence the error with type: ignore; add an explicit extension hook to the base class instead.",
+    "category": "api-design",
+    "trigger": "An in-tree entity subclass redefines a property that the base class marks @final, accompanied by `# type: ignore[misc]`.",
+    "rationale": "@final on base entity properties exists to stop external subclasses tampering with them; suppressing it in-tree defeats the contract for everyone rather than providing a supported way to add extra attributes.",
+    "evidence": [
+      {
+        "pr": 171832,
+        "url": "https://github.com/home-assistant/core/pull/171832#discussion_r3296579574",
+        "excerpt": "Remove the need to override a `@final` property with a `type: ignore`"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/device_tracker/config_entry.py",
+      "homeassistant/helpers/entity.py"
+    ]
+  }
+]

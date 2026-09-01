@@ -1,0 +1,13 @@
+{"pr": 71387,
+ "findings": [
+   {"rule_id": "airflow-r011",
+    "path": "providers/apache/iceberg/src/airflow/providers/apache/iceberg/triggers/iceberg.py",
+    "line": 73,
+    "category": "docs",
+    "message": "This PR introduces a whole new `:param table: / :param iceberg_conn_id: / :param branch: / :param poll_interval: / :param last_seen_snapshot_id:` list for a user-facing trigger, but adds no page under `providers/apache/iceberg/docs/`. The system test already wraps the usage in `[START howto_trigger_iceberg_table_snapshot]` markers, so add the matching RST guide that includes them - otherwise the published Iceberg provider docs never mention this trigger."},
+   {"rule_id": "airflow-r014",
+    "path": "providers/apache/iceberg/tests/unit/apache/iceberg/triggers/test_iceberg.py",
+    "line": 39,
+    "category": "testing",
+    "message": "`_table_at` builds a bare `MagicMock()` for a pyiceberg `Table` and then fabricates the nested `table.metadata.refs` chain the trigger reads. Spec it - `MagicMock(spec=Table)` with a `spec=TableMetadata` metadata and `spec=SnapshotRef` refs (or `create_autospec`) - so the test fails if pyiceberg moves `metadata.refs` or renames `snapshot_id`, rather than silently keeping green against an interface that no longer exists."}
+ ]}

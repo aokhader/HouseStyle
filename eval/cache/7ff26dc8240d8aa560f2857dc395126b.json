@@ -1,0 +1,5 @@
+{
+  "verdict": "MATCH",
+  "why": "The human describes exactly the finding's defect, that an unexpectedly killed job leaves an end_date IS NULL row forever so the component can never recover from DEGRADED, differing only on the proposed remedy.",
+  "judge": "agent"
+}

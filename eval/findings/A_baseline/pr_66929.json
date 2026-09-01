@@ -1,0 +1,11 @@
+{"pr": 66929,
+ "findings": [
+   {"path": "providers/google/src/airflow/providers/google/suite/operators/sheets.py",
+    "line": 89,
+    "category": "correctness",
+    "message": "Two problems in this one expression. It hard-indexes properties.title, but both keys are optional in the Sheets Spreadsheet resource - a DAG that today passes spreadsheet={} or omits the title works fine, and adding drive_id makes it die with a bare KeyError. And everything else in the payload is dropped on the floor: the `sheets` list that every system test in this PR sets, plus locale, timeZone, and the rest. The docstring mentions it, but silently ignoring most of a user-supplied argument is worth at least a warning, and the missing title should raise something that says what to fix."},
+   {"path": "providers/google/src/airflow/providers/google/suite/operators/sheets.py",
+    "line": 102,
+    "category": "api-design",
+    "message": "The two branches return different things: the Sheets path returns the full Spreadsheet resource (properties, sheets, sheet ids, ...) while this one returns a two-key dict. Since execute()'s return value lands in XCom, any downstream task that reads more than spreadsheetId/spreadsheetUrl silently breaks the moment drive_id is set. Worth either normalising the drive path to fetch and return the real spreadsheet resource, or documenting the reduced payload prominently on the operator."}
+ ]}

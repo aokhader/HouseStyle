@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding is that fail_on_reject is a silent no-op when require_approval=False; the human asks why the flag lives on this operator instead of the shared approval mixin used by sibling operators.",
+  "judge": "agent"
+}

@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding is about ORM identity-map mutation of `owner_display_name`, while the human asks for test coverage of display names when clearing unloaded relationships.",
+  "judge": "agent"
+}

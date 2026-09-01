@@ -1,0 +1,11 @@
+{"pr": 71621,
+ "findings": [
+   {"path": "airflow-core/src/airflow/dag_processing/collection.py",
+    "line": 469,
+    "category": "database",
+    "message": "This drops `bundle_name` from the DagModel UPDATE, which is a behaviour change rather than a cost saving: a Dag whose file has moved to a different bundle and now fails to parse keeps its stale bundle_name instead of being re-pointed. Since `import_errors` is now keyed by (bundle, filename) the right fix is probably to write the per-key bundle rather than to stop writing it — and either way nothing in the new tests covers the DagModel side of this statement."},
+   {"path": "airflow-core/src/airflow/dag_processing/collection.py",
+    "line": 399,
+    "category": "performance",
+    "message": "The comment concedes the table still gets scanned because there is no index on (bundle_name, filename), so what this buys is fewer ORM rows built, not a cheaper query — and it swaps an unfiltered scan for a scan plus a row-value IN with 2 bind parameters per entry. Worth saying in the PR description what `import_errors` realistically holds per call; if it can carry a whole bundle's worth of broken files, this wants chunking (and an index is the actual fix for the scan)."}
+ ]}

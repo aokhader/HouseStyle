@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding is about code duplication between core and the SDK; the human is discussing threading a session kwarg through resolve() in a separate PR.",
+  "judge": "agent"
+}

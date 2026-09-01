@@ -1,0 +1,148 @@
+[
+  {
+    "rule": "Match the mock type to the real callable: patch awaited functions with AsyncMock (or new_callable=AsyncMock) and synchronous ones with MagicMock, and never spec a whole library model object as AsyncMock when it exposes synchronous listener/registration methods.",
+    "category": "testing",
+    "trigger": "A test adds `patch(...)` / `AsyncMock(spec=...)` / a fixture annotation whose sync-vs-async kind does not match the awaited-ness of the patched target in the integration code.",
+    "rationale": "Home Assistant integrations mix awaited helpers (usb.async_scan_serial_ports, async client methods) with synchronous ones (create_stream, add_on_changed_listener returning an unsubscribe callable); a mismatched mock either fails to await or turns a sync callback registration into a coroutine, so the double stops behaving like the real object passed to async_on_remove.",
+    "evidence": [
+      {"pr": 167695, "url": "https://github.com/home-assistant/core/pull/167695#discussion_r3053771744", "excerpt": "Patch `usb.async_scan_serial_ports` with an `AsyncMock` since it is awaited"},
+      {"pr": 165305, "url": "https://github.com/home-assistant/core/pull/165305#discussion_r2916204073", "excerpt": "patches a synchronous `create_stream` call ... `AsyncMock` is the wrong annotation"},
+      {"pr": 170932, "url": "https://github.com/home-assistant/core/pull/170932#discussion_r3254928439", "excerpt": "`AsyncMock(spec=HomeeGram)` can unintentionally turn synchronous listener-registration APIs into awaitables"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Tests must reuse the integration's own constants and helper functions (homeassistant.const constants, config keys, identifier helpers) instead of repeating string literals or re-deriving the value in the test.",
+    "category": "testing",
+    "trigger": "A test or conftest introduces a raw string literal such as \"unavailable\" or \"device_id\", or recomputes an identifier inline, where the integration code uses STATE_UNAVAILABLE, CONF_DEVICE_ID or a helper like get_camera_identifier.",
+    "rationale": "Reviewers want tests pinned to the same symbols production uses so the assertions cannot silently drift if a constant value or an identifier-sanitization rule changes; literal duplicates keep passing while the integration has moved on.",
+    "evidence": [
+      {"pr": 168154, "url": "https://github.com/home-assistant/core/pull/168154#discussion_r3078053807", "excerpt": "Use the `STATE_UNAVAILABLE` constant here instead of the raw string"},
+      {"pr": 172464, "url": "https://github.com/home-assistant/core/pull/172464#discussion_r3318894587", "excerpt": "integration code uses `CONF_DEVICE_ID` ... test fixtures use the string literal"},
+      {"pr": 168603, "url": "https://github.com/home-assistant/core/pull/168603#discussion_r3109654673", "excerpt": "Derive the expected stream identifier ... via get_camera_identifier(camera) to avoid drift"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Do not hard-code generated entity_ids in tests; resolve the entity through the entity registry by unique_id or config entry and assert on the resolved id.",
+    "category": "testing",
+    "trigger": "A test contains a literal entity_id string such as \"sensor.fresh_r_inside_temperature\" built from a device name slug.",
+    "rationale": "Entity_id generation depends on device naming, slug rules and translation strings, so a literal slug makes the test break for reasons unrelated to the behaviour under test.",
+    "evidence": [
+      {"pr": 168022, "url": "https://github.com/home-assistant/core/pull/168022#discussion_r3069289924", "excerpt": "Hard-coding `sensor.fresh_r_inside_temperature` makes the test brittle if naming/entity_id generation changes"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Assert that `hass.states.get(entity_id)` returned a state object before dereferencing `.state`.",
+    "category": "testing",
+    "trigger": "A test chains `hass.states.get(...).state` in an assertion or comprehension without a preceding `is not None` check.",
+    "rationale": "If the entity was never created or was removed on unload, `get` returns None and the test dies with an AttributeError that hides the actual failure.",
+    "evidence": [
+      {"pr": 168022, "url": "https://github.com/home-assistant/core/pull/168022#discussion_r3069637587", "excerpt": "`hass.states.get(entity_id)` can be `None` ... would raise an `AttributeError` and obscure"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Every parameter of a test function, including injected fixtures, must carry a type annotation.",
+    "category": "testing",
+    "trigger": "A new `async def test_*` adds a fixture parameter (e.g. `mock_growatt_v1_api`) with no annotation while its siblings are annotated.",
+    "rationale": "Home Assistant's test guidelines require annotated test parameters so fixture types stay discoverable and typed helpers keep working.",
+    "evidence": [
+      {"pr": 165923, "url": "https://github.com/home-assistant/core/pull/165923#discussion_r2953869546", "excerpt": "Home Assistant test guidelines require type annotations for all test function parameters"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "When new entities are added, regenerate and commit the snapshot files, and keep any hard-coded expected entity list in the same order the entity descriptions are iterated during setup.",
+    "category": "testing",
+    "trigger": "A PR adds entity descriptions to a platform's description tuple and adds matching entries to a test's expected-entity list or snapshot assertion.",
+    "rationale": "Assertions like `hass.states.async_entity_ids() == [e[0] for e in entities]` compare ordered lists, so the expected list must follow the platform's iteration order; missing snapshot regeneration leaves the new entities untested.",
+    "evidence": [
+      {"pr": 174521, "url": "https://github.com/home-assistant/core/pull/174521#discussion_r3459219241", "excerpt": "Snapshots for these new `t80_omni` buttons also need to be generated and committed"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Fixture payloads and mocked client return values must mirror the real upstream API's shape and key casing, not the post-processed form the integration produces.",
+    "category": "testing",
+    "trigger": "A JSON fixture uses already-normalised keys (snake_case where the API sends camelCase), or a mock client method coerces/drops payload shapes the real library returns.",
+    "rationale": "Fixtures that pre-apply the integration's own mapping mask bugs in that mapping, and mock clients that flatten unexpected shapes make calls silently look like \"no data\", weakening unrelated tests.",
+    "evidence": [
+      {"pr": 172393, "url": "https://github.com/home-assistant/core/pull/172393#discussion_r3357315431", "excerpt": "fixture doesn't accurately reflect real API data and could mask mapping bugs"},
+      {"pr": 164074, "url": "https://github.com/home-assistant/core/pull/164074#discussion_r2871784978", "excerpt": "these calls will silently look like \"no data\" and may break unrelated tests"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Do not land conftest fixtures or helpers that no test in the same PR uses; add them with the follow-up PR that needs them.",
+    "category": "testing",
+    "trigger": "A conftest.py gains fixtures (coordinators, clients, init_*_integration helpers) that are not referenced by any test file in the diff.",
+    "rationale": "Home Assistant lands new integrations across staged PRs, and reviewers refuse dead fixture code that cannot be reviewed against a caller.",
+    "evidence": [
+      {"pr": 165260, "url": "https://github.com/home-assistant/core/pull/165260#discussion_r2923414464", "excerpt": "~350 lines of fixture code ... not used by any test in this PR"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Shared mock/data construction repeated across tests belongs in a pytest fixture in conftest.py, not in module-level builder functions each test calls manually.",
+    "category": "testing",
+    "trigger": "A test module defines a helper like `build_homeegrams()` or inline mock-client wiring and calls it in an identical setup block before `setup_integration` in several tests.",
+    "rationale": "Reviewers want the mocks wired once and consistently next to the existing conftest builders so the repeated per-test setup block disappears.",
+    "evidence": [
+      {"pr": 170932, "url": "https://github.com/home-assistant/core/pull/170932#discussion_r3254928439", "excerpt": "Consider promoting it to a pytest fixture (or moving it into ... conftest.py)"},
+      {"pr": 171182, "url": "https://github.com/home-assistant/core/pull/171182#discussion_r3271792961", "excerpt": "can be probably done in a more leaner way, once we ... refactor the conftest"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Timestamps passed to `freezer.move_to()` must carry an explicit timezone offset when the assertions depend on local-time conversion.",
+    "category": "testing",
+    "trigger": "A test calls `freezer.move_to(\"YYYY-MM-DD HH:MM:SS\")` with no `Z`/`+00:00` suffix while the code under test branches on `dt_util.now().hour`.",
+    "rationale": "The naive string's interpretation depends on freezegun and fixture defaults, so a test that means \"18:00 local in US/Pacific\" silently breaks if those defaults change.",
+    "evidence": [
+      {"pr": 166153, "url": "https://github.com/home-assistant/core/pull/166153#discussion_r2977313229", "excerpt": "uses a timestamp string without an explicit timezone/offset ... make the timezone explicit"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Stateless entity triggers must accept STATE_UNKNOWN as a valid from_state so the first real event after startup fires, matching button entity trigger semantics.",
+    "category": "correctness",
+    "trigger": "A trigger implementation or its parametrized tests treat an `unknown` -> first-matching-state transition as not triggering for a stateless domain (event, button).",
+    "rationale": "Event entities are stateless like buttons, whose triggers explicitly allow STATE_UNKNOWN as from_state; skipping it swallows the first event a user ever receives.",
+    "evidence": [
+      {"pr": 165456, "url": "https://github.com/home-assistant/core/pull/165456#discussion_r2951394744", "excerpt": "Button triggers explicitly allow `STATE_UNKNOWN` as a valid `from_state`"}
+    ],
+    "scope_paths": ["tests/components/event/", "homeassistant/components/event/"]
+  },
+  {
+    "rule": "Service actions that resolve a device_id must have test coverage for the device being absent from the device registry, and should raise ServiceValidationError rather than failing silently.",
+    "category": "testing",
+    "trigger": "A new service handler takes `device_id` and looks it up in the device registry, with tests only covering the happy path and backend errors.",
+    "rationale": "Devices can be deleted between automation authoring and execution, so the missing-device path is user-reachable and must have a defined, tested outcome.",
+    "evidence": [
+      {"pr": 155996, "url": "https://github.com/home-assistant/core/pull/155996#discussion_r2849307608", "excerpt": "device_id is provided but the device doesn't exist ... should raise a ServiceValidationError"}
+    ],
+    "scope_paths": ["tests/components/hassio/", "homeassistant/components/hassio/"]
+  },
+  {
+    "rule": "Assert that a specific mocked method was or was not awaited instead of inspecting `mock.mock_calls[-1]`.",
+    "category": "testing",
+    "trigger": "A test indexes into `mock_calls` (e.g. `mock_calls[-1][0] != \"send_start_impulse_async\"`) to prove a call did not happen.",
+    "rationale": "Checking only the last recorded call passes when the forbidden call happened earlier and fails on unrelated trailing calls, so the assertion does not actually test what it claims.",
+    "evidence": [
+      {"pr": 171060, "url": "https://github.com/home-assistant/core/pull/171060#discussion_r3257236443", "excerpt": "The `mock_calls[-1]` assertion is brittle: it only checks the last call"}
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Parametrized tests for capability/feature flag enums must cover the combined-flags and zero/empty value, not only the single-flag cases.",
+    "category": "testing",
+    "trigger": "A platform change alters how bitwise capability flags are interpreted while the test parametrization lists only individual enum members.",
+    "rationale": "Mixed and empty capability handling is exactly what the platform logic changed, so single-value parameters cannot catch transceiver-style regressions.",
+    "evidence": [
+      {"pr": 171789, "url": "https://github.com/home-assistant/core/pull/171789#discussion_r3284488267", "excerpt": "current parametrization only covers single-capability cases and won't catch transceiver regressions"}
+    ],
+    "scope_paths": ["tests/components/esphome/"]
+  }
+]

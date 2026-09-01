@@ -1,0 +1,8 @@
+{"pr": 70416,
+ "findings": [
+   {"rule_id": "hass-r011",
+    "path": "airflow-core/src/airflow/api/common/airflow_health.py",
+    "line": 127,
+    "category": "correctness",
+    "message": "`_legacy_status([])` returns `UNHEALTHY`, so a deployment that simply has no triggerer (and likewise no Dag processor, line 141) now reports `status: \"unhealthy\"` where it previously reported `null` -- the absent component is collapsed into the failure branch instead of surfacing as unknown. Keep `triggerer_status`/`dag_processor_status` as `None` when the job list is empty and reserve `UNHEALTHY` for a component that exists but has no live instance; `detailed_status: \"down\"` already carries the no-jobs case for callers that want it."}
+ ]}

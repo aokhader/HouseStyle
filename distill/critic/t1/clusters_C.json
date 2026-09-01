@@ -1,0 +1,1078 @@
+{
+  "chunk": "chunk_C",
+  "n_candidates_in": 152,
+  "clusters": [
+    {
+      "rule": "Use `Literal[...]` for Pydantic model fields whose valid values are an enumerable set of strings; do not encode the constraint only in the field description.",
+      "category": "api-design",
+      "trigger": "A Pydantic `Field(description='One of: ...')` or plain `str` field whose accepted values are a fixed, enumerable set",
+      "rationale": "A description string is not validated; a Literal makes the contract enforceable and visible to type checkers and generated schemas.",
+      "kind": "convention",
+      "members": ["t1/batch_021#0"]
+    },
+    {
+      "rule": "Provider code must import Task SDK symbols through `airflow.providers.common.compat.sdk`, never directly from `airflow.sdk.*`.",
+      "category": "providers",
+      "trigger": "A direct `from airflow.sdk.<module> import <Symbol>` inside any file under `providers/`",
+      "rationale": "Providers support multiple Airflow core versions; the compat shim is what keeps them installable against cores where the SDK module does not exist or lives elsewhere.",
+      "kind": "convention",
+      "members": ["t1/batch_021#1"]
+    },
+    {
+      "rule": "Import an optional provider feature dependency lazily inside the function that needs it, rather than at module level, when other code paths in the same module work without that dependency.",
+      "category": "providers",
+      "trigger": "A module-level `try: import <optional_dep> / except ImportError: raise AirflowOptionalProviderFeatureException` in a module where only one of several independent operator or toolset paths needs the dependency",
+      "rationale": "A module-level raise makes the whole module unimportable, breaking operators that never touch the optional dependency.",
+      "kind": "convention",
+      "members": ["t1/batch_021#2"]
+    },
+    {
+      "rule": "In the common.ai LangChain bridge `_sync_call`/`_async_call`, catch `pydantic_core.ValidationError` alongside `ModelRetry` and route it through `_handle_retry`.",
+      "category": "providers",
+      "trigger": "An `except ModelRetry` clause in `langchain_bridge.py` that does not also catch `ValidationError`",
+      "rationale": "Reviewer-identified gap in one specific bridge implementation rather than a standing repo-wide expectation.",
+      "kind": "incident",
+      "members": ["t1/batch_021#3"]
+    },
+    {
+      "rule": "A sqlglot-based denylist of data-modifying SQL statements must include `exp.Command`, sqlglot's fallback node for unrecognised syntax, so unparsed statements fail closed.",
+      "category": "security",
+      "trigger": "A tuple/set of `exp.*` node types used to reject mutating SQL that omits `exp.Command`",
+      "rationale": "Anything sqlglot cannot classify becomes `exp.Command`; omitting it lets arbitrary unrecognised DDL/DML slip past validation.",
+      "kind": "convention",
+      "members": ["t1/batch_021#4"]
+    },
+    {
+      "rule": "Put imports at module scope; a function- or method-body import is only acceptable to break a genuine circular import, and must carry a comment naming the cycle it avoids.",
+      "category": "correctness",
+      "trigger": "An `import` / `from ... import` statement inside a function, method, test helper or fixture body without an adjacent comment explaining the circular-import reason",
+      "rationale": "Hidden imports obscure a module's real dependency graph and defer import errors to runtime; the repo only tolerates them where a cycle makes module scope impossible, and wants that reason recorded.",
+      "kind": "convention",
+      "members": ["t1/batch_021#5", "t1/batch_028#4", "t1/batch_029#3"]
+    },
+    {
+      "rule": "Mocks that stand in for a real interface must be specced — `MagicMock(spec=...)`, `spec_set=`, or `create_autospec` — including nested attributes; `MagicMock(autospec=True)` is a no-op keyword and does not spec anything.",
+      "category": "testing",
+      "trigger": "A bare `MagicMock()` (or `MagicMock(autospec=True)`) substituted for a known type such as the Task SDK execution API `Client`, `RunContext`, `ToolsetTool`, or a credentials object, then given attributes the real type may not have",
+      "rationale": "An unspecced mock fabricates any attribute, so tests keep passing when production code reads a field that no longer exists on the real object.",
+      "kind": "convention",
+      "members": ["t1/batch_021#6", "t1/batch_024#5", "t1/batch_030#8"]
+    },
+    {
+      "rule": "Log messages in `airflow.providers.common.compat.connection` must interpolate the actual hook class name instead of hardcoding `BaseHook`.",
+      "category": "providers",
+      "trigger": "A `log.debug`/`log.info` call in `get_async_connection` containing the literal `BaseHook` after the hook became a parameter",
+      "rationale": "A stale hardcoded class name in one helper's log line; a specific fix, not a standing rule.",
+      "kind": "incident",
+      "members": ["t1/batch_021#7"]
+    },
+    {
+      "rule": "Tests for `get_async_connection` with a custom `hook=` argument must cover both the `aget_connection` path and the sync `get_connection` fallback path.",
+      "category": "testing",
+      "trigger": "A test exercising `get_async_connection(hook=...)` that asserts only on the async branch",
+      "rationale": "A missing-branch-coverage note on one specific helper's tests.",
+      "kind": "incident",
+      "members": ["t1/batch_021#8"]
+    },
+    {
+      "rule": "Do not collapse `None` to an empty container with `param or []` in an operator `__init__` when the empty value has distinct meaning in the downstream API call; keep `None` and the empty list distinguishable.",
+      "category": "api-design",
+      "trigger": "`self.param = param or []` in an operator `__init__` where `param` is forwarded to an external API and an explicit empty list means something (e.g. clearing permissions)",
+      "rationale": "`or []` erases the caller's ability to express 'send an empty list', which for some remote APIs is a destructive-but-intended request distinct from 'omit the field'.",
+      "kind": "convention",
+      "members": ["t1/batch_021#9"]
+    },
+    {
+      "rule": "When a provider operator or hook gains a new documented parameter or changes its documented behaviour (auth types, supported options), update the class docstring and the matching provider RST guide under `providers/<name>/docs/` in the same PR.",
+      "category": "docs",
+      "trigger": "A new `__init__` parameter or a changed `:param ...:` docstring list in a provider operator/hook with no corresponding edit to `providers/<name>/docs/operators/*.rst` or `providers/<name>/docs/connections/*.rst`",
+      "rationale": "The published provider guides are the user-facing documentation; code-only changes leave them silently wrong at release time.",
+      "kind": "convention",
+      "members": ["t1/batch_021#10", "t1/batch_024#2"]
+    },
+    {
+      "rule": "In RST documentation, write version milestones as \"Airflow version X.Y.Z\", not a bare \"version X.Y.Z\".",
+      "category": "docs",
+      "trigger": "An RST sentence containing `version <n>.<n>` without `Airflow` immediately before it",
+      "rationale": "Provider docs sit alongside provider version numbers, so a bare version string is ambiguous about which artefact it refers to.",
+      "kind": "convention",
+      "members": ["t1/batch_021#11"]
+    },
+    {
+      "rule": "Use `timezone.utcnow()` for timestamps in provider code rather than `datetime.now()`/`datetime.utcnow()`, and never initialise a mutable timestamp as a class-level attribute.",
+      "category": "providers",
+      "trigger": "A class attribute assigned `datetime.now()` or `datetime.utcnow()` outside `__init__` in a provider module",
+      "rationale": "Airflow standardises on timezone-aware UTC timestamps, and a class-level default is evaluated once at import and shared by every instance.",
+      "kind": "convention",
+      "members": ["t1/batch_022#0"]
+    },
+    {
+      "rule": "When a provider reads an attribute introduced in a newer Airflow minor than its minimum supported core, access it with `getattr(obj, 'attr', default)` instead of direct attribute access.",
+      "category": "providers",
+      "trigger": "Direct attribute access on a core object for an attribute added after the provider's minimum supported Airflow version",
+      "rationale": "Providers are installed against a range of core versions; direct access raises `AttributeError` on the older ones.",
+      "kind": "convention",
+      "members": ["t1/batch_022#1"]
+    },
+    {
+      "rule": "Name provider migration files after the next unreleased Airflow/provider version; rename the file before merge if a new minor has been cut since the branch was opened.",
+      "category": "providers",
+      "trigger": "A migration path under `providers/*/migrations/versions/` whose embedded version string is at or below the latest released version",
+      "rationale": "The version in the filename is what tells operators which release first requires the migration; a stale one misleads upgraders.",
+      "kind": "convention",
+      "members": ["t1/batch_022#2"]
+    },
+    {
+      "rule": "A provider compatibility shim that works around an older Airflow core API must carry a `# TODO: Remove once minimum supported Airflow version is X.Y` comment naming the exact version.",
+      "category": "providers",
+      "trigger": "A version-compat override or workaround block in a provider with no `TODO: Remove` comment naming the version that retires it",
+      "rationale": "Without the version marker nobody can tell when a shim becomes dead code, and they accumulate indefinitely.",
+      "kind": "convention",
+      "members": ["t1/batch_022#3"]
+    },
+    {
+      "rule": "Edge provider `worker_api/routes/ui.py` routes must declare the standard security dependencies: `Depends(requires_access_view(...))` for authentication, and `GetUserDep` alongside `SessionDep` on any state-mutating (POST/PATCH/DELETE) handler.",
+      "category": "security",
+      "trigger": "A new `@ui_router.*` route without `requires_access_view` in `dependencies=`, or a mutating route taking `SessionDep` but no `GetUserDep`",
+      "rationale": "These routes are reachable from the Edge worker UI; without the access dependency they are unauthenticated, and without the user dependency the mutation is unattributable in audit logs.",
+      "kind": "convention",
+      "members": ["t1/batch_022#4", "t1/batch_022#5"]
+    },
+    {
+      "rule": "When a FastAPI route can raise a new HTTP status code, add that code to the route decorator's `responses=` mapping.",
+      "category": "api-design",
+      "trigger": "A `raise HTTPException(status.HTTP_4xx_...)` in a handler body whose decorator does not list that status in `responses=`",
+      "rationale": "The generated OpenAPI schema drives the generated clients and the published API docs; an undeclared status makes both wrong.",
+      "kind": "convention",
+      "members": ["t1/batch_022#6"]
+    },
+    {
+      "rule": "FastAPI `Query`/parameter descriptions in provider routes must describe what the implementation actually accepts (e.g. do not advertise comma-separated multi-field ordering when only a single field is supported).",
+      "category": "api-design",
+      "trigger": "A `Query(..., description=...)` string in a provider route that promises behaviour the handler does not implement",
+      "rationale": "The description ships in the generated OpenAPI spec and the API reference, so a wrong one becomes a documented but unsupported contract.",
+      "kind": "convention",
+      "members": ["t1/batch_022#7"]
+    },
+    {
+      "rule": "FastAPI route handlers in provider packages must carry an explicit return type annotation matching the decorator's `response_model`.",
+      "category": "api-design",
+      "trigger": "A handler declared with `response_model=Foo` but no `-> Foo` return annotation",
+      "rationale": "The annotation is what makes the handler's contract checkable by mypy rather than only at request time.",
+      "kind": "convention",
+      "members": ["t1/batch_022#8"]
+    },
+    {
+      "rule": "A SQLAlchemy `before_create` DDL event listener must not permanently mutate shared metadata such as `table.indexes`; express dialect differences with dialect-scoped DDL that adds or skips instead of discarding.",
+      "category": "database",
+      "trigger": "`table.indexes.discard(...)` / `.remove(...)` inside an `@event.listens_for(Table, 'before_create')` listener",
+      "rationale": "The MetaData object is process-global, so a discard performed for one dialect silently removes the index for every later use of that table in the same process.",
+      "kind": "convention",
+      "members": ["t1/batch_022#9"]
+    },
+    {
+      "rule": "Edge provider frontend code must issue HTTP calls through React Query (`useQuery`/`useMutation`) layered over Axios, not by calling Axios directly from components.",
+      "category": "providers",
+      "trigger": "A direct `axios.get/post/...` call inside a `.tsx` component in the Edge plugin UI",
+      "rationale": "React Query owns caching, refetching and request state for this UI; bypassing it produces components with hand-rolled loading and staleness handling.",
+      "kind": "convention",
+      "members": ["t1/batch_022#10"]
+    },
+    {
+      "rule": "Regenerate a provider's OpenAPI client whenever its source spec YAML changes, so spec and `openapi-gen/` output stay in sync under the `ts-compile-lint-ui` hook.",
+      "category": "providers",
+      "trigger": "A change to `openapi/*.yaml` in a provider UI package with no matching regeneration of the generated client, or the reverse",
+      "rationale": "The generated client is committed to the tree; a spec change without regeneration means the UI compiles against a contract the backend no longer serves.",
+      "kind": "convention",
+      "members": ["t1/batch_022#11"]
+    },
+    {
+      "rule": "Provider `package.json` files must not list `npm` itself or single-letter packages such as `i` among their dependencies.",
+      "category": "providers",
+      "trigger": "`\"npm\"` or `\"i\"` appearing as a key in `dependencies` or `devDependencies` of a provider `package.json`",
+      "rationale": "These entries are the fingerprint of a mistyped `npm i` command and pull an entire package manager into the shipped dependency tree.",
+      "kind": "convention",
+      "members": ["t1/batch_022#12"]
+    },
+    {
+      "rule": "A provider's prek/pre-commit hooks and their supporting scripts must live inside that provider's own directory, not in the repository root.",
+      "category": "providers",
+      "trigger": "A hook entry in a provider `hatch_build.py` (or provider hook config) pointing at scripts outside `providers/<name>/`",
+      "rationale": "Providers are released as independent distributions; root-level scripts are not part of the provider package and break for anyone working on it standalone.",
+      "kind": "convention",
+      "members": ["t1/batch_022#13"]
+    },
+    {
+      "rule": "Provider log handlers must track airflow-core field renames on structured log records (e.g. `.message` becoming `.event`) and version-gate the access when both cores are supported.",
+      "category": "providers",
+      "trigger": "Access to `.message` on a structured log record inside a provider log handler",
+      "rationale": "The record shape is core-owned; providers reading the old field emit empty or broken log lines against newer cores.",
+      "kind": "convention",
+      "members": ["t1/batch_022#14"]
+    },
+    {
+      "rule": "A provider log handler that receives the task-log location from task startup metadata must not re-query `TaskInstance` from the metadata database to work out where to write.",
+      "category": "providers",
+      "trigger": "A `TaskInstance.get_task_instance(...)` (or equivalent DB lookup) inside a provider log handler's write/emit path",
+      "rationale": "Log handlers run in the worker/task process, which is not supposed to hold a metadata DB connection; the location is already supplied to it.",
+      "kind": "convention",
+      "members": ["t1/batch_022#15"]
+    },
+    {
+      "rule": "Extract repeated `test_client.app.dependency_overrides[...]` setup into a shared fixture instead of duplicating it in each test method.",
+      "category": "testing",
+      "trigger": "Several test methods in one class repeating the same `dependency_overrides` assignment block",
+      "rationale": "Generic de-duplication advice about test setup, not a repo-specific expectation.",
+      "kind": "incident",
+      "members": ["t1/batch_022#16"]
+    },
+    {
+      "rule": "When re-raising a missing optional provider dependency as an `ImportError`, suppress the chained original with `raise ImportError(...) from None`.",
+      "category": "providers",
+      "trigger": "`except ImportError: raise ImportError(...)` for an optional dependency without `from None`",
+      "rationale": "The chained traceback adds noise the user cannot act on; the actionable message is the install hint alone.",
+      "kind": "convention",
+      "members": ["t1/batch_022#17"]
+    },
+    {
+      "rule": "Give `timetable_type` a sensible default in the `DagModel` constructor so tests do not have to assign it on every instance.",
+      "category": "testing",
+      "trigger": "Tests assigning `dag_model.timetable_type = \"\"` in setUp or individual test bodies",
+      "rationale": "A one-off suggestion about a single new column's default, prompted by one PR's test churn.",
+      "kind": "incident",
+      "members": ["t1/batch_023#0"]
+    },
+    {
+      "rule": "In `GitDagBundle._initialize()`, assign and properly close `self.repo` before any early return on the cached-version path when `prune_dotgit_folder=False`.",
+      "category": "providers",
+      "trigger": "A new early `return` in `_initialize()` after `_local_repo_has_version()` that leaves `self.repo` unset",
+      "rationale": "A specific leaked/unset-attribute defect introduced by one refactor of that method.",
+      "kind": "incident",
+      "members": ["t1/batch_023#1"]
+    },
+    {
+      "rule": "Treat `GitDagBundle.version` as a commit-ish (tag, branch or short SHA) and resolve it with `repo.commit(self.version).hexsha` before comparing it against `repo.head.commit.hexsha`.",
+      "category": "providers",
+      "trigger": "A string equality comparison between `self.version` and `repo.head.commit.hexsha` in a git bundle method",
+      "rationale": "Bundle versions are user-supplied refs, not full SHAs, so raw string comparison reports a mismatch for a repo that is already at the right commit.",
+      "kind": "convention",
+      "members": ["t1/batch_023#2"]
+    },
+    {
+      "rule": "Do not import underscore-prefixed internals of a third-party package (e.g. `google.genai._api_client`, `structlog._output.WRITE_LOCKS`); where such an import is unavoidable, wrap it in `try/except ImportError` with a `None` fallback, guard every use of it, and add tests that catch upstream removal.",
+      "category": "providers",
+      "trigger": "An import of a symbol whose module path contains a leading-underscore component from a third-party package under `providers/` or `task-sdk/src/`",
+      "rationale": "Private internals carry no compatibility promise, so a routine dependency upgrade can break DAG parsing or task execution outright unless the import is optional and guarded.",
+      "kind": "convention",
+      "members": ["t1/batch_023#10", "t1/batch_030#5"]
+    },
+    {
+      "rule": "Declare every package a provider imports directly as a direct dependency in that provider's `pyproject.toml`; do not rely on it arriving transitively.",
+      "category": "providers",
+      "trigger": "An import of a top-level package that is absent from `dependencies` or the relevant extra in the provider's `pyproject.toml`",
+      "rationale": "Providers are installed standalone, and a transitive dependency can be dropped by its parent at any release, breaking the import with no version constraint to explain it.",
+      "kind": "convention",
+      "members": ["t1/batch_023#11"]
+    },
+    {
+      "rule": "Keep the public surface of provider operators, hooks and extractors backward compatible: a changed return value, changed traversal, or new constructor keyword must be opt-in via a new parameter defaulting to the legacy behaviour, and existing public signatures (e.g. `BaseExtractor.__init__(self, operator)`) must keep working.",
+      "category": "api-design",
+      "trigger": "A diff that changes an existing operator's `execute()` return shape, alters what an existing hook method traverses or returns, or passes a new required keyword to a subclass constructor unconditionally",
+      "rationale": "These classes are third-party extension points and DAG-facing API; silently changing their contract breaks user DAGs and out-of-tree subclasses at upgrade time with no deprecation path.",
+      "kind": "convention",
+      "members": ["t1/batch_023#12", "t1/batch_027#3", "t1/batch_026#4"]
+    },
+    {
+      "rule": "Raise native Python exceptions (`ValueError`, `TypeError`, `RuntimeError`) for argument validation and unexpected internal states in provider code and triggers, rather than `AirflowException`.",
+      "category": "providers",
+      "trigger": "A new `raise AirflowException(...)` for parameter validation inside a provider hook, or for an internal error condition inside a `BaseTrigger.run()` coroutine",
+      "rationale": "The project is deliberately decoupling providers from core exception types, and a validation bug is not an Airflow-level failure condition.",
+      "kind": "convention",
+      "members": ["t1/batch_023#13", "t1/batch_024#14"]
+    },
+    {
+      "rule": "When a trigger yields a `TriggerEvent` with `status: error` from a broad `except Exception`, prefix the message with the operation being performed rather than emitting the bare exception string.",
+      "category": "providers",
+      "trigger": "`yield TriggerEvent({\"status\": \"error\", \"message\": str(err)})` inside a bare `except Exception` block",
+      "rationale": "The event message is all the user sees in the task log; without the operation context an upstream error is untraceable to the call that produced it.",
+      "kind": "convention",
+      "members": ["t1/batch_023#14"]
+    },
+    {
+      "rule": "When validation of a GCP resource identifier raises, the exception message must state every constraint the check enforces, including length bounds implied by the regex, not just the format.",
+      "category": "correctness",
+      "trigger": "A regex-based ID validation raising with a message that omits the length range the regex enforces",
+      "rationale": "A user given only half the rule cannot fix their input from the message alone.",
+      "kind": "convention",
+      "members": ["t1/batch_023#15"]
+    },
+    {
+      "rule": "Add a bullet to a provider's `changelog.rst` only when that provider's own source files change; a PR touching only another provider's tests gets no entry.",
+      "category": "docs",
+      "trigger": "A new bullet in `providers/<name>/docs/changelog.rst` for a diff limited to test files of a different provider",
+      "rationale": "Changelog entries drive provider releases and tell users what changed in the shipped package; test-only churn elsewhere changes nothing they can observe.",
+      "kind": "convention",
+      "members": ["t1/batch_023#3"]
+    },
+    {
+      "rule": "Place forward-looking compatibility notes in a provider changelog above the upcoming release section, never inside or below an already-published release block.",
+      "category": "docs",
+      "trigger": "A `.. note::` or compatibility banner inserted into or after an existing versioned release block in `changelog.rst`",
+      "rationale": "Published release blocks are historical records; a note about future support inside one misattributes it to a release that never carried it.",
+      "kind": "convention",
+      "members": ["t1/batch_023#4"]
+    },
+    {
+      "rule": "Add new provider documentation as `.rst` files wired into the existing docs structure, not as standalone `.md` files.",
+      "category": "docs",
+      "trigger": "A new `.md` file added under `providers/*/docs/`",
+      "rationale": "The provider docs are built by Sphinx from the RST tree; a Markdown file is never rendered or linked from the published site.",
+      "kind": "convention",
+      "members": ["t1/batch_023#5"]
+    },
+    {
+      "rule": "Raise a dependency version floor — on a cross-provider `apache-airflow-providers-*` requirement or on an optional extra — only for a genuinely breaking change; an additive parameter with a `None` default or a new optional feature does not justify one.",
+      "category": "providers",
+      "trigger": "A new or raised `>=x.y.z` constraint in a provider `pyproject.toml` accompanying a purely additive change",
+      "rationale": "Every unnecessary floor narrows the installable version matrix and forces upgrades on users who do not use the new feature.",
+      "kind": "convention",
+      "members": ["t1/batch_023#6", "t1/batch_023#7"]
+    },
+    {
+      "rule": "Reuse Airflow's established name for a concept instead of inventing a synonym: `run_after` for the DAG run scheduling timestamp, `wait_for_completion` for the wait-for-finish flag, and an `a`-prefixed method name (`aget_connection`) for the async variant of an existing method.",
+      "category": "naming",
+      "trigger": "A new or renamed parameter/method using `logical_date` or `date` for scheduling time, `wait_for_termination` for a completion flag, or an `async_`-prefixed name where a sync counterpart exists",
+      "rationale": "These names appear across operators, hooks and the SDK; a synonym forces users to learn two vocabularies for the same concept and breaks the reader's ability to guess an API.",
+      "kind": "convention",
+      "members": ["t1/batch_023#8", "t1/batch_025#8", "t1/batch_028#2"]
+    },
+    {
+      "rule": "Pass camelCase REST API field names (e.g. `definitionBody`, `routineType`) — not Python SDK attribute names (`body`, `type_`) — in the `fields`/update-mask argument of Google client update methods.",
+      "category": "api-design",
+      "trigger": "A writable-properties constant built from Python attribute names and passed as `fields` to a Google client update call",
+      "rationale": "The update mask is sent to the REST API, which knows only its own field names; Python attribute spellings are silently ignored, so the update does nothing.",
+      "kind": "convention",
+      "members": ["t1/batch_023#9"]
+    },
+    {
+      "rule": "Name provider system test files after the existing files in the same system-test folder; do not append a `_system` suffix.",
+      "category": "testing",
+      "trigger": "A new file under `providers/*/tests/system/` named `test_<service>_system.py`",
+      "rationale": "The system test runner and the docs that embed these files rely on the established naming; an off-pattern name is not picked up.",
+      "kind": "convention",
+      "members": ["t1/batch_024#0"]
+    },
+    {
+      "rule": "Document a hook's connection configuration behaviour in its docstring: which `extra` keys are supported and in what precedence order, and exactly when a keyless fallback such as Application Default Credentials applies versus when an explicit key is still required.",
+      "category": "docs",
+      "trigger": "A hook connection-init or auth method that adds conditional key-file skipping or several `extra.get(...)` branches without a matching `:param ...:`/docstring description",
+      "rationale": "Connection setup is the part of a provider users configure by hand; undocumented precedence and fallback rules are only discoverable by reading the hook source.",
+      "kind": "convention",
+      "members": ["t1/batch_024#1", "t1/batch_027#11"]
+    },
+    {
+      "rule": "Read boolean Airflow configuration values with `conf.getboolean()`, never `conf.get()`.",
+      "category": "correctness",
+      "trigger": "`conf.get(\"<section>\", \"<key>\", fallback=...)` for a key used as a boolean elsewhere",
+      "rationale": "`conf.get` returns a string, so the literal `\"False\"` is truthy and the option silently cannot be turned off.",
+      "kind": "convention",
+      "members": ["t1/batch_024#3"]
+    },
+    {
+      "rule": "Use the same `fallback=` value for every read of the same configuration (section, key) pair within a module.",
+      "category": "correctness",
+      "trigger": "Two or more `conf.get*()` calls for one (section, key) pair with different `fallback=` values in the same file",
+      "rationale": "Divergent fallbacks make behaviour depend on which code path runs first when the option is unset.",
+      "kind": "convention",
+      "members": ["t1/batch_024#4"]
+    },
+    {
+      "rule": "Provider documentation links must use the canonical `https://airflow.apache.org/docs/apache-airflow-providers-<name>/` form; do not omit the `-providers-` segment.",
+      "category": "docs",
+      "trigger": "An RST hyperlink to `https://airflow.apache.org/docs/apache-airflow-<name>/`",
+      "rationale": "The published docs are hosted under the providers path, so the short form is a dead link the moment the package is released.",
+      "kind": "convention",
+      "members": ["t1/batch_024#6"]
+    },
+    {
+      "rule": "Each release version heading must appear exactly once in a provider's `changelog.rst`.",
+      "category": "docs",
+      "trigger": "A version heading plus RST underline that already exists earlier in the same changelog file",
+      "rationale": "Duplicate headings break the rendered changelog and the release tooling that parses it.",
+      "kind": "convention",
+      "members": ["t1/batch_024#7"]
+    },
+    {
+      "rule": "Namespace a new provider by vendor, not by service: `package-name` in `provider.yaml` must be `apache-airflow-providers-<vendor>`, and a hook's `conn_type` must be vendor-qualified (e.g. `ibm_mq`) rather than a generic protocol category (`mq`).",
+      "category": "providers",
+      "trigger": "A `provider.yaml` declaring `apache-airflow-providers-<vendor>-<service>`, or a hook declaring a generic `conn_type` such as `mq`, `queue` or `stream`",
+      "rationale": "Amazon and Google consolidate every service under one vendor package, and `conn_type` is a global registry where a generic name collides with the next vendor implementing the same protocol.",
+      "kind": "convention",
+      "members": ["t1/batch_024#8", "t1/batch_024#9"]
+    },
+    {
+      "rule": "Instantiate `MessageQueueTrigger` with `queue=` carrying the full URI; `scheme=` takes only a scheme and raises `ValueError` at DAG parse time when given a URI.",
+      "category": "correctness",
+      "trigger": "`MessageQueueTrigger(scheme=\"<scheme>://...\")` in a DAG or example",
+      "rationale": "The failure happens during parsing, so the whole DAG file fails to import rather than the task failing at runtime.",
+      "kind": "convention",
+      "members": ["t1/batch_024#10"]
+    },
+    {
+      "rule": "Items of `triggering_asset_events` are `AssetEvent` ORM objects: read their payload via the `.extra` attribute, not by dict-key subscription.",
+      "category": "correctness",
+      "trigger": "Square-bracket key access such as `event[\"payload\"]` on an item iterated from `triggering_asset_events`",
+      "rationale": "Subscripting the ORM object raises `TypeError` at task runtime, and example DAGs that do it are copied by users.",
+      "kind": "convention",
+      "members": ["t1/batch_024#11"]
+    },
+    {
+      "rule": "Target `@patch` at the symbol as the module under test imports it; patching a path the module never imports is a silent no-op.",
+      "category": "testing",
+      "trigger": "`@patch(\"airflow.providers.<pkg>.hooks.<module>.<name>\")` where `<name>` is not imported by that module",
+      "rationale": "Standard mock-library advice about patch targets, not a repo-specific expectation.",
+      "kind": "incident",
+      "members": ["t1/batch_024#12"]
+    },
+    {
+      "rule": "Async hook tests must exercise the real method body with only the underlying I/O primitives patched, rather than patching the method under test itself.",
+      "category": "testing",
+      "trigger": "`patch.object(hook, 'consume', side_effect=[...])` (or equivalent) replacing the very method the test claims to cover",
+      "rationale": "Generic testing advice about not mocking the unit under test.",
+      "kind": "incident",
+      "members": ["t1/batch_024#13"]
+    },
+    {
+      "rule": "A provider's docs requirements table must list exactly the packages declared in that provider's `pyproject.toml` dependencies — no extras, no omissions.",
+      "category": "providers",
+      "trigger": "A row in the Requirements table of `providers/*/docs/index.rst` naming a package absent from the provider's `pyproject.toml`",
+      "rationale": "The table is the published statement of what installing the provider pulls in; drift makes it a false promise.",
+      "kind": "convention",
+      "members": ["t1/batch_025#0"]
+    },
+    {
+      "rule": "Every provider hook that declares a custom `conn_type` must have a matching `hooks:` block and `connection-types:` entry in the provider's `provider.yaml`.",
+      "category": "providers",
+      "trigger": "A hook class with `conn_type = \"<custom>\"` and no corresponding `connection-types:` entry in `provider.yaml`",
+      "rationale": "`provider.yaml` is what makes the connection type discoverable in the UI and the generated docs; without it the hook exists but users cannot configure a connection for it.",
+      "kind": "convention",
+      "members": ["t1/batch_025#1"]
+    },
+    {
+      "rule": "Providers must not re-implement operators that already exist in airflow-core or the standard provider (e.g. `EmptyOperator`); point users at the core operator instead.",
+      "category": "providers",
+      "trigger": "A new provider operator whose behaviour duplicates a core/standard operator, such as a no-op or passthrough task",
+      "rationale": "Duplicates fragment the operator surface users have to learn and drift from the core implementation's behaviour over time.",
+      "kind": "convention",
+      "members": ["t1/batch_025#2"]
+    },
+    {
+      "rule": "Provider code (hooks, listeners, plugins) must not call `settings.configure_orm()`; ORM setup belongs to the scheduler/executor process that hosts the provider code.",
+      "category": "providers",
+      "trigger": "A `settings.configure_orm()` call anywhere under `providers/`",
+      "rationale": "Re-configuring the ORM from provider code re-points the session factory for the whole process, affecting every other component running in it.",
+      "kind": "convention",
+      "members": ["t1/batch_025#3"]
+    },
+    {
+      "rule": "Provider unit tests must build `Connection` fixtures with the provider's own `conn_type`, not a generic type such as `http`.",
+      "category": "testing",
+      "trigger": "A test under `providers/*/tests/` creating a `Connection(conn_type=\"http\")` for a hook that declares its own `conn_type`",
+      "rationale": "Hook lookup and connection-form behaviour key off `conn_type`, so a generic type tests a path users never take.",
+      "kind": "convention",
+      "members": ["t1/batch_025#4"]
+    },
+    {
+      "rule": "Every `__init__.py` in an `airflow/providers/` namespace directory must contain the legacy pkgutil namespace line `__path__ = __import__(\"pkgutil\").extend_path(__path__, __name__)`; empty or implicit-namespace `__init__.py` files are not acceptable.",
+      "category": "providers",
+      "trigger": "A new `__init__.py` under `providers/` (or `airflow/providers/`) that is empty or omits the `extend_path` line",
+      "rationale": "Providers are separately installed distributions sharing one `airflow.providers` package path; pkgutil namespaces are what let them coexist in the same environment.",
+      "kind": "convention",
+      "members": ["t1/batch_025#5"]
+    },
+    {
+      "rule": "Use proper RestructuredText footnote syntax in provider docs rather than plain bracketed numbers like `[1]`.",
+      "category": "docs",
+      "trigger": "A `[N]` reference in `providers/*/docs/*.rst` that is not a real RST footnote or citation",
+      "rationale": "A bare bracketed number renders as literal text with no link to its target.",
+      "kind": "convention",
+      "members": ["t1/batch_025#6"]
+    },
+    {
+      "rule": "When a provider hook is fully async, the operator on top of it must wait exclusively through defer/trigger; do not add a synchronous polling path gated by `deferrable=False`.",
+      "category": "async",
+      "trigger": "A non-deferrable `while True` / `time.sleep` polling loop added to an operator whose hook is async",
+      "rationale": "A blocking loop occupies a worker slot for the whole wait, which is precisely what the async hook and trigger exist to avoid.",
+      "kind": "convention",
+      "members": ["t1/batch_025#7"]
+    },
+    {
+      "rule": "Adding deferrable mode to a provider operator requires both an update to that operator's RST docs page and a `providers/<pkg>/newsfragments/<pr>.feature.rst` newsfragment.",
+      "category": "docs",
+      "trigger": "A diff adding `self.defer(...)` to a provider operator with no newsfragment file and/or no operator docs update",
+      "rationale": "Deferrable mode is a user-visible feature that must appear in the provider's release notes and in the guide users configure it from.",
+      "kind": "convention",
+      "members": ["t1/batch_025#9"]
+    },
+    {
+      "rule": "Build Azure blob names and paths with `posixpath.join`, never `os.path.join`.",
+      "category": "correctness",
+      "trigger": "`os.path.join` used to construct a blob name or path in an Azure hook or transfer",
+      "rationale": "Blob names are always forward-slash separated, so `os.path.join` produces backslash-separated names on Windows workers.",
+      "kind": "convention",
+      "members": ["t1/batch_025#10"]
+    },
+    {
+      "rule": "Use `str.removeprefix()` rather than `str.replace(prefix, \"\", 1)` when stripping a known leading prefix.",
+      "category": "correctness",
+      "trigger": "`.replace(prefix, \"\", 1)` used to strip a leading path prefix",
+      "rationale": "General Python idiom advice that carries no repository-specific judgement.",
+      "kind": "incident",
+      "members": ["t1/batch_025#11"]
+    },
+    {
+      "rule": "A trigger's timeout branch must always yield a `TriggerEvent` carrying the timeout status and a descriptive reason: do not `break`/`return` out of the polling loop, and wrap any cancellation side-effect in its own try/except so a failed cancel cannot replace the timeout event.",
+      "category": "async",
+      "trigger": "A polling loop in `providers/*/triggers/*.py` that reaches its timeout condition and breaks without yielding, or performs a cancel call in the timeout branch outside a dedicated try/except",
+      "rationale": "A trigger that ends without yielding leaves the deferred task hanging, and a cancellation error surfacing instead of the timeout reports the wrong cause to the user.",
+      "kind": "convention",
+      "members": ["t1/batch_025#12", "t1/batch_025#13"]
+    },
+    {
+      "rule": "An `AirflowPlugin` subclass docstring must describe only the events the plugin actually registers and handles.",
+      "category": "docs",
+      "trigger": "A plugin docstring claiming to handle event types (e.g. DAG run events) that the plugin body does not implement",
+      "rationale": "Plugin docstrings are how integrators decide what a listener covers; an aspirational one leads them to expect callbacks that never fire.",
+      "kind": "convention",
+      "members": ["t1/batch_025#14"]
+    },
+    {
+      "rule": "Assertions on `trigger.serialize()` must check that the result is a tuple, that the class path string matches the trigger's `__module__`/`__name__`, and that the full kwargs dict is as expected.",
+      "category": "testing",
+      "trigger": "A test destructuring `trigger.serialize()` without verifying the tuple type or the fully-qualified class path",
+      "rationale": "The serialized class path is what the triggerer uses to rebuild the trigger, so a wrong or moved path only fails in production if the test does not assert on it.",
+      "kind": "convention",
+      "members": ["t1/batch_026#0"]
+    },
+    {
+      "rule": "Build trigger deadline values in tests with the same clock the trigger implementation uses; never mix `time.time()` in the test with `time.monotonic()` in the trigger.",
+      "category": "async",
+      "trigger": "A test constructing a deadline such as `END_TIME = time.time() + ...` for a trigger whose implementation reads `time.monotonic()`",
+      "rationale": "The two clocks have unrelated epochs, so the deadline is meaningless and the test asserts on accidental behaviour.",
+      "kind": "convention",
+      "members": ["t1/batch_026#1"]
+    },
+    {
+      "rule": "A task log handler's `delete_local_copy` must remove only the uploaded log file (`path.unlink()`), never its parent directory via `shutil.rmtree()`.",
+      "category": "correctness",
+      "trigger": "`shutil.rmtree(os.path.dirname(log_file))` in a task log handler's upload-and-delete path",
+      "rationale": "The parent directory holds logs for other attempts and tasks, which the handler has no business deleting.",
+      "kind": "convention",
+      "members": ["t1/batch_026#10"]
+    },
+    {
+      "rule": "A `ClassVar` dict used as an in-process cache in a provider utility is acceptable because provider worker processes are short-lived.",
+      "category": "performance",
+      "trigger": "A reviewer questioning whether a `ClassVar[dict]` cache in a provider utility can grow unboundedly",
+      "rationale": "This records the answer to a review question rather than an expectation a diff can violate.",
+      "kind": "incident",
+      "members": ["t1/batch_026#11"]
+    },
+    {
+      "rule": "Read fields that exist directly on the `DagRun` model (e.g. `dagrun.team_name`) from the object itself instead of re-deriving them through `dag_version_info()`.",
+      "category": "correctness",
+      "trigger": "A `cls.dag_version_info(dagrun, \"field_name\")` call for a field that is a plain attribute on `DagRun`",
+      "rationale": "The indirection adds a lookup that can disagree with the authoritative attribute on the run.",
+      "kind": "convention",
+      "members": ["t1/batch_026#12"]
+    },
+    {
+      "rule": "Redis provider triggers and queue providers must take host and port exclusively from `redis_conn_id`; do not parse `host:port` out of the queue URI.",
+      "category": "providers",
+      "trigger": "A Redis queue provider or `AwaitMessageTrigger` that parses host/port from the queue URI string",
+      "rationale": "Connection details belong in the Airflow connection so credentials and TLS settings stay in one managed place rather than inline in DAG code.",
+      "kind": "convention",
+      "members": ["t1/batch_026#13"]
+    },
+    {
+      "rule": "When refactoring the OpenLineage extractor manager's no-extractor branch, keep the `unknownSourceAttribute` facet and the inlets/outlets fallback intact under the default `hook_lineage=True` configuration.",
+      "category": "providers",
+      "trigger": "A change to the else/elif branching around `extract_metadata`'s no-extractor path in `openlineage/extractors/manager.py`",
+      "rationale": "Describes a specific regression a single refactor introduced in one branch, not a standing rule.",
+      "kind": "incident",
+      "members": ["t1/batch_026#2"]
+    },
+    {
+      "rule": "Update `tests/unit/openlineage/plugins/test_manager.py` whenever the OpenLineage extractor manager's branching changes.",
+      "category": "testing",
+      "trigger": "A change to `openlineage/extractors/manager.py` with no corresponding test change",
+      "rationale": "Generic keep-tests-in-step advice tied to one file pair.",
+      "kind": "incident",
+      "members": ["t1/batch_026#3"]
+    },
+    {
+      "rule": "When a provider moves an import from an airflow-core module to `airflow.providers.common.compat.sdk`, bump the provider's minimum required airflow-core version indicator used by the release manager in the same change.",
+      "category": "providers",
+      "trigger": "A diff replacing `from airflow.listeners import ...` (or another core import) with the `common.compat.sdk` equivalent without touching the minimum core version",
+      "rationale": "The compat module only provides the symbol from a certain core version onwards, so the declared minimum is what stops the provider being installed where the import fails.",
+      "kind": "convention",
+      "members": ["t1/batch_026#5"]
+    },
+    {
+      "rule": "Do not call `logging.shutdown()` from a provider listener without proving the call cannot affect global Airflow logging.",
+      "category": "providers",
+      "trigger": "A `logging.shutdown()` added inside a provider's listener plugin",
+      "rationale": "Listeners run inside the scheduler and task processes, so shutting logging down there silences the host component's own logs.",
+      "kind": "convention",
+      "members": ["t1/batch_026#6"]
+    },
+    {
+      "rule": "The install hint in an `AirflowOptionalProviderFeatureException` must read `pip install --upgrade <package>`, not a bare `pip install <package>`.",
+      "category": "providers",
+      "trigger": "An `AirflowOptionalProviderFeatureException` message containing an install hint without `--upgrade`",
+      "rationale": "The dependency is usually already installed at too old a version, so a plain install is a no-op and the user is left stuck.",
+      "kind": "convention",
+      "members": ["t1/batch_026#7"]
+    },
+    {
+      "rule": "In the Postgres hook, do not skip psycopg3 notice logging with an early return when `enable_log_db_messages=True`; implement the psycopg3 notice handling instead.",
+      "category": "providers",
+      "trigger": "`if USE_PSYCOPG3 or not self.enable_log_db_messages: return` before the notice-logging loop in `postgres.py`",
+      "rationale": "A specific shortcut taken in one psycopg3 migration PR, not a general expectation.",
+      "kind": "incident",
+      "members": ["t1/batch_026#8"]
+    },
+    {
+      "rule": "A retryable-error tuple in the Postgres hook must list the narrowest psycopg exception subclasses (e.g. `UndefinedColumn`, `UndefinedTable`) from the matching package — `psycopg` for v3, `psycopg2` for v2 — never a broad class such as `OperationalError`.",
+      "category": "database",
+      "trigger": "A `_POSTGRES_RETRYABLE_ERRORS` tuple containing `OperationalError` or another broad psycopg exception class",
+      "rationale": "Retrying on a broad class re-runs statements after genuine connection and authentication failures, turning a clear error into repeated timeouts.",
+      "kind": "convention",
+      "members": ["t1/batch_026#9"]
+    },
+    {
+      "rule": "Assert a mock was called exactly once (`assert_called_once()` or a `call_count` check) before inspecting `call_args`.",
+      "category": "testing",
+      "trigger": "Access to `mock_*.call_args` with no preceding call-count assertion",
+      "rationale": "Standard mock-library advice with no repository-specific content.",
+      "kind": "incident",
+      "members": ["t1/batch_027#0"]
+    },
+    {
+      "rule": "Type-stub packages (`types-*`) belong in a provider's dev/type-check dependency group, never in its runtime `[project] dependencies`.",
+      "category": "providers",
+      "trigger": "A `types-*` package added to the runtime `dependencies` list of a provider `pyproject.toml`",
+      "rationale": "Stubs are build-time artefacts; shipping them forces every runtime install to pull packages that do nothing at runtime.",
+      "kind": "convention",
+      "members": ["t1/batch_027#1"]
+    },
+    {
+      "rule": "Initialise expensive provider clients and connections in a `@cached_property`, not eagerly in `Hook.__init__`.",
+      "category": "providers",
+      "trigger": "A provider client, session or sub-hook constructed directly in `Hook.__init__`",
+      "rationale": "Hooks are instantiated during DAG parsing and templating where no connection should be opened; the cached property defers the work to first real use.",
+      "kind": "convention",
+      "members": ["t1/batch_027#10"]
+    },
+    {
+      "rule": "Provider logo and image assets must live under the `providers/` tree, not in a parallel top-level `registry/` folder.",
+      "category": "providers",
+      "trigger": "Image or logo files added under `registry/` rather than `providers/<name>/`",
+      "rationale": "Assets outside the provider directory are not part of the released provider distribution.",
+      "kind": "convention",
+      "members": ["t1/batch_027#12"]
+    },
+    {
+      "rule": "Test whether a sentinel is unset with the `is_arg_set()` helper from `airflow.serialization.definitions.notset` rather than an inline `is NOTSET` comparison, and annotate the parameter with `ArgNotSet` in its type signature.",
+      "category": "correctness",
+      "trigger": "An `if value is NOTSET` check without `is_arg_set()` and without `ArgNotSet` in the parameter annotation",
+      "rationale": "The helper and the annotation are what make the unset sentinel visible to type checking and serialization; inline identity checks silently diverge from it.",
+      "kind": "convention",
+      "members": ["t1/batch_027#13"]
+    },
+    {
+      "rule": "Extract repeated `str | datetime | None` type-dispatch into a shared utility rather than duplicating the `isinstance` block per method.",
+      "category": "api-design",
+      "trigger": "The same `isinstance(value, (str, datetime.datetime))` dispatch block repeated in more than one method",
+      "rationale": "Generic de-duplication advice with no repository-specific content.",
+      "kind": "incident",
+      "members": ["t1/batch_027#14"]
+    },
+    {
+      "rule": "Pass the Alembic revision message as a single quoted string rather than `\"${@}\"` when generating migrations from a shell script.",
+      "category": "correctness",
+      "trigger": "`\"${@}\"` passed as the `-m` argument to `alembic revision --autogenerate`",
+      "rationale": "A one-off quoting bug in a single container script.",
+      "kind": "incident",
+      "members": ["t1/batch_027#15"]
+    },
+    {
+      "rule": "A behaviour change to a public provider hook method — different return shape, different filtering — must be recorded in that provider's `docs/changelog.rst` under the next release.",
+      "category": "providers",
+      "trigger": "A diff altering the return value or filtering logic of an existing public hook method with no changelog entry",
+      "rationale": "Users pin provider versions and read the changelog to decide whether an upgrade is safe; an unannounced behaviour change breaks their DAGs without warning.",
+      "kind": "convention",
+      "members": ["t1/batch_027#2"]
+    },
+    {
+      "rule": "A process-wide singleton pool must not implement `__aenter__`/`__aexit__`; expose an explicit lifecycle hook instead of pretending to have a scoped lifetime.",
+      "category": "async",
+      "trigger": "`__aenter__`/`__aexit__` added to a class that registers itself in a module-level `_instances` dict",
+      "rationale": "Context-manager syntax invites callers to close a resource shared by every other user of the singleton in the process.",
+      "kind": "convention",
+      "members": ["t1/batch_027#4"]
+    },
+    {
+      "rule": "Put `AIRFLOW_V_x_y_PLUS` version gating for notifier behaviour in `BaseNotifier` rather than repeating the guard in each concrete notifier.",
+      "category": "providers",
+      "trigger": "An `if AIRFLOW_V_x_y_PLUS:` guard added inside a concrete `Notifier.__init__` or `notify()`",
+      "rationale": "Every notifier faces the same core-version difference, so a per-notifier guard guarantees some of them are eventually missed.",
+      "kind": "convention",
+      "members": ["t1/batch_027#5"]
+    },
+    {
+      "rule": "Log the error response body before calling `response.raise_for_status()` against a provider API.",
+      "category": "providers",
+      "trigger": "A `response.raise_for_status()` with no preceding log of the response body on 4xx/5xx",
+      "rationale": "`raise_for_status` discards the body, which is where these vendor APIs put the actual reason for the rejection.",
+      "kind": "convention",
+      "members": ["t1/batch_027#6"]
+    },
+    {
+      "rule": "Expose the timeout for a long-running provider API call as a constructor parameter on the operator/hook rather than fixing it in a module-level constant.",
+      "category": "providers",
+      "trigger": "A module-level `*_TIMEOUT` constant gating an HTTP request to an ML/agent/query workload with no matching constructor parameter",
+      "rationale": "How long these workloads take is deployment-specific; a module constant leaves users no way to adjust it short of patching the provider.",
+      "kind": "convention",
+      "members": ["t1/batch_027#7"]
+    },
+    {
+      "rule": "In a deferrable operator, push the query/job identifier to XCom as soon as it is obtained, before entering the poll or defer, not after the wait completes.",
+      "category": "correctness",
+      "trigger": "An `xcom_push` for a query/job id placed after the polling loop in a deferrable operator's `execute`",
+      "rationale": "If the task fails or is killed during the wait, the identifier is the only way to find and clean up the remote job — and it is lost if it was never pushed.",
+      "kind": "convention",
+      "members": ["t1/batch_027#8"]
+    },
+    {
+      "rule": "Handle symbols that moved or were added across versions with `try/except ImportError` fallbacks — stdlib first, then the backport — rather than `if AIRFLOW_V_x_y_PLUS` version branches.",
+      "category": "correctness",
+      "trigger": "An `if AIRFLOW_V_x_y_PLUS: from airflow.sdk... else: from airflow.sensors...` import split, or a bare `from typing_extensions import NotRequired` with no stdlib guard",
+      "rationale": "The import either works or it does not; testing for it directly stays correct across the whole supported version range without a table of version constants to maintain.",
+      "kind": "convention",
+      "members": ["t1/batch_027#9", "t1/batch_029#2"]
+    },
+    {
+      "rule": "Mutate an Airflow `ContextVar` with the token/reset pattern — capture the token from `.set()` and `.reset(token)` in a `finally` — following the precedent in `initdb()`.",
+      "category": "correctness",
+      "trigger": "A `ContextVar.set()` whose token is not stored and never `.reset()` in a `finally` block",
+      "rationale": "Without the reset the variable leaks into whatever runs next on the same context, which in a scheduler or test process is unrelated work.",
+      "kind": "convention",
+      "members": ["t1/batch_028#0"]
+    },
+    {
+      "rule": "Do not assert on log output with `caplog`; assert on observable behaviour or return values instead.",
+      "category": "testing",
+      "trigger": "A test importing or using pytest's `caplog` fixture to assert on logged messages",
+      "rationale": "Log text is not part of the contract under test, and structlog configuration in this repo makes capture-based assertions fragile.",
+      "kind": "convention",
+      "members": ["t1/batch_028#1"]
+    },
+    {
+      "rule": "Tests for SecretsMasker exception redaction must traverse the whole exception chain: attach a secret via `__cause__`/`__context__` and assert it is redacted, and include a cross-attribute cycle (`exc1.__cause__ = exc2; exc2.__context__ = exc1`) to prove the visited-set guard holds.",
+      "category": "testing",
+      "trigger": "A redaction test that only inspects `exc.args`, or a circular-chain test that covers only same-attribute cycles",
+      "rationale": "Secrets leak through chained exceptions as readily as through the primary one, and the cycle guard is exactly the code a same-attribute-only test cannot exercise.",
+      "kind": "convention",
+      "members": ["t1/batch_028#9", "t1/batch_028#10"]
+    },
+    {
+      "rule": "Task SDK documentation examples showing an async `@task` function must include the enclosing `@dag`-decorated wrapper so the snippet is a runnable DAG file.",
+      "category": "docs",
+      "trigger": "An `.rst`/`.md` example defining an `@task` function and calling it at module level with no `@dag` function around it",
+      "rationale": "Users copy these snippets verbatim; a fragment that calls a task at module level does not parse as a DAG.",
+      "kind": "convention",
+      "members": ["t1/batch_028#11"]
+    },
+    {
+      "rule": "The `check_provide_session_kwargs` hook tests must cover the bypass path where an allowlist entry is removed or newly added, not only where an existing entry's count is loosened.",
+      "category": "testing",
+      "trigger": "Tests for `_expand_for_allowlist_edits` exercising only the increased-count case",
+      "rationale": "A specific coverage gap identified in one PR's tests.",
+      "kind": "incident",
+      "members": ["t1/batch_028#12"]
+    },
+    {
+      "rule": "Pre-commit hook tests must pass `Path.resolve()`d paths so they match the production hook's path normalisation.",
+      "category": "testing",
+      "trigger": "A hook test passing a raw path where the production code calls `Path(f).resolve()` before comparing",
+      "rationale": "A specific mismatch corrected in one PR's tests.",
+      "kind": "incident",
+      "members": ["t1/batch_028#13"]
+    },
+    {
+      "rule": "A shared metrics registry must key every instrument type the same way, or keep separate sub-maps per instrument type, so gauges and histograms cannot collide in one slot.",
+      "category": "correctness",
+      "trigger": "A `MetricsMap`-style registry keying one instrument type by name alone and another by name plus tags, or storing all instrument types in one dict",
+      "rationale": "Mixed key schemes in one dict let a gauge silently overwrite a histogram registered under the same name.",
+      "kind": "convention",
+      "members": ["t1/batch_028#14"]
+    },
+    {
+      "rule": "When a class reads an Airflow config value to supply an argument default, add a regression test that changes that config key before constructing the object and asserts the default is picked up.",
+      "category": "testing",
+      "trigger": "An `__init__` reading `conf.get*` for a default with no test that constructs the class after modifying that section/key",
+      "rationale": "Config-driven defaults are easy to wire to the wrong section or key, and nothing else in the test suite exercises that lookup.",
+      "kind": "convention",
+      "members": ["t1/batch_028#3"]
+    },
+    {
+      "rule": "Insert new entries into `airflow/sdk/__init__.py`'s `__all__` and lazy-import dict in alphabetical position, not appended at the end.",
+      "category": "api-design",
+      "trigger": "A symbol added to `__all__` or the lazy-import dict in `task-sdk/src/airflow/sdk/__init__.py` out of alphabetical order",
+      "rationale": "The alphabetical ordering is what keeps this heavily-edited public export list reviewable and merge-conflict-free.",
+      "kind": "convention",
+      "members": ["t1/batch_028#5"]
+    },
+    {
+      "rule": "In the Java coordinator, register the stdout/stderr socketpair pipe readers before starting the connection accept loop.",
+      "category": "correctness",
+      "trigger": "`_accept_connections` called before `_register_pipe_readers` on the socketpair write-ends handed to the subprocess",
+      "rationale": "A specific ordering defect in one coordinator implementation.",
+      "kind": "incident",
+      "members": ["t1/batch_028#6"]
+    },
+    {
+      "rule": "Language-agnostic coordinator plumbing — `_start_server`, `_accept_connections`, socketpair setup — belongs in `BaseCoordinator`, not duplicated in each per-language coordinator.",
+      "category": "api-design",
+      "trigger": "A new coordinator under `task-sdk/src/airflow/sdk/coordinators/` re-implementing socket server startup or accept helpers that are not runtime-specific",
+      "rationale": "Every language SDK needs the same socket handshake; duplicating it means each new language re-derives (and re-breaks) the same protocol details.",
+      "kind": "convention",
+      "members": ["t1/batch_028#7"]
+    },
+    {
+      "rule": "A language coordinator's constructor arguments need only make sense for its own runtime; do not copy another coordinator's argument names or types for the sake of symmetry.",
+      "category": "api-design",
+      "trigger": "A coordinator given argument names or types mirroring a different language's coordinator rather than idiomatic ones for its runtime",
+      "rationale": "These coordinators are configured independently per language, so forced signature symmetry buys nothing and produces arguments that read wrongly in context.",
+      "kind": "convention",
+      "members": ["t1/batch_028#8"]
+    },
+    {
+      "rule": "In Task SDK coordinator modules, log caught exceptions with `exc_info=True` as a structlog keyword rather than `error=str(exc)`.",
+      "category": "correctness",
+      "trigger": "`log.debug(..., error=str(exc))` or `log.warning(..., error=str(exc))` under `task-sdk/src/airflow/sdk/coordinators/`",
+      "rationale": "Stringifying the exception throws away the traceback, which is the only thing that makes these subprocess failures debuggable.",
+      "kind": "convention",
+      "members": ["t1/batch_029#0"]
+    },
+    {
+      "rule": "Do not define a `__version__` attribute inside `airflow.sdk.coordinators.*` sub-packages; the distribution version is exposed only as `airflow.sdk.__version__`.",
+      "category": "api-design",
+      "trigger": "A `__version__ = \"...\"` assignment or `\"__version__\"` in `__all__` under `task-sdk/src/airflow/sdk/coordinators/*/`",
+      "rationale": "Per-subpackage versions imply independent release cadences that do not exist and drift from the real distribution version.",
+      "kind": "convention",
+      "members": ["t1/batch_029#1"]
+    },
+    {
+      "rule": "Wrap every datetime placed into a callback context dict with `coerce_datetime` from `airflow.sdk._shared.timezones`, matching `RuntimeTaskInstance.get_template_context()` and the triggerer-side context builder.",
+      "category": "correctness",
+      "trigger": "A context dict in `callback_supervisor.py` populated with datetime fields from `DagRunResult` or similar without `coerce_datetime()`",
+      "rationale": "Template code and user callbacks expect `pendulum.DateTime` throughout the context; a raw datetime breaks the pendulum-only methods users call on it.",
+      "kind": "convention",
+      "members": ["t1/batch_029#10"]
+    },
+    {
+      "rule": "When renaming a message class in `task-sdk/.../execution_time/comms.py`, update the hardcoded message-type allowlists in `airflow-core/tests/unit/dag_processing/test_processor.py` and `airflow-core/tests/unit/jobs/test_triggerer_job.py` in the same PR.",
+      "category": "testing",
+      "trigger": "A renamed `ToTask`/`ToSupervisor` message class with no corresponding edit to the allowlists in those two core test files",
+      "rationale": "Those allowlists are the sync check between SDK and core message types; leaving them stale breaks the core test suite for an SDK-only change.",
+      "kind": "convention",
+      "members": ["t1/batch_029#11"]
+    },
+    {
+      "rule": "Accumulate partition keys for a task instance in a set rather than a list, matching how asset aliases deduplicate repeated keys.",
+      "category": "correctness",
+      "trigger": "A `attrs.field(factory=list)` partition-keys field on a task-instance context object appended to without deduplication",
+      "rationale": "Repeated keys are expected during a run, and the downstream consumers treat them as a set anyway.",
+      "kind": "convention",
+      "members": ["t1/batch_029#12"]
+    },
+    {
+      "rule": "In Asset lookup code, treat `Asset(uri=...)` as having `name == uri` — the DB storage convention — instead of adding `name is None` branches as a distinct state.",
+      "category": "correctness",
+      "trigger": "None-guarded name/uri paths added to Asset or AssetRef handling in `task-sdk/.../execution_time/context.py` without normalising an absent name to the uri",
+      "rationale": "The database never stores a null asset name, so a `None`-name branch is unreachable state that diverges from what lookups actually match against.",
+      "kind": "convention",
+      "members": ["t1/batch_029#13"]
+    },
+    {
+      "rule": "A concrete Task SDK class exported from the public API must implement every abstract method of its base (including `to_upstream()` on partition mappers); leave it abstract or unexported until it does.",
+      "category": "api-design",
+      "trigger": "A concrete mapper under `task-sdk/src/airflow/sdk/definitions/partition_mappers/` inheriting `RollupMapper` without overriding `to_upstream()`",
+      "rationale": "Anything exported from `airflow.sdk` is a supported API users will instantiate; a partially implemented class fails at DAG runtime instead of at import.",
+      "kind": "convention",
+      "members": ["t1/batch_029#4"]
+    },
+    {
+      "rule": "When a Task SDK API method queries only the metadata database and deliberately skips secrets backends (e.g. `Variable.keys()` versus `Variable.get()`), document the asymmetry and its reason in a `.. note::` block in the docstring.",
+      "category": "docs",
+      "trigger": "A new listing method in `task-sdk/src/airflow/sdk/definitions/variable.py` with no note about secrets-backend exclusion",
+      "rationale": "Users reasonably assume the whole Variable API consults the configured secrets backend; the silent exception produces confusing partial results.",
+      "kind": "convention",
+      "members": ["t1/batch_029#5"]
+    },
+    {
+      "rule": "Exceptions defined in `airflow/sdk/exceptions.py` that are only raised inside the Task SDK must not be imported by airflow-core, including its tests; their tests live in the SDK test tree.",
+      "category": "correctness",
+      "trigger": "An import from `airflow.sdk.exceptions` in airflow-core source or `airflow-core/tests/`",
+      "rationale": "The SDK is a separately versioned distribution; a core import of an SDK-private exception recreates the coupling the split exists to remove.",
+      "kind": "convention",
+      "members": ["t1/batch_029#6"]
+    },
+    {
+      "rule": "`supervise_callback` must call `_make_process_nondumpable()` before spawning its subprocess, exactly as `supervise_task` does.",
+      "category": "security",
+      "trigger": "A `supervise_callback` in `callback_supervisor.py` that spawns a subprocess without `_make_process_nondumpable()`",
+      "rationale": "Callback processes hold notifier tokens and connection passwords in memory; without the dumpable flag cleared a core dump writes them to disk.",
+      "kind": "convention",
+      "members": ["t1/batch_029#7"]
+    },
+    {
+      "rule": "Pass `context` to a callback callable only when `accepts_context` is true and the context value is not `None`; never forward `context=None`.",
+      "category": "correctness",
+      "trigger": "`**callback_kwargs` forwarded unconditionally when `accepts_context()` is true, without checking the context is not None",
+      "rationale": "User callbacks that declare a context parameter assume it is populated; handing them `None` fails inside third-party code rather than at the call site.",
+      "kind": "convention",
+      "members": ["t1/batch_029#8"]
+    },
+    {
+      "rule": "Exception log calls in `callback_supervisor.py` must carry structured identifying fields (`callback_id=`, `pid=`), mirroring the `ActivitySubprocess` pattern in `supervisor.py`.",
+      "category": "correctness",
+      "trigger": "A `log.exception(...)`/`log.error(...)` in `callback_supervisor.py` without `callback_id` or `pid` keywords",
+      "rationale": "Callbacks run concurrently, so an unlabelled traceback cannot be attributed to the callback that failed.",
+      "kind": "convention",
+      "members": ["t1/batch_029#9"]
+    },
+    {
+      "rule": "Size-limit warnings and API error messages in task-SDK execution code must name the worker-side `[workers] state_store_backend` option as the remedy, using the same section name in the asset-store warning and the API errors.",
+      "category": "docs",
+      "trigger": "A size-limit warning or HTTP error in task-sdk execution code naming a `[state_store] backend` option",
+      "rationale": "A specific wrong-config-section fix in one PR's message text.",
+      "kind": "incident",
+      "members": ["t1/batch_030#0"]
+    },
+    {
+      "rule": "When instantiating a user-configured class from a config classpath (`import_string(spec.classpath)(**spec.kwargs)`), catch `ImportError`/`TypeError` and re-raise naming the offending key and classpath, and assert the result `isinstance` of the expected base class before caching it.",
+      "category": "correctness",
+      "trigger": "An `import_string(<spec>.classpath)(**<spec>.kwargs)` for a config-driven plugin or coordinator with no error wrapping and no base-class check",
+      "rationale": "The raw exception names none of the user's configuration, leaving a misconfigured deployment with a traceback that does not identify the offending entry.",
+      "kind": "convention",
+      "members": ["t1/batch_030#1"]
+    },
+    {
+      "rule": "When client-level exception translation replaces an existing error path, keep end-to-end coverage at the supervisor level: replace the removed `test_supervisor.py` test with one asserting the new exception propagates from `ActivitySubprocess.start()`/`supervise` and the child process is killed.",
+      "category": "testing",
+      "trigger": "A diff deleting a test from `task-sdk/tests/task_sdk/execution_time/test_supervisor.py` while adding the equivalent coverage only in `tests/task_sdk/api/test_client.py`",
+      "rationale": "The client-level test proves the translation happens; only the supervisor test proves the supervisor reacts to it and reaps the child.",
+      "kind": "convention",
+      "members": ["t1/batch_030#10"]
+    },
+    {
+      "rule": "Tests that keep a task subprocess alive to exercise signal delivery must bound their worst case to tens of seconds; do not write operator bodies like `for i in range(1000): sleep(1)`.",
+      "category": "testing",
+      "trigger": "A test operator whose `execute` sleeps in a loop with a worst-case total well beyond a minute",
+      "rationale": "If the signal under test fails to arrive, the unbounded sleep becomes the CI job's timeout rather than a fast, legible test failure.",
+      "kind": "convention",
+      "members": ["t1/batch_030#11"]
+    },
+    {
+      "rule": "Use `partition_key` only for exact-match asset-event filtering; any regex or pattern value must go through `partition_key_pattern`, in tests as well as production code.",
+      "category": "correctness",
+      "trigger": "`partition_key=` set to a value containing regex metacharacters in a `GetAssetEventByAsset` message or asset-event query",
+      "rationale": "The exact-match field is compared literally, so a pattern passed there matches nothing while looking like it should work.",
+      "kind": "convention",
+      "members": ["t1/batch_030#12"]
+    },
+    {
+      "rule": "A regression test for a new `sys.exit(...)` inside `run()` must assert more than `SystemExit(1)`: it must also verify `on_failure_callback`, the `on_task_instance_failed` listener and `email_on_failure` still fire for the failed task instance.",
+      "category": "testing",
+      "trigger": "A task-runner test asserting only `pytest.raises(SystemExit)` or an exit code for a failure path introduced by a new `sys.exit()`",
+      "rationale": "An early exit is exactly the change that can skip the failure-notification machinery, and an exit-code assertion cannot see that.",
+      "kind": "convention",
+      "members": ["t1/batch_030#13"]
+    },
+    {
+      "rule": "New language-SDK task registration APIs should follow the two-step registration the Java and Go SDKs use — define the callable, then register the task against a Dag — so Dag-level arguments remain expressible; an inline `registerTask({dagId, taskId}, fn)` must be justified against that path.",
+      "category": "api-design",
+      "trigger": "A task registration entrypoint added or documented under `ts-sdk/` that binds dagId and taskId inline in one call",
+      "rationale": "Whole-Dag definition in the language SDKs is planned; an API that binds the Dag identity into the task call has nowhere to put Dag-level arguments when it lands.",
+      "kind": "convention",
+      "members": ["t1/batch_030#14"]
+    },
+    {
+      "rule": "Every `Socket` created by the ts-sdk coordinator must register an `error` handler at construction that writes the channel name and message to stderr.",
+      "category": "correctness",
+      "trigger": "A `Socket` constructed or stored under `ts-sdk/src/coordinator/` wiring only `data`/`close`/`connect` handlers",
+      "rationale": "An unhandled socket `error` event terminates the Node task process outright, losing the task with no diagnostic.",
+      "kind": "convention",
+      "members": ["t1/batch_030#15"]
+    },
+    {
+      "rule": "Client-side socket reconnection in a language SDK is only correct if the Airflow coordinator accepts a second connection on the same channel; when adding `scheduleReconnect`/backoff logic, verify and cover the coordinator-side re-accept path in the same PR.",
+      "category": "correctness",
+      "trigger": "Reconnect or backoff logic added to a ts-sdk coordinator socket, e.g. `sock.on(\"close\", ...)` calling `this.scheduleReconnect()`",
+      "rationale": "Reconnect logic against a coordinator that never re-accepts turns a single dropped connection into an infinite retry loop that looks healthy from the client side.",
+      "kind": "convention",
+      "members": ["t1/batch_030#16"]
+    },
+    {
+      "rule": "A secrets backend cannot enforce a denial by raising alone: the backend-iteration loops (`_get_connection`, `_async_get_connection`, `_get_variable` in `execution_time/context.py` and the same pattern in `models/connection.py`) swallow every exception with `except Exception: continue`, so a new deny signal must be special-cased and re-raised there in the same change.",
+      "category": "security",
+      "trigger": "A secrets backend made to raise `PermissionError` or another auth-denied exception without changing the backend-fallthrough loops to re-raise it",
+      "rationale": "Otherwise the deny is swallowed and lookup falls through to the next backend, turning an intended refusal into a silent bypass.",
+      "kind": "convention",
+      "members": ["t1/batch_030#2"]
+    },
+    {
+      "rule": "In supervisor message handlers, do not guard Task SDK API client results with `isinstance(resp, XResponse)` plus an `else` branch; client methods return their response model unconditionally and raise `ServerResponseError` on failure, so call `XResult.from_api_response(resp)` directly like the neighbouring handlers.",
+      "category": "correctness",
+      "trigger": "An `isinstance(<resp>, <X>Response)` check with an `else` fallback around a `self.client.<resource>.<method>(...)` call in `supervisor.py`",
+      "rationale": "The else branch is unreachable, and writing it suggests a failure mode the client contract does not have.",
+      "kind": "convention",
+      "members": ["t1/batch_030#3"]
+    },
+    {
+      "rule": "Never print or log a `Connection`, a `ConnectionResult`, or `Connection.get_uri()` output in Task SDK execution paths, including temporary debug prints.",
+      "category": "security",
+      "trigger": "A `print(...)` or logging call interpolating a `Connection`, `conn_result` or `get_uri()` under `task-sdk/src/airflow/sdk/execution_time/`",
+      "rationale": "The connection URI carries the password in cleartext and these logs are shipped to the task log store users and operators can read.",
+      "kind": "convention",
+      "members": ["t1/batch_030#4"]
+    },
+    {
+      "rule": "A tracing helper that no-ops below a configured OTel detail level must return `contextlib.nullcontext(trace.INVALID_SPAN)`, not `trace.INVALID_SPAN` itself, so `with detail_span(...) as span` still works and yields `INVALID_SPAN`.",
+      "category": "correctness",
+      "trigger": "A span wrapper whose disabled branch returns `trace.INVALID_SPAN` while `__enter__` calls `self._ctx.__enter__()`",
+      "rationale": "Returning the span directly removes `__enter__`/`__exit__`, so every call site raises as soon as the detail level is lowered — the configuration that was supposed to be the safe one.",
+      "kind": "convention",
+      "members": ["t1/batch_030#6"]
+    },
+    {
+      "rule": "Do not wrap conn-id filesystem injection for `ObjectStoragePath` in a blanket `except Exception: pass`; set the cached filesystem through `self.fs` and either let the error propagate or suppress only the specific provider-unavailable/scheme-unregistered errors while logging at debug.",
+      "category": "correctness",
+      "trigger": "`attach(...).fs` assigned to `__wrapped__._fs_cached` (or similar) under a bare `except Exception: pass` in `sdk/io/path.py`",
+      "rationale": "The blanket suppression turns a misconfigured connection into a path that silently uses the wrong filesystem instead of failing where the user can see it.",
+      "kind": "convention",
+      "members": ["t1/batch_030#7"]
+    },
+    {
+      "rule": "A comment or docstring that tells the reader to run a benchmark or helper script must name an entrypoint that exists in the tree (e.g. under `dev/`); otherwise add the script in the same PR or drop the instruction.",
+      "category": "docs",
+      "trigger": "A comment or docstring pointing at a `dev/...` script or other repo entrypoint that is not present in the repository",
+      "rationale": "An instruction naming a file nobody can find wastes the next reader's time and cannot be distinguished from a rename that was missed.",
+      "kind": "convention",
+      "members": ["t1/batch_030#9"]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{"pr": 70517,
+ "findings": [
+   {"path": "shared/observability/src/airflow_shared/observability/metrics/statsd_logger.py",
+    "line": 25,
+    "category": "correctness",
+    "message": "This moves statsd out of the TYPE_CHECKING block and imports it at module scope, so importing airflow_shared.observability.metrics.statsd_logger now hard-requires the optional statsd extra. The callers still import this module at their own top level, which means the \"Local import to avoid requiring statsd when other backends are used\" comment they added no longer buys anything - a Datadog-only or metrics-off deployment without apache-airflow[statsd] will get ImportError. Please keep these under TYPE_CHECKING and resolve the concrete classes inside get_udp_statsd_logger / get_socket_statsd_logger."},
+   {"path": "airflow-core/docs/administration-and-deployment/logging-monitoring/metrics.rst",
+    "line": 61,
+    "category": "docs",
+    "message": "This reads backwards to me: statsd's UnixSocketStatsClient opens an AF_UNIX SOCK_DGRAM socket, so the standard StatsD backend wants a *datagram* Unix socket, not a stream one. Getting this wrong is a silent failure - the operator creates the wrong socket type on the daemon side and metrics just stop arriving - so worth double-checking against the pystatsd version we pin before merging."},
+   {"path": "shared/observability/tests/observability/metrics/test_stats.py",
+    "line": 802,
+    "category": "testing",
+    "message": "These two assertions do not hold for the way Airflow actually calls this: airflow-core's and the task SDK's get_dogstatsd_logger always pass host and port, because statsd_host/statsd_port have config defaults and are never None. The test only passes because it calls the shared function directly with them omitted, so it does not cover the \"host/port are ignored when a socket path is set\" behaviour the docs promise. Please drive it through the real caller with a socket path configured."}
+ ]}

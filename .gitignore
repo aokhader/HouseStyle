@@ -130,3 +130,24 @@ data/
 
 # Python build artefacts (belt-and-suspenders)
 *.egg-info/
+
+# ============================================
+# PHASE 2-6 WORKING STORAGE
+# ============================================
+
+# Held-out PR patches and per-condition review inputs: large, and derived
+# entirely from data/. Regenerate with eval.fetch_holdout + run_eval prepare.
+eval/inputs/
+
+# The judge queue carries FULL review comment bodies so an LLM judge can read
+# them. Committed artifacts never reproduce a comment verbatim (see
+# .bob/rules/00-project.md), so this file must stay out of git.
+eval/judge_queue.json
+eval/judge_verdicts.json
+
+# Next.js build output
+dashboard/.next/
+dashboard/out/
+dashboard/node_modules/
+dashboard/tsconfig.tsbuildinfo
+dashboard/next-env.d.ts

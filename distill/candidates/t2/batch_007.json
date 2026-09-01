@@ -1,0 +1,298 @@
+[
+  {
+    "rule": "Deferred task instances must be counted toward `max_active_tis_per_dag`/`max_active_tis_per_dagrun` maps but excluded from the DAG-run active-tasks map that backs `max_active_tasks`, and any divergence between the three limits must be justified in a comment",
+    "category": "correctness",
+    "trigger": "A change to the scheduler's concurrency bookkeeping (`task_concurrency_map`, `task_dagrun_concurrency_map`, `dag_run_active_tasks_map`) adds or removes `TaskInstanceState.DEFERRED` from one map without the same treatment in the others",
+    "rationale": "`max_active_tasks` bounds tasks occupying executor slots, and deferred tasks hold no slot; the per-task limits bound concurrency of the task itself, so the asymmetry is deliberate and must be spelled out or reviewers will read it as a bug",
+    "evidence": [
+      {
+        "pr": 61769,
+        "url": "https://github.com/apache/airflow/pull/61769#discussion_r2837206151",
+        "excerpt": "talks only about tasks taking up executor slots (running state)"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+    ]
+  },
+  {
+    "rule": "Conditions that are expected during normal scheduler races must not be logged at WARNING inside methods the scheduler loop re-runs every iteration; use DEBUG/INFO or aggregate the message",
+    "category": "correctness",
+    "trigger": "A new `self.log.warning(...)` is added to a scheduler-loop helper (e.g. `_create_dag_runs_asset_triggered`) on a branch that leaves its queue/ADRQ rows in place, so the same rows re-enter the branch on the next loop",
+    "rationale": "The scheduler re-runs these helpers continuously; a WARNING on a row that is not consumed repeats forever and drowns real warnings during ordinary operation",
+    "evidence": [
+      {
+        "pr": 62501,
+        "url": "https://github.com/apache/airflow/pull/62501#discussion_r3066503620",
+        "excerpt": "repeated WARNINGs for the same ADRQ rows and create log noise during normal races"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+    ]
+  },
+  {
+    "rule": "When the scheduler and a UI/API route both select a single record from the same pending-work table, both must apply the same ordering so the UI shows the row the scheduler will actually act on",
+    "category": "correctness",
+    "trigger": "A scheduler query adds `.order_by(<Model>.created_at)` (FIFO) over a pending table such as `AssetPartitionDagRun` while a route under `api_fastapi/core_api/routes/ui/` selects the same table with `.order_by(...created_at.desc()).limit(1)`",
+    "rationale": "Divergent ordering makes the UI report progress for one partition key while the scheduler fires a different one, and users cannot tell why the run they were watching is not the one that started",
+    "evidence": [
+      {
+        "pr": 64571,
+        "url": "https://github.com/apache/airflow/pull/64571#discussion_r3268775501",
+        "excerpt": "Pick the same ordering on both sides, or surface multiple pending partitions in the UI"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/jobs/scheduler_job_runner.py",
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/assets.py"
+    ]
+  },
+  {
+    "rule": "Trigger/orphan cleanup queries must express \"no referencing row\" with a correlated `~exists(select(Child.trigger_id).where(Child.trigger_id == Trigger.id))` rather than `Trigger.id.not_in(select(...))`, and must not carry a redundant `is_not(None)` inside the EXISTS",
+    "category": "database",
+    "trigger": "A scheduler/triggerer cleanup query filters unreferenced `Trigger` rows with `not_in(select(...))` over a nullable FK column, or a new referencing table is added to that filter",
+    "rationale": "`NOT IN` over a nullable column silently returns nothing once any referenced row is NULL; the correlated `NOT EXISTS` form is NULL-safe, and reviewers verified both forms produce identical results before the change landed",
+    "evidence": [
+      {
+        "pr": 66210,
+        "url": "https://github.com/apache/airflow/pull/66210#discussion_r3177975481",
+        "excerpt": "good point. i checked same result"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+    ]
+  },
+  {
+    "rule": "Asset partition-date resolution must not let a temporal anchor silently supersede a carried identity-mapper date; if identity and temporal mappers are assumed never to feed the same `target_key`, assert or log that assumption at the resolution site",
+    "category": "correctness",
+    "trigger": "`_resolve_partition_date` (or similar) honours `carried_partition_date` only on the `if not anchors` branch while `return anchors.pop()` wins on every other path, with no comparison or warning when the two disagree",
+    "rationale": "`partition_mapper_config` is per-asset and one APDR can be fed by several assets, so a mixed identity+temporal feed is reachable; relying on it implicitly hides a wrong partition date with no diagnostic",
+    "evidence": [
+      {
+        "pr": 67285,
+        "url": "https://github.com/apache/airflow/pull/67285#discussion_r3442034157",
+        "excerpt": "worth asserting/logging it here rather than relying on it implicitly"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+    ]
+  },
+  {
+    "rule": "A new scheduler Stats counter that records the same information as an existing one must reuse that metric's tag keys (e.g. the tag naming the exception) instead of inventing a second spelling",
+    "category": "api-design",
+    "trigger": "`stats.incr(\"scheduler.<new>\", tags={...})` is added next to an existing metric such as `scheduler.loop_exceptions` using a different tag key for the same value",
+    "rationale": "Metric tags are a consumed contract; two spellings for the same dimension make the two counters impossible to correlate in a dashboard",
+    "evidence": [
+      {
+        "pr": 68068,
+        "url": "https://github.com/apache/airflow/pull/68068#discussion_r3395731837",
+        "excerpt": "why do you use two different tags for the same data"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+    ]
+  },
+  {
+    "rule": "Every code path that emits a metric through `DualStatsManager` must supply all variables `metrics_template.yaml` marks required for that metric name; a base-class default that can return empty tags is not acceptable even when the docstring tells subclasses to override it",
+    "category": "correctness",
+    "trigger": "A `metric_tags()` (or equivalent tag-building) default returns `{}` on a fallback branch, while `metrics_template.yaml` declares `name_variables` such as `hostname` for the metrics that consume it",
+    "rationale": "`get_legacy_stat` raises `ValueError` on missing required variables, and because the gauges are emitted from `run_once()` the failure repeats every tick and wedges the component instead of failing once at construction",
+    "evidence": [
+      {
+        "pr": 66006,
+        "url": "https://github.com/apache/airflow/pull/66006#discussion_r3153724539",
+        "excerpt": "The \"override in subclasses\" docstring is non-binding -- the default needs to be safe"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/jobs/triggerer_job_runner.py"
+    ]
+  },
+  {
+    "rule": "Triggerer per-trigger log files must be closed through a handle stored on the logger factory with an explicit `close()`, mirroring the DAG processor's pattern, not by reaching into structlog internals such as `getattr(raw_logger, \"_file\", None)`",
+    "category": "correctness",
+    "trigger": "New triggerer log-teardown code probes private structlog attributes to find a file object instead of keeping the handle returned by `log_file.open(...)` as an attrs field",
+    "rationale": "The DAG processor already solved this; diverging from that approach means two different teardown mechanisms for the same problem, one of which depends on structlog private attributes that can change",
+    "evidence": [
+      {
+        "pr": 62103,
+        "url": "https://github.com/apache/airflow/pull/62103#discussion_r2828166679",
+        "excerpt": "store the handler and clear it to avoid diversion from that approach"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/jobs/triggerer_job_runner.py"
+    ]
+  },
+  {
+    "rule": "Code reading persisted trigger/callback payloads must keep working with the shape written by the previous minor release; when new top-level keys are absent, fall through to the compatibility path instead of skipping the row",
+    "category": "correctness",
+    "trigger": "A workload-building guard returns early or skips a trigger because `callback_data.get(\"dag_id\")`/`run_id` is None, where older releases stored that context nested (e.g. under `data[\"kwargs\"][\"context\"]`)",
+    "rationale": "During a rolling upgrade the scheduler runs new code over rows written by the old version; skipping them makes the trigger never build a workload, so deadline alerts stall silently with no FAILED state",
+    "evidence": [
+      {
+        "pr": 66608,
+        "url": "https://github.com/apache/airflow/pull/66608#discussion_r3366549043",
+        "excerpt": "so this gate skips the trigger on every loop"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/jobs/triggerer_job_runner.py"
+    ]
+  },
+  {
+    "rule": "A cross-version compatibility test must drive the real entry path that builds the workload, not call the trigger's `run()` directly with hand-built kwargs",
+    "category": "testing",
+    "trigger": "A test named `*_compat` / `*_32x_compat` instantiates the trigger and awaits `run()` itself, while the production path reaches `run()` only after a workload-construction gate",
+    "rationale": "Calling `run()` directly bypasses the gate that actually breaks on old-format rows, so the test stays green while the upgrade path is broken",
+    "evidence": [
+      {
+        "pr": 66608,
+        "url": "https://github.com/apache/airflow/pull/66608#discussion_r3366549043",
+        "excerpt": "calls run() directly, so it passes while this path stays broken"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/jobs/triggerer_job_runner.py",
+      "airflow-core/tests/unit/jobs/"
+    ]
+  },
+  {
+    "rule": "In the triggerer's message dispatch, branches whose handler returns no payload must explicitly assign `resp = OKResponse(ok=True)`, matching how `supervisor.py` dispatches the same message types",
+    "category": "correctness",
+    "trigger": "A new `elif isinstance(msg, <Set|Delete|Clear>...)` branch does `resp, dump_opts = handle_...(...)` for a handler that returns `(None, {})`, leaving `resp` as None",
+    "rationale": "Those handlers return nothing, so the requester gets a null response instead of an acknowledgement; `supervisor.py` is the reference implementation for this dispatch and the triggerer must stay aligned with it",
+    "evidence": [
+      {
+        "pr": 68900,
+        "url": "https://github.com/apache/airflow/pull/68900#discussion_r3460032631",
+        "excerpt": "supervisor.py explicitly sets resp = OKResponse(ok=True). Suggest aligning with that"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/jobs/triggerer_job_runner.py"
+    ]
+  },
+  {
+    "rule": "Alembic data migrations must not do per-row work over a whole table: batch UPDATEs into one `conn.execute(update().where(bindparam(...)), [rows])` and stage join keys into a temporary column instead of running a correlated join per row",
+    "category": "database",
+    "trigger": "A migration's `upgrade()`/`downgrade()` loops over rows calling `conn.execute(sa.update(...))` inside the loop, or issues a multi-table JOIN/CASE query across an unbounded core table such as `deadline` joined to `dag_run`",
+    "rationale": "Migrations run once on production deployments with very large tables; a round-trip per row turns a 10k-row table into 10k statements and stretches upgrade downtime, and the codebase already has a bulk-bindparam precedent to copy",
+    "evidence": [
+      {
+        "pr": 66016,
+        "url": "https://github.com/apache/airflow/pull/66016#discussion_r3164800574",
+        "excerpt": "One UPDATE round-trip per row. Could you batch with executemany?"
+      },
+      {
+        "pr": 63628,
+        "url": "https://github.com/apache/airflow/pull/63628#discussion_r2946401440",
+        "excerpt": "I think this is significantly adding up to the time complexity"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/migrations/versions/"
+    ]
+  },
+  {
+    "rule": "Migration `revision` identifiers must be the random hex produced by `alembic revision`, never hand-typed",
+    "category": "database",
+    "trigger": "A new file under `migrations/versions/` sets `revision = \"...\"` to a human-looking value (sequential nibbles, words, or a pattern unlike the random hex used by neighbouring migrations)",
+    "rationale": "Hand-picked ids can collide with a future auto-generated revision id, and the folder's existing files all use tool-generated hex",
+    "evidence": [
+      {
+        "pr": 65759,
+        "url": "https://github.com/apache/airflow/pull/65759#discussion_r3142869618",
+        "excerpt": "Worth regenerating with the standard tool so it can't accidentally collide"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/migrations/versions/"
+    ]
+  },
+  {
+    "rule": "On scheduler bookkeeping models, a column the scheduler fills in after it acts must be named for that action (`created_dag_run_id`) rather than sharing the `target_*` prefix used for the requested inputs",
+    "category": "naming",
+    "trigger": "A new model such as `AssetPartitionDagRun` declares both an input column and an outcome column under the same prefix, e.g. `target_dag_id` alongside a nullable `target_dag_run_id`",
+    "rationale": "The two columns are populated by different parties at different times and mean different things; a shared prefix hides that, and scheduler queries key off the outcome column being NULL to find pending work",
+    "evidence": [
+      {
+        "pr": 57360,
+        "url": "https://github.com/apache/airflow/pull/57360#discussion_r2493065665",
+        "excerpt": "I wonder if we can name these differently to hint they are populated differently"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/asset.py"
+    ]
+  },
+  {
+    "rule": "A uniqueness invariant that a new ORM model's docstring asserts must be enforced by a database constraint, not by a comment plus a \"work on the latest row\" fallback",
+    "category": "database",
+    "trigger": "A new model in `airflow/models/` documents that duplicates should not exist (e.g. one row per `target_dag_id` + `partition_key`) but declares no `UniqueConstraint`/unique index for those columns",
+    "rationale": "Without the constraint the scheduler can create duplicate pending rows and then act on an arbitrary one; the guard belongs in the schema where concurrent writers cannot bypass it",
+    "evidence": [
+      {
+        "pr": 57360,
+        "url": "https://github.com/apache/airflow/pull/57360#discussion_r2488337372",
+        "excerpt": "Do we need some kind of uniqute constraint here?"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/asset.py"
+    ]
+  },
+  {
+    "rule": "Invalid user input for backfills must be rejected by the API/UI layer; model-layer helpers must not raise bare `RuntimeError` for request shapes the API should have refused",
+    "category": "api-design",
+    "trigger": "Code in `airflow/models/backfill.py` adds a `raise RuntimeError(...)` for a user-supplied condition such as a date range that yields no `dagrun_info_list`",
+    "rationale": "Reaching the model layer with an unusable range means the request was never validated; raising there surfaces a 500 instead of a clear client error and duplicates validation deep in the stack",
+    "evidence": [
+      {
+        "pr": 61464,
+        "url": "https://github.com/apache/airflow/pull/61464#discussion_r2839584418",
+        "excerpt": "It should be blocked from the API or even the UI layer"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/backfill.py",
+      "airflow-core/src/airflow/api_fastapi/core_api/routes/public/backfills.py"
+    ]
+  },
+  {
+    "rule": "Build DagRun lookup statements by conditionally chaining `.where()` for the optional keys (`partition_key`, `logical_date`) and order NULLs with an explicit `col.is_(None)` term instead of the session-taking `nulls_first(..., session=session)` helper",
+    "category": "database",
+    "trigger": "A query helper hard-codes every filter, or calls `nulls_first(<col>.desc(), session=session)` to order a DagRun lookup",
+    "rationale": "The explicit `is_(None)` ordering term needs no dialect probe and no session, so the statement builder stays a pure function of its arguments and works for both partitioned and logical-date runs",
+    "evidence": [
+      {
+        "pr": 61464,
+        "url": "https://github.com/apache/airflow/pull/61464#discussion_r2844434989",
+        "excerpt": "stmt = stmt.order_by(DagRun.start_date.is_(None), DagRun.start_date.desc())"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/backfill.py"
+    ]
+  },
+  {
+    "rule": "Methods on the airflow-core ORM `Connection` model must not branch on task-SDK execution state such as `SUPERVISOR_COMMS` on `airflow.sdk.execution_time.task_runner`; SDK-side code holds the SDK's own Connection type, not this ORM object",
+    "category": "api-design",
+    "trigger": "A method in `airflow/models/connection.py` inspects `sys.modules.get(\"airflow.sdk.execution_time.task_runner\")` or otherwise detects whether it is running inside a task supervisor",
+    "rationale": "It crosses the airflow-core/task-SDK boundary in the wrong direction, and an ORM instance method cannot be reached in SDK context anyway, so the branch is dead weight that implies a coupling that does not exist",
+    "evidence": [
+      {
+        "pr": 53870,
+        "url": "https://github.com/apache/airflow/pull/53870#discussion_r2253765726",
+        "excerpt": "Do we need this on to_dict ? It's an instance method"
+      }
+    ],
+    "scope_paths": [
+      "airflow-core/src/airflow/models/connection.py"
+    ]
+  }
+]

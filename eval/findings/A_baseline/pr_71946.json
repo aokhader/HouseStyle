@@ -1,0 +1,19 @@
+{"pr": 71946,
+ "findings": [
+   {"path": "providers/common/ai/src/airflow/providers/common/ai/exceptions.py",
+    "line": 42,
+    "category": "correctness",
+    "message": "The docstring says this is terminal and the task should \"fail fast instead of burning retries\", but a plain RuntimeError does not stop Airflow retrying: a task with retries=3 will re-run the whole agent loop three times on bad credentials. If fail-fast is the intent it needs to derive from AirflowFailException (or the base class must translate it), otherwise the contract documented here and in toolsets.rst is not what actually happens."},
+   {"path": "providers/common/ai/src/airflow/providers/common/ai/toolsets/managed_agent.py",
+    "line": 119,
+    "category": "api-design",
+    "message": "timeout is accepted, documented as \"Seconds to wait for a single invocation\", and then never used - nothing in invoke(), call_tool() or the tool definition applies it, so a caller who passes timeout=30 gets no timeout at all. Either enforce it here (asyncio.wait_for around invoke, with the thread caveat documented) or drop it from the base signature rather than leaving subclasses to reach into a private _timeout."},
+   {"path": "providers/common/ai/src/airflow/providers/common/ai/toolsets/managed_agent.py",
+    "line": 173,
+    "category": "async",
+    "message": "asyncio.to_thread uses the loop's default executor, which is capped at min(32, cpu_count+4) and shared with everything else in the worker process. Combined with sequential=False and the documented fact that an abandoned invoke_sync keeps its thread until the vendor call returns, a handful of minute-long agent calls can starve every other to_thread user. Worth a dedicated bounded executor, or at least a concurrency limit per toolset."},
+   {"path": "providers/common/ai/src/airflow/providers/common/ai/toolsets/managed_agent.py",
+    "line": 338,
+    "category": "performance",
+    "message": "The comment two lines up says the counters are tagged by platform \"to keep cardinality bounded\", but tool is the Dag author's tool_name, which is unbounded across a deployment - that is the cardinality problem the comment claims to avoid. The tag set also disagrees with the table in toolsets.rst, which lists only from_platform/to_platform and platform/role; please reconcile the two (and the metrics_template.yaml entry) whichever way you land."}
+ ]}

@@ -1,0 +1,5 @@
+{
+  "verdict": "PARTIAL",
+  "why": "The human confirms the same underlying case of killed jobs leaving stale rows but treats it as out of scope and asks only that an issue be filed for a reaper, rather than requesting the query change the finding asks for.",
+  "judge": "agent"
+}

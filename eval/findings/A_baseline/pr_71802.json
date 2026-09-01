@@ -1,0 +1,11 @@
+{"pr": 71802,
+ "findings": [
+   {"path": "airflow-core/src/airflow/serialization/definitions/deadline.py",
+    "line": 388,
+    "category": "api-design",
+    "message": "This is a verbatim copy of VariableInterval.resolve() from the Task SDK, and the two have already diverged (KeyError here vs AirflowRuntimeError there) while sharing the same user-facing error strings. The parsing/validation half is identical and backend-agnostic — factor it into one helper so a future change to the accepted value format does not have to be made in two places that no test compares."},
+   {"path": "task-sdk/src/airflow/sdk/definitions/deadline.py",
+    "line": 442,
+    "category": "commit-hygiene",
+    "message": "A bare DeprecationWarning is filtered out by default in Python, so nobody outside the test suite will ever see this, and \"a future release\" does not commit to a removal version. Please use the project's deprecation warning class and name the target release. This is also a public Task SDK API change (deprecation plus the dropped `> 0` validation) announced only in an airflow-core .bugfix newsfragment — it needs its own newsfragment under task-sdk/newsfragments/."}
+ ]}

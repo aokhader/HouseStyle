@@ -1,0 +1,8 @@
+{"pr": 66930,
+ "findings": [
+   {"rule_id": "airflow-r002",
+    "path": "providers/google/src/airflow/providers/google/suite/hooks/drive.py",
+    "line": 144,
+    "category": "api-design",
+    "message": "`get_media_request` now hard-codes `supportsAllDrives=True`, changing what this existing public hook method resolves for every caller. Make shared-drive support opt-in - add a `supports_all_drives` (or `drive_id`) keyword that defaults to the current behaviour and pass it through - so DAGs relying on the My Drive-only lookup are not changed underneath them."}
+ ]}

@@ -1,0 +1,5 @@
+{
+  "verdict": "MATCH",
+  "why": "Both identify the same defect: bz2/lzma silently decode only the first stream where gzip raises, leaving truncated content unflagged, and both propose erroring on the trailing data or documenting/testing the limitation.",
+  "judge": "agent"
+}

@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding wants an overall deadline on the unbounded is_alive/join loop, whereas the human is reporting that the KeyboardInterrupt path re-raises before joining and closing workers and queues; different defects with different fixes.",
+  "judge": "agent"
+}

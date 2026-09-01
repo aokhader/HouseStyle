@@ -1,0 +1,11 @@
+{"pr": 66269,
+ "findings": [
+   {"path": "task-sdk/src/airflow/sdk/__init__.pyi",
+    "line": 56,
+    "category": "api-design",
+    "message": "In a stub file an import is only treated as a public re-export if it uses the redundant `X as X` form, which every other import in this .pyi does. As written, type checkers will flag `airflow.sdk.AsyncCallback` / `SyncCallback` (and `DeadlineAlert` / `DeadlineReference` on the deadline import below) as private even though they are listed in `__all__`."},
+   {"path": "airflow-core/src/airflow/example_dags/example_deadline_alert.py",
+    "line": 58,
+    "category": "testing",
+    "message": "A blocking `time.sleep(60)` in an example DAG occupies a worker slot for a full minute whenever the example DAGs are executed in CI. Consider shortening the deadline interval and the sleep so the alert still fires but the example finishes quickly."}
+ ]}

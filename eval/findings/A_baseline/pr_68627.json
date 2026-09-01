@@ -1,0 +1,11 @@
+{"pr": 68627,
+ "findings": [
+   {"path": "airflow-core/src/airflow/models/dag_version.py",
+    "line": 99,
+    "category": "correctness",
+    "message": "Dropping the `hasattr(self.bundle, \"signed_url_template\")` guard changes behaviour for deployments that still have a `dag_bundle` row but configure the view URL through the deprecated manager path: they used to get a URL and will now silently get `None`. If the intent is only to avoid the deprecation warning on every call, consider falling back to the manager when `render_url()` returns `None` (or gate the fallback on the template being unset) rather than removing it outright."},
+   {"path": "airflow-core/src/airflow/models/dagcode.py",
+    "line": 193,
+    "category": "database",
+    "message": "This drops the `session.merge(latest_dagcode)` call, which is unrelated to the stated fileloc fix and unexplained. If `latest_dagcode` is guaranteed to be attached to the same session the removal is fine, but that is worth stating in the comment (or keeping an explicit `session.flush()`), otherwise a detached instance would now have its source-code update silently discarded."}
+ ]}

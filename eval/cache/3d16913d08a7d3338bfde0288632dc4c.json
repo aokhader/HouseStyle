@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding warns that nulling non-eager-loaded relationships silently yields wrong data in the list endpoint; the human is flagging an unrelated dead-code branch involving `user.get_name()`.",
+  "judge": "agent"
+}

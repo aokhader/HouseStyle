@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding asks for a newsfragment covering the changed default, while the human reports a concrete regression that the skip path also skips teardown tasks.",
+  "judge": "agent"
+}

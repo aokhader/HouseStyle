@@ -1,0 +1,2036 @@
+{
+  "chunk": "chunk_A",
+  "source": "distill/candidates/t1",
+  "batches": "1-10",
+  "n_candidates": 169,
+  "candidates": [
+    {
+      "key": "t1/batch_001#0",
+      "rule": "Do not re-query DatasetDagRunQueue (or any table already loaded into memory) inside the per-DAG scheduler loop; pass already-fetched data through instead to avoid N+1 queries.",
+      "category": "performance",
+      "trigger": "A new session.scalars() or session.execute() call targeting DatasetDagRunQueue appears inside a for-loop that iterates over dags_needing_dagruns or dataset_triggered_dag_info.",
+      "evidence_prs": [
+        63546
+      ],
+      "evidence_paths": [
+        "airflow/jobs/scheduler_job_runner.py"
+      ]
+    },
+    {
+      "key": "t1/batch_001#1",
+      "rule": "When eager-loading is absent on a SQLAlchemy relationship used inside the scheduler loop, do not access that relationship attribute lazily; either add eager loading or pass the data from the outer query.",
+      "category": "performance",
+      "trigger": "A scheduler-loop function accesses a dotted relationship attribute (e.g. record.dataset.uri) on a model where the relationship is not declared with lazy='joined' or joinedload().",
+      "evidence_prs": [
+        63546
+      ],
+      "evidence_paths": [
+        "airflow/jobs/scheduler_job_runner.py"
+      ]
+    },
+    {
+      "key": "t1/batch_001#10",
+      "rule": "Every locale skill file under .github/skills/airflow-translations/locales/ must declare that it extends the global rules in ../SKILL.md, and must state that the locale file takes precedence over global rules on any conflict.",
+      "category": "docs",
+      "trigger": "A new or modified locale skill file (.github/skills/airflow-translations/locales/<lang>.md) does not contain a reference to ../SKILL.md and a precedence statement.",
+      "evidence_prs": [
+        62083
+      ],
+      "evidence_paths": [
+        ".github/skills/airflow-translations/locales/pt.md"
+      ]
+    },
+    {
+      "key": "t1/batch_001#11",
+      "rule": "In locale do-not-translate lists, mark only the bare Airflow noun (e.g. 'Asset') as untranslatable; do not block compound phrases (e.g. 'Asset Events') when existing translations already translate the surrounding words.",
+      "category": "docs",
+      "trigger": "A locale skill file's do-not-translate list includes a multi-word phrase containing an Airflow term (e.g. 'Asset Events', 'Dag Run') when the existing locale JSON files translate the non-Airflow words in that phrase.",
+      "evidence_prs": [
+        62083
+      ],
+      "evidence_paths": [
+        ".github/skills/airflow-translations/locales/pt.md"
+      ]
+    },
+    {
+      "key": "t1/batch_001#12",
+      "rule": "Docs for extensible Airflow interfaces (state backends, secrets backends, etc.) must describe the contract and behaviour rather than listing concrete method signatures, which are subject to change.",
+      "category": "docs",
+      "trigger": "A .rst documentation file adds a list-table or code-block containing full method signatures (async def ...) for a pluggable backend or extension point interface.",
+      "evidence_prs": [
+        67299
+      ],
+      "evidence_paths": [
+        "airflow-core/docs/administration-and-deployment/state-store.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_001#13",
+      "rule": "CI shell scripts that start 'airflow standalone' in a polling loop must check process liveness with 'kill -0 $AIRFLOW_PID' to exit early when the process crashes instead of looping for the full timeout duration.",
+      "category": "correctness",
+      "trigger": "A CI shell script starts airflow standalone in the background, captures its PID, and then polls in a timed loop without a kill -0 $AIRFLOW_PID liveness check.",
+      "evidence_prs": [
+        55458
+      ],
+      "evidence_paths": []
+    },
+    {
+      "key": "t1/batch_001#14",
+      "rule": "AIP skill SKILL.md files must anchor the AIP URL pattern to the Apache Confluence prefix (https://cwiki.apache.org/confluence/display/AIRFLOW) rather than a generic https:// host.",
+      "category": "docs",
+      "trigger": "A SKILL.md under .github/skills/aip-* describes AIP URL detection as 'Other https:// arguments are the AIP URL' without anchoring to the cwiki.apache.org/confluence/display/AIRFLOW prefix.",
+      "evidence_prs": [
+        65776
+      ],
+      "evidence_paths": [
+        ".github/skills/aip-user-stories/SKILL.md"
+      ]
+    },
+    {
+      "key": "t1/batch_001#15",
+      "rule": "Locale skill files must cross-reference the rationale documented in the corresponding airflow-core/src/airflow/ui/public/i18n/locales/<lang>/README.md when consolidating translation conventions.",
+      "category": "docs",
+      "trigger": "A locale skill file under .github/skills/airflow-translations/locales/ is created or updated without a reference to the in-tree i18n README for that locale.",
+      "evidence_prs": [
+        65115
+      ],
+      "evidence_paths": [
+        ".github/skills/airflow-translations/locales/de.md"
+      ]
+    },
+    {
+      "key": "t1/batch_001#2",
+      "rule": "Each upload-artifact step in a GitHub Actions workflow must use a unique artifact name; never reuse the same name (including names that share a dynamic suffix) across multiple upload steps in the same job.",
+      "category": "correctness",
+      "trigger": "Two or more actions/upload-artifact steps within the same job share the same `name:` value or the same name template (e.g. both use container-logs-${{env.JOB_ID}}).",
+      "evidence_prs": [
+        64133
+      ],
+      "evidence_paths": [
+        ".github/actions/post_tests_failure/action.yml"
+      ]
+    },
+    {
+      "key": "t1/batch_001#3",
+      "rule": "Do not include unrelated uv.lock churn in a feature or fix PR; either revert lock-file changes or split them into a separate commit with a stated reason tied to the PR.",
+      "category": "commit-hygiene",
+      "trigger": "uv.lock appears in the diff of a PR whose description does not mention a dependency bump, and the lock diff is larger than a few lines.",
+      "evidence_prs": [
+        61550
+      ],
+      "evidence_paths": [
+        "uv.lock"
+      ]
+    },
+    {
+      "key": "t1/batch_001#4",
+      "rule": "Task-SDK client changelog entries must appear in the Task-SDK changelog, not in the core airflow-core RELEASE_NOTES.rst.",
+      "category": "docs",
+      "trigger": "RELEASE_NOTES.rst receives a line mentioning 'task-sdk', 'task SDK', or 'Task SDK client' in a section that belongs to airflow-core.",
+      "evidence_prs": [
+        60212
+      ],
+      "evidence_paths": [
+        "RELEASE_NOTES.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_001#5",
+      "rule": "A database migration included in a patch release must only repair a bug in an existing migration; it must not change payload semantics so that users who already ran the original upgrade end up in a different state from a fresh installer.",
+      "category": "database",
+      "trigger": "A patch-release PR modifies a file under migrations/ (or alembic/versions/) and the diff touches both upgrade() and downgrade() logic beyond simple no-op corrections.",
+      "evidence_prs": [
+        67233
+      ],
+      "evidence_paths": [
+        "RELEASE_NOTES.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_001#6",
+      "rule": "Any new config option introduced in a patch release must be declared in config.yml and explicitly documented in the relevant upgrade notes for that minor version.",
+      "category": "docs",
+      "trigger": "A patch PR adds a new key to config.yml or references a new [section] key_name in documentation without a corresponding entry in the upgrade notes.",
+      "evidence_prs": [
+        67233
+      ],
+      "evidence_paths": [
+        "RELEASE_NOTES.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_001#7",
+      "rule": "A reusable workflow that has a committer allowlist on workflow_dispatch must apply the same allowlist check to its workflow_call trigger so that callers cannot bypass the gate.",
+      "category": "security",
+      "trigger": "A workflow file defines a committer-restricted workflow_dispatch block but also exposes a workflow_call trigger without an equivalent contains(fromJSON([...]), github.event.sender.login) guard.",
+      "evidence_prs": [
+        62261
+      ],
+      "evidence_paths": [
+        ".github/workflows/registry-build.yml"
+      ]
+    },
+    {
+      "key": "t1/batch_001#8",
+      "rule": "Provider policy documentation must not imply that a sponsoring committer is absolved of technical responsibility for PRs they merge; committers retain responsibility for CI health and security review regardless of steward approval.",
+      "category": "providers",
+      "trigger": "PROVIDERS.rst (or equivalent governance doc) contains a sentence stating the sponsor is NOT responsible for the codebase or for merged PRs.",
+      "evidence_prs": [
+        60896
+      ],
+      "evidence_paths": [
+        "PROVIDERS.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_001#9",
+      "rule": "Use vendor-neutral examples (e.g. the http provider) rather than named commercial vendors when illustrating provider policy concepts in governance documentation.",
+      "category": "providers",
+      "trigger": "PROVIDERS.rst or a provider governance document uses a specific vendor name (e.g. Slack, AWS, GCP) as the sole illustrative example of a policy concept.",
+      "evidence_prs": [
+        60896
+      ],
+      "evidence_paths": [
+        "PROVIDERS.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_002#0",
+      "rule": "Docs code examples must use the correct Airflow API method name; use `.partition_key_pattern()` for regex filtering, not `.partition_key()` (exact-match).",
+      "category": "docs",
+      "trigger": "diff adds a docs example calling `.partition_key(` with a regex string argument",
+      "evidence_prs": [
+        64610
+      ],
+      "evidence_paths": [
+        "airflow-core/docs/authoring-and-scheduling/assets.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_002#1",
+      "rule": "When documenting a new Airflow feature that was introduced in a specific version, give it a dedicated `.. note::` block or subheader rather than nesting it under an existing section that covers a different feature.",
+      "category": "docs",
+      "trigger": "diff adds documentation for a new feature (e.g. Resumable Tasks) inside an existing section that already documents a distinct feature (e.g. Deferred Operators)",
+      "evidence_prs": [
+        68136
+      ],
+      "evidence_paths": [
+        "airflow-core/docs/authoring-and-scheduling/deferring.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_002#10",
+      "rule": "In newsfragments and release notes, capitalise \"Dags\" (title-case), not \"DAGs\" (all-caps).",
+      "category": "commit-hygiene",
+      "trigger": "diff in a newsfragment file contains the word \"DAGs\" (all-caps)",
+      "evidence_prs": [
+        64322
+      ],
+      "evidence_paths": [
+        "airflow-core/newsfragments/64322.bugfix.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_002#11",
+      "rule": "Significant newsfragments about permission or endpoint changes must explicitly name the surface (e.g. \"FastAPI UI `/dags` endpoint\") to distinguish it from other endpoints with the same path.",
+      "category": "commit-hygiene",
+      "trigger": "diff adds a `significant.rst` newsfragment mentioning a `/dags` or other ambiguous endpoint without specifying whether it is the FastAPI UI route or a public REST API endpoint",
+      "evidence_prs": [
+        64822
+      ],
+      "evidence_paths": [
+        "airflow-core/newsfragments/64822.significant.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_002#12",
+      "rule": "Do not enable asyncio debug logging in production code paths or default configuration; it can expose credentials in task logs.",
+      "category": "security",
+      "trigger": "diff enables `PYTHONASYNCIODEBUG`, `loop.set_debug(True)`, or asyncio debug logging in non-test production code",
+      "evidence_prs": [
+        66412
+      ],
+      "evidence_paths": [
+        "airflow-core/newsfragments/66412.significant.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_002#13",
+      "rule": "Do not add native/binary C-extension libraries as mandatory dependencies of `airflow-core`; they must be optional extras or provider-level dependencies.",
+      "category": "correctness",
+      "trigger": "diff adds a native library (e.g. one distributed as a compiled wheel with no pure-Python fallback) to the `dependencies` list in `airflow-core/pyproject.toml`",
+      "evidence_prs": [
+        56821
+      ],
+      "evidence_paths": [
+        "airflow-core/pyproject.toml"
+      ]
+    },
+    {
+      "key": "t1/batch_002#14",
+      "rule": "In `BaseAuthManager` and its subclasses, `is_authorized_*` methods must accept `user: T` (the generic auth-user type-var) and represent multiple user IDs as `set[str]`; they must not accept concrete Airflow model types (e.g. `HITLUser`) as parameters.",
+      "category": "api-design",
+      "trigger": "diff adds or modifies an `is_authorized_*` method on an auth manager class that takes a concrete Airflow model type (e.g. `HITLUser`, `DagModel`) instead of `user: T` or primitive types",
+      "evidence_prs": [
+        59399
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/auth/managers/base_auth_manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_002#2",
+      "rule": "Derive `TASK_SDK_VERSION` from `PACKAGE_VERSION` using `packaging.version.parse_version()` (accessing `.minor` and `.micro`), never by splitting the version string on `.`.",
+      "category": "correctness",
+      "trigger": "diff introduces `PACKAGE_VERSION.split('.')` to derive TASK_SDK_VERSION or any component version",
+      "evidence_prs": [
+        64133
+      ],
+      "evidence_paths": [
+        "airflow-core/docs/conf.py"
+      ]
+    },
+    {
+      "key": "t1/batch_002#3",
+      "rule": "Auth manager docs must reference `get_url_refresh()` for the token-refresh endpoint path, not a hardcoded literal path such as `POST /auth/token/refresh`.",
+      "category": "api-design",
+      "trigger": "diff hardcodes an auth token refresh URL path in documentation instead of referencing the `get_url_refresh` method",
+      "evidence_prs": [
+        54196
+      ],
+      "evidence_paths": [
+        "airflow-core/docs/core-concepts/auth-manager/index.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_002#4",
+      "rule": "Airflow docs must describe the current state of a feature without comparing to a previous version; do not use phrases like \"no longer\", \"previously\", or \"as of version X\".",
+      "category": "docs",
+      "trigger": "diff adds text containing \"no longer\", \"previously\", \"used to\", or \"as of Airflow X.Y\" in documentation prose",
+      "evidence_prs": [
+        54196
+      ],
+      "evidence_paths": [
+        "airflow-core/docs/core-concepts/auth-manager/index.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_002#5",
+      "rule": "Document task-state-store and asset-state-store values as `JsonValue` (JSON-serialisable types), not as plain strings.",
+      "category": "docs",
+      "trigger": "diff documents task store or asset store value types as \"string\" or \"str\" rather than `JsonValue` or JSON",
+      "evidence_prs": [
+        67299
+      ],
+      "evidence_paths": [
+        "airflow-core/docs/core-concepts/task-and-asset-state.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_002#6",
+      "rule": "Public consumers of `XCOM_RETURN_KEY` (and other XCom constants) must import from the Task SDK's `BaseXCom`, not from `airflow.models.xcom`.",
+      "category": "providers",
+      "trigger": "diff imports `XCOM_RETURN_KEY` or other XCom constants from `airflow.models.xcom` in user-facing code or docs",
+      "evidence_prs": [
+        58356
+      ],
+      "evidence_paths": [
+        "airflow-core/docs/core-concepts/xcoms.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_002#7",
+      "rule": "Docs about authentication must not present the FAB Auth Manager as the default; the default auth manager in Airflow 3 is the Simple Auth Manager.",
+      "category": "docs",
+      "trigger": "diff adds documentation or configuration examples that imply FAB Auth Manager is used by default",
+      "evidence_prs": [
+        55281
+      ],
+      "evidence_paths": [
+        "airflow-core/docs/security/sso_example.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_002#8",
+      "rule": "Getting-started / quickstart docs must document both the `uv`-based install path and the standard `pip` + `venv` path, not only one.",
+      "category": "docs",
+      "trigger": "diff adds or rewrites the Airflow install quickstart section covering only a single tool (`uv` only or `pip` only)",
+      "evidence_prs": [
+        57027
+      ],
+      "evidence_paths": [
+        "airflow-core/docs/start.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_002#9",
+      "rule": "Use a `bugfix.rst` newsfragment (not `significant.rst`) for non-user-facing internal fixes; omit the fragment entirely if the fix has no observable user impact.",
+      "category": "commit-hygiene",
+      "trigger": "diff adds a `significant.rst` newsfragment for an internal race-condition fix or scheduler-internal improvement with no API/behaviour change",
+      "evidence_prs": [
+        62501,
+        65239
+      ],
+      "evidence_paths": [
+        "airflow-core/newsfragments/62501.significant.rst",
+        "airflow-core/newsfragments/65239.bugfix.rst"
+      ]
+    },
+    {
+      "key": "t1/batch_003#0",
+      "rule": "Extend an existing `is_authorized_*` method with an optional parameter rather than adding a parallel `is_authorized_*_for_<entity>` method to the `BaseAuthManager` interface.",
+      "category": "api-design",
+      "trigger": "new method added to BaseAuthManager whose name matches `is_authorized_.*_for_` pattern",
+      "evidence_prs": [
+        69790
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/auth/managers/base_auth_manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#1",
+      "rule": "Do not set `document.title` dynamically inside React components for Airflow UI pages; the global title is already defined in `index.html`.",
+      "category": "docs",
+      "trigger": "`document.title` assignment inside a `useEffect` hook in a `.tsx` file under the Airflow UI source tree",
+      "evidence_prs": [
+        53981
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/auth/managers/simple/ui/src/login/Login.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_003#10",
+      "rule": "When silently coercing an unrecognised stored value to `None` in a Pydantic validator (e.g. for `asset_expression`), emit a `log.warning` so that schema drift between the server and the DB remains observable.",
+      "category": "correctness",
+      "trigger": "`except ValidationError: return None` in a Pydantic validator without a preceding `log.warning` call when `value` is not `None`",
+      "evidence_prs": [
+        67725
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/datamodels/common.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#11",
+      "rule": "Boolean timetable properties used by the API (e.g. `is_backfillable`) must be persisted in `DagModel` via a DB migration rather than derived at runtime from `timetable_summary` string matching.",
+      "category": "database",
+      "trigger": "a `frozenset` of timetable summary strings used in a datamodel or route to derive a boolean DAG property instead of reading a `DagModel` column",
+      "evidence_prs": [
+        64644
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/datamodels/dags.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#12",
+      "rule": "When redacting a dict value (e.g. Trigger kwargs) in an API response serializer, keep it as a JSON-serialisable dict rather than wrapping it in `str()`.",
+      "category": "api-design",
+      "trigger": "`str(redact(value))` where `value` is a dict in a Pydantic response serializer or validator",
+      "evidence_prs": [
+        67868
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/datamodels/trigger.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#13",
+      "rule": "Compare `DagRunType` enum members directly (e.g. `DagRunType.MANUAL`) rather than their `.value` attribute when checking membership in `dm.allowed_run_types`.",
+      "category": "correctness",
+      "trigger": "`DagRunType.<member>.value not in dm.allowed_run_types` (accessing `.value` before membership test)",
+      "evidence_prs": [
+        61833
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/public/dag_run.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#14",
+      "rule": "When multiple code paths implement partition-date-window localization with different interval conventions (inclusive vs half-open), add a cross-reference comment or consolidate to avoid silent drift.",
+      "category": "correctness",
+      "trigger": "inline `timetable.localize_partition_datetime` call in a route that duplicates the logic in `DagRun.apply_partition_date_window` with a different interval boundary",
+      "evidence_prs": [
+        68682
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/public/dag_run.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#15",
+      "rule": "Validate that a requested `try_number` actually exists in the DB before using it to generate extra links; return 404 for non-existent try numbers.",
+      "category": "correctness",
+      "trigger": "`ti.try_number = try_number` assignment in an extra-links route without a preceding DB check that the try number exists",
+      "evidence_prs": [
+        65661
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/public/extra_links.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#16",
+      "rule": "Do not use the name `task_instance` for a variable that may hold either a `TaskInstance` or a `TaskInstanceHistory`; use a neutral name (`row`, `entity`, `model`) to avoid type confusion.",
+      "category": "naming",
+      "trigger": "variable named `task_instance` assigned from a query that can return either `TI` or `TIH` ORM objects",
+      "evidence_prs": [
+        56760
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/public/hitl.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#17",
+      "rule": "Place `_ImportPathCallbackDef` (and similar callback-definition objects) in the domain model module (e.g. `models/test_connection.py`) rather than directly in the route handler file.",
+      "category": "api-design",
+      "trigger": "`_ImportPathCallbackDef` or `ExecutorCallback` construction inlined inside a route handler function body",
+      "evidence_prs": [
+        62343
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/public/connections.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#18",
+      "rule": "Use `entity.name` (not `entity.pool` or other wrong attribute) when collecting pool names in bulk-action validation; verify attribute names against the actual Pydantic body class before building error lists.",
+      "category": "correctness",
+      "trigger": "`invalid_entities.append(entity.pool)` or similarly wrong attribute access on a `PoolBody` instance inside bulk-action validation",
+      "evidence_prs": [
+        63994
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/public/pools.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#2",
+      "rule": "Re-use `resolve_user_from_token` (in `core_api/security.py`) instead of calling `get_auth_manager().get_user_from_token` directly in middleware or route code.",
+      "category": "api-design",
+      "trigger": "direct call to `get_auth_manager().get_user_from_token(` outside of `resolve_user_from_token`",
+      "evidence_prs": [
+        55506
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/auth/middlewares/refresh_token.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#3",
+      "rule": "Name JWT duration parameters `valid_for` (a relative duration), not `expiry` or `expires_at` (which imply an absolute timestamp).",
+      "category": "naming",
+      "trigger": "parameter named `expiry` or `expires_at` on a JWT-generation method that actually receives a TTL integer/timedelta",
+      "evidence_prs": [
+        60108
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/auth/tokens.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#4",
+      "rule": "When cursor pagination encounters an unparseable cursor token (e.g. malformed UUID for a `Uuid` column), raise HTTP 400 rather than silently falling back to the original value.",
+      "category": "correctness",
+      "trigger": "`except (ValueError, Exception):` block inside `_coerce_value` or cursor-parsing code that returns the raw `value` instead of raising",
+      "evidence_prs": [
+        64845
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/common/cursors.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#5",
+      "rule": "Keyset cursor pagination over nullable sort columns must use null-aware comparisons (e.g. `IS NULL` tie-break or `COALESCE`) matching the ORDER BY null-ordering semantics; bare `col > NULL` comparisons silently break paging.",
+      "category": "database",
+      "trigger": "cursor `or_clauses.append(and_(*eq_conditions, col > value))` where `col` can be nullable without a corresponding `IS NULL` guard",
+      "evidence_prs": [
+        64953
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/common/cursors.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#6",
+      "rule": "Use `if/elif` (not sequential `if`) when filter parameter branches for mutually exclusive bound conditions (`lower_bound` vs `lower_bound_excluded`) to avoid emitting redundant SQL WHERE clauses.",
+      "category": "database",
+      "trigger": "two consecutive `if self.value and self.value.lower_bound` / `if self.value and self.value.lower_bound_excluded` blocks that should be mutually exclusive",
+      "evidence_prs": [
+        54302
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/common/parameters.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#7",
+      "rule": "Use `SerializedDAG` (imported under `TYPE_CHECKING` from `airflow.serialization.serialized_objects`) as the concrete type annotation for DAG-bearing attributes in API parameter/datamodel classes rather than `Any`.",
+      "category": "api-design",
+      "trigger": "property or attribute typed `None | Any` in a parameter/datamodel class where the value is a serialized DAG object",
+      "evidence_prs": [
+        58092
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/common/parameters.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#8",
+      "rule": "Queries that use `_RegexParam` must be wrapped with `apply_regex_query_timeout`; document this obligation in the `_RegexParam` docstring.",
+      "category": "performance",
+      "trigger": "use of `_RegexParam` or `regex_param_factory` in a route without a corresponding `apply_regex_query_timeout` call, or a `_RegexParam` class/factory lacking a docstring warning about the timeout requirement",
+      "evidence_prs": [
+        64610
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/common/parameters.py"
+      ]
+    },
+    {
+      "key": "t1/batch_003#9",
+      "rule": "In `SortParam.get_resolved_columns()`, derive `attr_name` after applying `to_replace` so that the resolved name matches the actual ORM attribute used in ORDER BY and cursor encoding.",
+      "category": "correctness",
+      "trigger": "`attr_name = lstriped_orderby` set before the `to_replace` mapping is applied in `SortParam`",
+      "evidence_prs": [
+        64963
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/common/parameters.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#0",
+      "rule": "Cursor-paginated endpoints must fetch limit+1 rows to detect whether a next page exists, and must return next_cursor as null when no further rows exist.",
+      "category": "api-design",
+      "trigger": "A paginated endpoint returns next_cursor/previous_cursor computed from the current page slice without fetching an extra probe row.",
+      "evidence_prs": [
+        64845
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/public/task_instances.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#1",
+      "rule": "Cursor-paginated endpoints must return previous_cursor as null on the first page (no cursor supplied) and next_cursor as null on the last page; tests must assert both boundary conditions.",
+      "category": "testing",
+      "trigger": "New cursor-pagination route added without tests asserting previous_cursor=null on page 1 and next_cursor=null on the final page.",
+      "evidence_prs": [
+        64963
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/public/task_instances.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#10",
+      "rule": "Do not add two fields with singular/plural variants of the same name to a Pydantic response model unless they have clearly distinct semantics documented on the model.",
+      "category": "api-design",
+      "trigger": "A Pydantic model gains a new field whose name is the plural (or singular) form of an existing field (e.g., partition_key and partition_keys).",
+      "evidence_prs": [
+        65447
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/datamodels/asset_event.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#11",
+      "rule": "Fields added to the execution-API worker context model (DagRun in taskinstance.py) must be verified as actually consumed by the worker before merging.",
+      "category": "correctness",
+      "trigger": "A nullable field is added to the DagRun StrictBaseModel in execution_api/datamodels/taskinstance.py without evidence that the worker reads it.",
+      "evidence_prs": [
+        61550
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/datamodels/taskinstance.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#12",
+      "rule": "Shared helpers used by both bulk-update and bulk-delete handlers must accept the HTTP method as a parameter rather than hardcoding 'PUT', to ensure correct auth-manager decisions for DELETE actions.",
+      "category": "security",
+      "trigger": "A shared authorization helper (e.g., _categorize_entities) contains a hardcoded method=\"PUT\" but is also called from a bulk-delete code path.",
+      "evidence_prs": [
+        64288
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/services/public/task_instances.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#13",
+      "rule": "Do not reuse the bulk-service interface for single-item state operations; use the single-item service code path instead.",
+      "category": "api-design",
+      "trigger": "A non-bulk route (e.g., PATCH task group state) instantiates a BulkService with a dummy empty BulkBody to drive a single-item update.",
+      "evidence_prs": [
+        62812
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/services/public/task_instances.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#14",
+      "rule": "When a new code path is introduced in a service method, verify that the serialisation layer (_serialize_response or equivalent) is also updated to include it; do not merge dead-code branches.",
+      "category": "correctness",
+      "trigger": "A new conditional query branch is added in a service method but the response-serialisation helper still gates on the old condition, leaving the new branch unreachable.",
+      "evidence_prs": [
+        64577
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/services/public/dag_run.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#15",
+      "rule": "The handle_bulk_delete handler must apply the same state guards as the corresponding single-delete endpoint unless the relaxed behavior is explicitly documented and intentional.",
+      "category": "correctness",
+      "trigger": "handle_bulk_delete is added or modified without a guard matching the single-delete state check (e.g., refusing RUNNING DagRuns).",
+      "evidence_prs": [
+        67095
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/services/public/dag_run.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#16",
+      "rule": "When constructing a large dict to pass to Model.model_validate(), assign the dict to a named variable first, then call model_validate() on the next line.",
+      "category": "docs",
+      "trigger": "Model.model_validate({...}) is called with a multi-key inline dict literal containing computed or conditional expressions.",
+      "evidence_prs": [
+        67725
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/partitioned_dag_runs.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#17",
+      "rule": "Do not use getattr(Model, 'field') in SQLAlchemy column-selection expressions; resolve optional or dynamically-named columns inside the model definition instead.",
+      "category": "correctness",
+      "trigger": "A SQLAlchemy select() call uses getattr(SomeModel, 'column_name') to reference a column.",
+      "evidence_prs": [
+        58352
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/dags.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#18",
+      "rule": "conf.getboolean() calls for feature-flag config keys must not supply fallback=False when the config default is True; doing so silently overrides the configured value and breaks the UI toggle.",
+      "category": "correctness",
+      "trigger": "conf.getboolean(section, key, fallback=False) is used in a UI config endpoint for a key whose intended default is True.",
+      "evidence_prs": [
+        63884
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/config.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#19",
+      "rule": "New default behavior changes to public endpoints (e.g., /dagRuns/{run_id}/wait) must be covered by tests asserting the new default, results-absent, and authorization scenarios.",
+      "category": "testing",
+      "trigger": "A service method changes what an endpoint returns by default (e.g., now includes dag_result XComs when result param is omitted) without updating existing tests.",
+      "evidence_prs": [
+        64577
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/services/public/dag_run.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#2",
+      "rule": "PATCH routes that honour update_mask must raise HTTP 422 when a field is included in update_mask but its value is null/None in the request body.",
+      "category": "api-design",
+      "trigger": "A PATCH handler checks fields_to_update/update_mask but does not validate that each included field has a non-null value before passing data downstream.",
+      "evidence_prs": [
+        62812
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/public/task_instances.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#3",
+      "rule": "New validation branches in bulk-operation endpoints must be covered by tests asserting the new HTTP 400 response.",
+      "category": "testing",
+      "trigger": "A bulk endpoint gains a new validation guard (e.g., multi_team check) without corresponding test cases for the 400 path.",
+      "evidence_prs": [
+        63994
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/public/variables.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#4",
+      "rule": "Do not introduce CASE-based NULL ordering in query ORDER BY clauses; rely on database-default NULL ordering to keep indexes usable.",
+      "category": "performance",
+      "trigger": "A SQLAlchemy query adds a CASE expression in its ORDER BY to place NULLs last/first.",
+      "evidence_prs": [
+        69940
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/assets.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#5",
+      "rule": "Grid-endpoint queries must select columns explicitly rather than using select(Model); never select the whole ORM model.",
+      "category": "performance",
+      "trigger": "A query on the grid endpoint uses select(TaskInstance) or select(DagRun) instead of enumerating required columns.",
+      "evidence_prs": [
+        53216
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/grid.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#6",
+      "rule": "Parallel subquery predicates (e.g., has_note, has_missed_deadline) must use the same filter conditions across DagRun and TaskInstance counterparts.",
+      "category": "correctness",
+      "trigger": "A subquery EXISTS predicate on DagRunNote or TaskInstanceNote differs in filtering conditions (e.g., .isnot(None)) between the DagRun and TI versions.",
+      "evidence_prs": [
+        69121
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/core_api/routes/ui/grid.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#7",
+      "rule": "Every new endpoint registered in the execution API's authenticated_router must have a matching endpoint(...).didnt_exist entry in the unreleased Cadwyn version file.",
+      "category": "api-design",
+      "trigger": "A new router is added to authenticated_router.include_router() in airflow-core/src/airflow/api_fastapi/execution_api/routes/__init__.py without a corresponding didnt_exist entry in versions/v*.py.",
+      "evidence_prs": [
+        66073
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/__init__.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#8",
+      "rule": "Query-string regex parameters must reject empty-string values with HTTP 400; do not silently execute regexp_match(\"\").",
+      "category": "correctness",
+      "trigger": "A query parameter intended as a regex pattern (e.g., partition_key_pattern) is validated only against None, not against the empty string \"\".",
+      "evidence_prs": [
+        64610
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/asset_events.py"
+      ]
+    },
+    {
+      "key": "t1/batch_004#9",
+      "rule": "When AssetActive rows are removed during GC, decide and implement a strategy to handle orphaned asset_state rows; do not leave them to accumulate forever.",
+      "category": "database",
+      "trigger": "A new asset_state table/model is introduced without a cascade-delete from AssetActive removal or a GC policy.",
+      "evidence_prs": [
+        66073
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/asset_state.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#0",
+      "rule": "Use `session.flush()` instead of `session.commit()` within multi-operation task-completion workflows to preserve transaction atomicity; an early `commit()` inside `register_asset_change` leaves `AssetEvent` persisted even if a subsequent operation rolls back, creating inconsistent state between task state and asset events.",
+      "category": "database",
+      "trigger": "diff adds or changes `session.commit()` inside `register_asset_change` or any method that is called as part of a task-completion transaction spanning multiple models",
+      "evidence_prs": [
+        62501
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/assets/manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#1",
+      "rule": "When early visibility of an `AssetEvent` is required before the caller's transaction commits, use `create_session(scoped=False)` to open a truly independent session/connection rather than calling `session.commit()` on the shared session.",
+      "category": "database",
+      "trigger": "diff adds `create_session` call near `AssetEvent` insertion, or replaces `session.commit()` with a separate session block in `assets/manager.py`",
+      "evidence_prs": [
+        62501
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/assets/manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#10",
+      "rule": "All new routers in the execution API must set `route_class=ExecutionAPIRoute`; omitting it means the `allowed_token_types` default falls back to `{\"execution\"}` only, silently blocking any future `token:workload` routes on that router.",
+      "category": "security",
+      "trigger": "diff adds a new `VersionedAPIRouter(...)` in `airflow-core/src/airflow/api_fastapi/execution_api/routes/` without `route_class=ExecutionAPIRoute`",
+      "evidence_prs": [
+        66073
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/task_state.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#11",
+      "rule": "When `?all_map_indices=true` on a task-state endpoint can affect sibling mapped tasks (different TIs with different tokens), the route must either use a broader scope (e.g. `ti:fleet`), require a leader check (`map_index in (-1, 0)`), or document the intentional fleet-wide authority in the docstring.",
+      "category": "security",
+      "trigger": "diff adds an endpoint parameter (e.g. `all_map_indices: bool`) that expands the scope of a state-mutation beyond the single TI identified by the JWT subject",
+      "evidence_prs": [
+        66073
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/task_state.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#12",
+      "rule": "Execution-API list endpoints that query the metadata DB must apply pagination (`limit`/`offset`) or a documented hard cap; unbounded `session.scalars(stmt).all()` on large tables (e.g. Variables) is a slow-query risk at scale.",
+      "category": "performance",
+      "trigger": "diff adds a GET list route in the execution API that calls `session.scalars(stmt).all()` without a `limit`, `offset`, or `LIMIT` clause",
+      "evidence_prs": [
+        66022
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/variables.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#13",
+      "rule": "High-volume execution-API endpoints (e.g. heartbeat) must use `log.debug` rather than `log.info` for fall-through diagnostic messages that fire on every fast-path miss; INFO-level logging on high-frequency paths floods production logs.",
+      "category": "correctness",
+      "trigger": "diff adds `log.info(...)` on a fallback or miss path inside a heartbeat or high-frequency execution API handler",
+      "evidence_prs": [
+        65029
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#14",
+      "rule": "When archiving a `task_instance_history` snapshot on the retry path, copy `rendered_map_index` onto the in-memory TI object whenever the field is present in the patch payload, even when its value is `None`; a `None` check silently omits the cleared value from the archive.",
+      "category": "correctness",
+      "trigger": "diff archives a TIH row and conditionally sets `ti._rendered_map_index` only when the payload value is not None (e.g. `if ti_patch_payload.rendered_map_index is not None:`)",
+      "evidence_prs": [
+        69248
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#15",
+      "rule": "FastAPI router path ordering in the execution API must avoid greedy path parameter matching; static path segments (e.g. HEAD routes) must be declared before parameterised routes at the same prefix level.",
+      "category": "correctness",
+      "trigger": "diff reorders or removes `@router.head(...)` declarations relative to `@router.get(...)` with overlapping path patterns in the execution API routes",
+      "evidence_prs": [
+        58344
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/xcoms.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#16",
+      "rule": "In `config.yml` descriptions, write `Dag` (title-case, not `DAG`) when referring to the Airflow concept in prose; use `DAG` only in code identifiers or quoted strings.",
+      "category": "docs",
+      "trigger": "diff adds or modifies a `description:` block in `config.yml` containing the word `DAG` in a prose sentence (not inside backticks or a code identifier)",
+      "evidence_prs": [
+        59430
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/config_templates/config.yml"
+      ]
+    },
+    {
+      "key": "t1/batch_005#17",
+      "rule": "config.yml descriptions must not expose internal DB table names (e.g. `task_state rows`) in user-facing text; describe the concept abstractly instead.",
+      "category": "docs",
+      "trigger": "diff adds a `description:` in `config.yml` that references an internal database table name (e.g. `task_state rows`, `dag_run rows`)",
+      "evidence_prs": [
+        66463
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/config_templates/config.yml"
+      ]
+    },
+    {
+      "key": "t1/batch_005#18",
+      "rule": "Do not use `conf.has_option` to test whether a boolean config option is True or False; `has_option` returns True whenever the key exists (including when the stored value is False), producing incorrect branching for tri-state boolean configs with a `~` default.",
+      "category": "correctness",
+      "trigger": "diff adds `conf.has_option(section, key)` as a condition that branches on a boolean config option declared with `type: boolean` and `default: ~` in config.yml",
+      "evidence_prs": [
+        63884
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/config_templates/config.yml"
+      ]
+    },
+    {
+      "key": "t1/batch_005#19",
+      "rule": "CLI date-range arguments that filter by a `partition_date` must document whether the end date is inclusive or exclusive and what the correct bound is for an entire calendar period (e.g. January); ambiguity between midnight-on-the-last-day and first-of-next-month causes silent data loss.",
+      "category": "docs",
+      "trigger": "diff adds `--start-date` / `--end-date` (or similar) CLI arguments that filter DAG runs or partitioned runs by date in `cli_config.py` or `dag_command.py`",
+      "evidence_prs": [
+        66520
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/cli/cli_config.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#2",
+      "rule": "When locking an `AssetModel` row with `with_row_locks`, select only the primary key column rather than the full ORM object to confine the lock to an index scan and avoid fetching the entire row.",
+      "category": "performance",
+      "trigger": "diff adds `with_row_locks(select(AssetModel).where(...))` that retrieves the full model when only the id is subsequently used",
+      "evidence_prs": [
+        59183
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/assets/manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#20",
+      "rule": "When `parsedate` returns a UTC-normalised datetime, the help text for that CLI argument must note that the calendar day is derived from the UTC instant, not the user's local timezone or the timetable's timezone; a tz-aware input can silently shift the interpreted date.",
+      "category": "docs",
+      "trigger": "diff uses `type=parsedate` for a CLI argument whose help text says \"time-of-day is ignored\" but does not mention that the calendar day is the UTC calendar day of the parsed instant",
+      "evidence_prs": [
+        67717
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/cli/commands/dag_command.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#21",
+      "rule": "A PR that bundles logically independent features (e.g. DAG caching + worker recycling) must either update the PR description to explicitly include all features with rationale and compatibility notes, or split into separate PRs.",
+      "category": "commit-hygiene",
+      "trigger": "diff in `api_server_command.py` or a scheduler/worker config file introduces a second independent feature (e.g. `limit_max_requests`) alongside the one described in the PR title",
+      "evidence_prs": [
+        60804
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/cli/commands/api_server_command.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#22",
+      "rule": "Duplicate post-resolution logic shared between multiple asset-store endpoints (e.g. `/by-uri/value` and `/by-name/value`) must be extracted into a helper function to ensure consistency between the two paths.",
+      "category": "correctness",
+      "trigger": "diff adds a second execution-API asset-store route whose body after the `_resolve_asset_id_by_uri` / `_resolve_asset_id_by_name` call is identical or near-identical to an existing route",
+      "evidence_prs": [
+        67902
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/asset_store.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#3",
+      "rule": "Do not call `session.flush()` in a `finally` block when the block is entered during an exception path; flushing inside an error handler is meaningless if the transaction will never be committed.",
+      "category": "database",
+      "trigger": "diff adds `session.flush()` inside a `finally:` or `except:` clause in an asset or scheduler code path",
+      "evidence_prs": [
+        59183
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/assets/manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#4",
+      "rule": "The `token:workload` scope must not be granted on mutation routes (PUT/POST/DELETE); restrict `token:workload` to read-only routes (GET variable/keys, GET/HEAD xcom, GET connection, GET dag_run) and keep write/delete routes as `token:execution` only.",
+      "category": "security",
+      "trigger": "diff adds `Security(require_auth, scopes=[\"token:execution\", \"token:workload\"])` on a router.put, router.post, or router.delete endpoint in the execution API",
+      "evidence_prs": [
+        66608
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/variables.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#5",
+      "rule": "Do not add `token:workload` as an accepted scope on endpoints that previously relied on `has_variable_access` or `has_xcom_access` guards without also restricting those endpoints to reads only; the workload token is a long-lived, low-privilege token and must not be broadened to cover state-changing operations.",
+      "category": "security",
+      "trigger": "diff replaces `Depends(has_variable_access)` or `Depends(has_xcom_access)` with `Security(require_auth, scopes=[..., \"token:workload\"])` on a PUT/DELETE route",
+      "evidence_prs": [
+        66608
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/connections.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#6",
+      "rule": "On the `/run` endpoint, only mint a new execution token when the incoming token is `workload`-scoped; do not unconditionally regenerate a token on every `/run` call because it replaces tokens with more remaining validity and bypasses the `JWTReissueMiddleware` 20%-remaining rule.",
+      "category": "security",
+      "trigger": "diff adds unconditional `generator.generate(extras={\"scope\": \"execution\"})` and `response.headers[\"Refreshed-API-Token\"]` assignment inside the `ti_run` handler without a scope guard",
+      "evidence_prs": [
+        60108
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#7",
+      "rule": "When both `JWTReissueMiddleware` and a route handler write the same `Refreshed-API-Token` response header, add an inline comment at the route handler explaining the non-collision contract (e.g. \"middleware skips workload tokens so there is no collision\").",
+      "category": "docs",
+      "trigger": "diff adds `response.headers[\"Refreshed-API-Token\"]` assignment in a route handler that co-exists with `JWTReissueMiddleware`",
+      "evidence_prs": [
+        60108
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#8",
+      "rule": "Generate the execution JWT token before the `running` state transition is committed to the DB; if token generation fails after a commit, the TI is stuck in `running` with no execution token and the worker cannot recover.",
+      "category": "correctness",
+      "trigger": "diff places `generator.generate()` or `response.headers[\"Refreshed-API-Token\"]` after the `session.commit()` / `session.flush()` that transitions the TI to `running`",
+      "evidence_prs": [
+        60108
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"
+      ]
+    },
+    {
+      "key": "t1/batch_005#9",
+      "rule": "Keep JWT/token-generation code outside the `except SQLAlchemyError` catch block in execution-API route handlers; SQLAlchemy error handling should cover only actual DB operations, not JWT signing.",
+      "category": "correctness",
+      "trigger": "diff adds `services.aget(JWTGenerator)` or `generator.generate()` inside a `try: ... except SQLAlchemyError:` block in an execution API route",
+      "evidence_prs": [
+        60108
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/api_fastapi/execution_api/routes/task_instances.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#0",
+      "rule": "Do not add new email-related configuration options to airflow-core; route all email settings through the SMTP provider.",
+      "category": "providers",
+      "trigger": "A new config key referencing email, SMTP, or a notifier default is added inside airflow-core/src/airflow/config_templates/config.yml",
+      "evidence_prs": [
+        69877
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/config_templates/config.yml"
+      ]
+    },
+    {
+      "key": "t1/batch_006#1",
+      "rule": "Do not define domain-model enums (e.g. WeightRule) inside configuration.py; place them in the module that owns the concept.",
+      "category": "api-design",
+      "trigger": "A class definition for an Enum or domain type is added to airflow-core/src/airflow/configuration.py",
+      "evidence_prs": [
+        53393
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/configuration.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#10",
+      "rule": "Example DAGs that fix timezone-related bugs must include a regression test that imports the DAG with a non-UTC default_timezone (e.g., Asia/Shanghai) to prevent OverflowError recurrence.",
+      "category": "testing",
+      "trigger": "A commit modifies an example_dags/ file to fix a datetime/timezone issue but adds no test exercising a non-UTC [core] default_timezone",
+      "evidence_prs": [
+        63882
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/example_dags/example_inlet_event_extra.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#11",
+      "rule": "In BaseExecutor.run_workload() and related executor entry-points, guard setproctitle usage with a macOS (darwin) platform check.",
+      "category": "correctness",
+      "trigger": "Code in airflow-core/src/airflow/executors/ calls setproctitle() without a `sys.platform != 'darwin'` (or equivalent) guard",
+      "evidence_prs": [
+        62645
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/executors/base_executor.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#12",
+      "rule": "New executor workload features must be implemented in BaseExecutor (or a shared mixin) so that each concrete executor does not need to be individually updated.",
+      "category": "api-design",
+      "trigger": "A new workload-handling method or branch is added to multiple concrete executor files (e.g., local_executor.py, celery_executor.py) without a corresponding base-class implementation",
+      "evidence_prs": [
+        62343
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/executors/local_executor.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#13",
+      "rule": "The executor workload type error message must be generated dynamically from the ExecutorWorkload union rather than by manually listing type names in an f-string.",
+      "category": "correctness",
+      "trigger": "An f-string in base_executor.py lists concrete workload type names (ExecuteTask, ExecuteCallback, TestConnection, …) manually rather than unpacking them from the type alias",
+      "evidence_prs": [
+        62343
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/executors/base_executor.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#14",
+      "rule": "In prepare_file_queue, use the pre-built presence_key index dict to look up file stats in O(1) rather than performing an O(n) linear scan per file, avoiding O(n²) overall complexity.",
+      "category": "performance",
+      "trigger": "Code in dag_processing/manager.py builds a dict keyed by file.presence_key but then calls a helper (e.g. processed_recently) that iterates over _file_stats linearly",
+      "evidence_prs": [
+        66484
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/dag_processing/manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#2",
+      "rule": "Expose internal collections from AirflowConfigParser via methods returning immutable sequences (tuple), not as mutable-list properties.",
+      "category": "api-design",
+      "trigger": "A @property in AirflowConfigParser or a subclass returns a mutable list[...] type annotation",
+      "evidence_prs": [
+        58188
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/configuration.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#3",
+      "rule": "Use `tuple[DagWarningType, ...]` (open-ended homogeneous tuple) for warning_types parameters to avoid breaking callers when new warning types are added.",
+      "category": "api-design",
+      "trigger": "A function parameter typed tuple[DagWarningType, DagWarningType] (fixed-length) is added or modified in dag_processing/collection.py",
+      "evidence_prs": [
+        59430
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/dag_processing/collection.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#4",
+      "rule": "When removing a parameter from DagBag or DagBag.collect_dags, either drop it entirely from the signature and docstring, or emit a UserWarning when it is supplied, rather than silently ignoring it.",
+      "category": "api-design",
+      "trigger": "A parameter of DagBag.__init__ or DagBag.collect_dags is removed from the implementation body but kept in the function signature or docstring",
+      "evidence_prs": [
+        66161
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/dag_processing/dagbag.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#5",
+      "rule": "In DagBundleManager._refresh_dag_bundles, only remove a bundle from _force_refresh_bundles after DB persistence succeeds, and clear _bundle_versions on persistence failure to prevent stale-version short-circuiting.",
+      "category": "correctness",
+      "trigger": "Code removes a bundle from _force_refresh_bundles before the corresponding update_bundle_state call, or swallows an exception from update_bundle_state without clearing _bundle_versions",
+      "evidence_prs": [
+        63835
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/dag_processing/manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#6",
+      "rule": "Do not rely on SQLAlchemy UPDATE rowcount==0 to detect a missing row across all supported databases; use an explicit SELECT/EXISTS check instead.",
+      "category": "database",
+      "trigger": "Code does `if result.rowcount == 0: raise` after a SQLAlchemy update() call on a single-row update",
+      "evidence_prs": [
+        63835
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/dag_processing/manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#7",
+      "rule": "Docstrings on overridable DAG-processing methods must document no-op conditions explicitly so subclass authors understand inherited skip behaviour.",
+      "category": "docs",
+      "trigger": "A public or protected method in dag_processing/ is decorated for override (or its docstring says 'override') but the docstring omits the conditions under which the default implementation is a no-op",
+      "evidence_prs": [
+        65543
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/dag_processing/manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#8",
+      "rule": "In dag_processing exception handlers that catch broad Exception, ensure CallbackBundleUnavailable (or other purpose-built sentinel exceptions) is not re-wrapped; let it propagate or explicitly re-raise.",
+      "category": "correctness",
+      "trigger": "An `except Exception` block in dag_processing/ wraps or swallows a re-raise that could originate from CallbackBundleUnavailable",
+      "evidence_prs": [
+        65543
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/dag_processing/manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_006#9",
+      "rule": "In DagFileProcessorProcess, pass dag_file.rel_path from the DagFileInfo object directly rather than recomputing it with Path.relative_to().",
+      "category": "correctness",
+      "trigger": "Code inside dag_processing/processor.py calls Path(path).relative_to(bundle_path) when a DagFileInfo object with a rel_path attribute is already available in the call chain",
+      "evidence_prs": [
+        65528
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/dag_processing/processor.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#0",
+      "rule": "After queuing a workload with an executor, set the workload state to QUEUED, not RUNNING, because executor acceptance is not guaranteed.",
+      "category": "correctness",
+      "trigger": "diff sets `callback.state` or similar workload state to `RUNNING` immediately after `executor.queue_workload()`",
+      "evidence_prs": [
+        61153
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#1",
+      "rule": "In the scheduler critical section, avoid adding separate queries for individual task states; fold new state conditions into the existing query.",
+      "category": "performance",
+      "trigger": "diff adds a new `session.execute(select(...).where(TI.state == TaskInstanceState.<STATE>))` inside `_critical_section_*` or adjacent scheduler methods",
+      "evidence_prs": [
+        61769
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#10",
+      "rule": "The triggerer and executor paths must fail (raise / exit) consistently when required context (e.g. DagRun) cannot be fetched, so the workload retries instead of running with `None` context.",
+      "category": "correctness",
+      "trigger": "diff returns `None` from a triggerer context-fetch helper while the corresponding executor path calls `sys.exit(1)` or raises on the same failure",
+      "evidence_prs": [
+        66608
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/jobs/triggerer_job_runner.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#11",
+      "rule": "Database schema-fix migrations that are independent of a feature change must be submitted as a separate, standalone PR.",
+      "category": "database",
+      "trigger": "diff bundles an Alembic migration that fixes a pre-existing schema issue alongside an unrelated feature migration in the same PR",
+      "evidence_prs": [
+        55954
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/migrations/versions/0088_3_2_0_add_length_dag_bundle_team_bundle_name.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#12",
+      "rule": "Alembic `upgrade()` functions must not DELETE or truncate existing rows before a data-preserving migration step has been implemented; a bare `DELETE FROM <table>` with a `TODO` comment is not acceptable.",
+      "category": "database",
+      "trigger": "diff adds `op.execute(\"DELETE FROM ...\")` in an `upgrade()` function alongside a `# TODO: Implement data-preserving migration` comment",
+      "evidence_prs": [
+        57215
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/migrations/versions/0092_3_2_0_replace_deadline_inline_callback_with_fkey.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#13",
+      "rule": "In Airflow state/retention tables, an `expires_at` column with NULL must semantically mean 'never expires'; GC logic must use a simple `WHERE expires_at < now()` predicate rather than a two-path check mixing `updated_at` and a default retention config.",
+      "category": "database",
+      "trigger": "diff adds an `expires_at` column whose NULL value is documented as 'use default retention' and whose GC query involves both `expires_at` and `updated_at + config` conditions",
+      "evidence_prs": [
+        66463
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/migrations/versions/0112_3_3_0_add_task_state_and_asset_state_tables.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#2",
+      "rule": "Every new scheduler workload type must check available executor slots before submitting workloads, following the pattern in `_enqueue_executor_callbacks` and `_critical_section_enqueue_task_instances`.",
+      "category": "correctness",
+      "trigger": "diff introduces a new method that calls `executor.queue_workload()` or `session.scalar(select(func.count(...)))` for a new workload type without reading available executor slots first",
+      "evidence_prs": [
+        62343
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#3",
+      "rule": "Use `with_row_locks(..., skip_locked=True)` when selecting scheduler-owned rows that multiple scheduler workers could process concurrently.",
+      "category": "correctness",
+      "trigger": "diff adds `session.scalars(select(<Model>).where(...))` inside the scheduler loop without a `with_row_locks` wrapper on rows that are then mutated or dispatched",
+      "evidence_prs": [
+        62343
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#4",
+      "rule": "Prefer `~exists(select(...).where(...))` anti-join over `<col>.not_in(select(...))` in ORM queries to avoid null-semantics bugs and enable index use.",
+      "category": "database",
+      "trigger": "diff contains `.not_in(select(...))` or `NOT IN (SELECT ...)` in a SQLAlchemy ORM query",
+      "evidence_prs": [
+        62501
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#5",
+      "rule": "SQLAlchemy `Mapped` type annotations must match the column's `nullable` setting; `Mapped[str | None]` on a `nullable=False` column is a type inconsistency that must be corrected.",
+      "category": "correctness",
+      "trigger": "diff adds or modifies a `Mapped[<type> | None]` annotation on a column declared with `nullable=False`, or vice versa",
+      "evidence_prs": [
+        64571
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#6",
+      "rule": "Foreign-key columns used as subquery filter predicates in scheduler queries must have an explicit `Index(...)` declaration; rely on existing indexes only when confirmed to cover the FK column.",
+      "category": "database",
+      "trigger": "diff adds a subquery filter on an FK column (e.g. `.where(<Model>.trigger_id == ...)`) without a corresponding `Index(\"idx_<table>_<column>\", ...)` in the model definition",
+      "evidence_prs": [
+        66210
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/jobs/scheduler_job_runner.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#7",
+      "rule": "In the triggerer, to call `get_template_context` you must construct a `RuntimeTaskInstance` via `RuntimeTaskInstance.model_construct(...)`, not use a plain `TaskInstance`.",
+      "category": "api-design",
+      "trigger": "diff calls `.get_template_context()` on a `TaskInstance` (airflow.executors.workloads) object inside the triggerer job runner",
+      "evidence_prs": [
+        55068
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/jobs/triggerer_job_runner.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#8",
+      "rule": "Significant triggerer feature changes must be accompanied by a newsfragment changelog entry.",
+      "category": "docs",
+      "trigger": "diff modifies triggerer behaviour (new capability, protocol change, or significant fix) but no file is added under `newsfragments/` or `changelog.d/`",
+      "evidence_prs": [
+        60268
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/jobs/triggerer_job_runner.py"
+      ]
+    },
+    {
+      "key": "t1/batch_007#9",
+      "rule": "In triggerer cleanup paths, replace bare `with suppress(Exception)` with a try/except that logs the exception via `self.log.exception(...)` so errors remain visible.",
+      "category": "async",
+      "trigger": "diff introduces `with suppress(Exception):` around an `await` call in `triggerer_job_runner.py`",
+      "evidence_prs": [
+        66584
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/jobs/triggerer_job_runner.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#0",
+      "rule": "Route SQLAlchemy 1.4/2.0 compatibility shims through `airflow.utils.sqlalchemy` rather than inline try/except blocks inside individual model files.",
+      "category": "database",
+      "trigger": "A model file adds a try/except ImportError block to shim `mapped_column` or `Mapped` from sqlalchemy.orm instead of importing from `airflow.utils.sqlalchemy`.",
+      "evidence_prs": [
+        55954
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/backfill.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#1",
+      "rule": "Do not pass an explicit `nullable=True` kwarg to `mapped_column` when the type hint already uses `X | None`; under SQLAlchemy 2.0 the hint is authoritative.",
+      "category": "database",
+      "trigger": "A `mapped_column(...)` call includes `nullable=True` while the `Mapped` annotation is `Mapped[SomeType | None]`.",
+      "evidence_prs": [
+        55954
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/backfill.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#10",
+      "rule": "When a new context key is introduced for one callback execution path (executor or triggerer), it must also be added to the other path via the shared `build_context_from_dag_run` helper, declared in the `Context` TypedDict, and listed in `KNOWN_CONTEXT_KEYS`.",
+      "category": "async",
+      "trigger": "New context data is populated in `callback_supervisor.py` (executor path) but the corresponding `build_context_from_dag_run` call in `triggerer_job_runner.py` is not updated, or vice versa.",
+      "evidence_prs": [
+        66608
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/deadline.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#11",
+      "rule": "Avoid `session.flush()` in the middle of a `write_dag` unit of work; defer all flushes until the complete set of objects has been added to the session to prevent partial-commit state on error.",
+      "category": "database",
+      "trigger": "A `session.flush()` call appears mid-function inside a `write_dag` or similar multi-object DB write, before all related objects have been added.",
+      "evidence_prs": [
+        58248
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/serialized_dag.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#12",
+      "rule": "When updating a `DagVersion` record, always update `bundle_version` together with other version metadata; omitting it causes workers with versioned bundles to not see newly added tasks.",
+      "category": "correctness",
+      "trigger": "Code updates `DagVersion` (or calls `DagVersion.get_latest_version`) without also updating the associated `bundle_version` on the same record.",
+      "evidence_prs": [
+        59764
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/taskinstance.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#13",
+      "rule": "Deferred task instances must be counted against `max_active_tis_per_dag` and `max_active_tis_per_dagrun` limits because they remain logically in-flight.",
+      "category": "correctness",
+      "trigger": "A query counting active task instances for concurrency limits filters on states `[running, queued]` but omits `deferred`.",
+      "evidence_prs": [
+        61769
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/taskinstance.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#14",
+      "rule": "Never issue a per-iteration DB query inside a loop over mapped task instances; batch or hoist the lookup before the loop to avoid N+1 query patterns.",
+      "category": "performance",
+      "trigger": "A `session.scalar(select(DagRun).where(...))` or equivalent single-row query appears inside a `for` loop that iterates over task map entries.",
+      "evidence_prs": [
+        63568
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/taskmap.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#15",
+      "rule": "In `PartitionMapper.to_upstream()` implementations, derive the parse format from `self.output_format` rather than hard-coding a fixed slice and format string, so custom output format overrides remain consistent.",
+      "category": "correctness",
+      "trigger": "A `to_upstream` method in a temporal partition mapper uses a hard-coded `downstream_key[:10]` slice and `\"%Y-%m-%d\"` literal instead of parsing via `self.output_format`.",
+      "evidence_prs": [
+        64571
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/partition_mappers/temporal.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#2",
+      "rule": "Validate user-supplied DAG run configuration (`dag_run_conf`) via `dag.params.deep_merge(dag_run_conf).validate()` before executing a backfill, so bad input returns a 4xx rather than a 500.",
+      "category": "api-design",
+      "trigger": "A backfill code path accepts a `dag_run_conf` argument and passes it to `create_dagrun` or similar without first calling `dag.params.deep_merge(...).validate()`.",
+      "evidence_prs": [
+        64939
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/backfill.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#3",
+      "rule": "Extract duplicated encrypt/decrypt field logic from model classes into a shared mixin (e.g. `ConnectionMixin` or `FernetFieldMixin`) rather than copying it into each model.",
+      "category": "correctness",
+      "trigger": "A new model class re-implements `get_extra`/`set_extra` property + `synonym` pattern already present in the `Connection` model.",
+      "evidence_prs": [
+        62343
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/connection_test.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#4",
+      "rule": "Use `is not None` (identity check) rather than truthiness to guard `bundle_version` lookups so that an empty string does not silently fall through to the latest-version path.",
+      "category": "correctness",
+      "trigger": "A conditional on `bundle_version` uses `if bundle_version:` (truthiness) instead of `if bundle_version is not None:`.",
+      "evidence_prs": [
+        61550
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/dag_version.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#5",
+      "rule": "Write SQLAlchemy type constructors in `mapped_column` and Alembic migrations as instantiated calls — `sa.JSON()` not `sa.JSON` — to match project-wide convention.",
+      "category": "database",
+      "trigger": "A `mapped_column(sa.JSON, ...)` or `Column(sa.JSON, ...)` appears without parentheses on the type constructor.",
+      "evidence_prs": [
+        66491
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/dag_version.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#6",
+      "rule": "Prefix module-internal helper functions with `_` to keep them out of the public API surface; only promote to public if external callers are expected.",
+      "category": "api-design",
+      "trigger": "A new function is added at module level in `airflow-core` without a leading underscore but is only referenced within the same file or package.",
+      "evidence_prs": [
+        69185
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/dag_version.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#7",
+      "rule": "Import exceptions from `airflow.sdk.exceptions` once they have been migrated there; never import the legacy `airflow.exceptions` path even with `# type: ignore[no-redef]`.",
+      "category": "providers",
+      "trigger": "A file imports an exception with `from airflow.exceptions import <Name>  # type: ignore[no-redef]` where `<Name>` is already available in `airflow.sdk.exceptions`.",
+      "evidence_prs": [
+        54505
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/dagbag.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#8",
+      "rule": "All cache hit/miss branches — including double-checked locking fast-paths — must increment the corresponding `Stats.incr(\"api_server.dag_bag.cache_hit\")` metric so hit counts are accurate under concurrency.",
+      "category": "performance",
+      "trigger": "A double-checked locking block or secondary fast-path returns a cached DAG without calling `Stats.incr(\"api_server.dag_bag.cache_hit\")`.",
+      "evidence_prs": [
+        60804
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/dagbag.py"
+      ]
+    },
+    {
+      "key": "t1/batch_008#9",
+      "rule": "Bound DAG cache TTLs to `min_serialized_dag_update_interval` since DAGs cannot be reparsed more frequently than that interval; do not use an arbitrary shorter TTL.",
+      "category": "performance",
+      "trigger": "A DAG bag or serialized-DAG cache introduces a TTL constant or parameter without referencing or defaulting to `min_serialized_dag_update_interval`.",
+      "evidence_prs": [
+        68558
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/models/dagbag.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#0",
+      "rule": "Partition-mapper methods that format upstream/downstream keys must use timezone-aware datetimes anchored to the mapper's configured timezone, not naive datetimes, so the scheduler waits on the correct keys.",
+      "category": "correctness",
+      "trigger": "diff adds or modifies a `to_upstream()` or `to_downstream()` method in a partition mapper that calls `datetime.strptime` or `timedelta` arithmetic without attaching `self._timezone`",
+      "evidence_prs": [
+        64571
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/partition_mappers/temporal.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#1",
+      "rule": "When a method is decorated with `@provider_info_cache`, update its docstring to reflect the cached semantics; do not carry over \"use this to avoid triggering caching\" language written for the former uncached inner method.",
+      "category": "docs",
+      "trigger": "diff moves a docstring from an uncached helper onto a `@provider_info_cache`-decorated method, or adds a `@provider_info_cache` decorator without revising the docstring",
+      "evidence_prs": [
+        62696
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/providers_manager.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#10",
+      "rule": "State-store write methods that check for an existing row then insert must use a single database-level UPSERT (`INSERT … ON CONFLICT DO UPDATE`) instead of SELECT-then-INSERT to prevent race-condition `IntegrityError`.",
+      "category": "database",
+      "trigger": "diff adds a state-write method that does `session.get(...)` or a SELECT followed by `session.add(row)` for the same primary/unique key",
+      "evidence_prs": [
+        65759
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/state/metastore.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#11",
+      "rule": "Asset-store upsert calls must omit writer-attribution columns from the update set when `kind is None`, so that an attribution-less write does not silently overwrite existing attribution data with NULL.",
+      "category": "correctness",
+      "trigger": "diff modifies `_set_asset_store` or a `_build_upsert_stmt` call for `AssetStoreModel` and unconditionally includes `last_updated_by_*` columns in the update dict",
+      "evidence_prs": [
+        67902
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/state/metastore.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#12",
+      "rule": "State-set constants in `dependencies_states.py` must be named to reflect their semantic role (ACTIVE_STATES for anything-still-in-flight, EXECUTION_STATES for actively-executing tasks), not after the implementation detail that defines them.",
+      "category": "naming",
+      "trigger": "diff introduces a new `frozenset` or `set` of `TaskInstanceState` values in `ti_deps/dependencies_states.py` with a name ending in `_EXECUTION_STATES` when the set includes `DEFERRED` or other non-executing in-flight states",
+      "evidence_prs": [
+        61769
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ti_deps/dependencies_states.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#13",
+      "rule": "All public `Timetable` method overrides must include an explicit return-type annotation.",
+      "category": "api-design",
+      "trigger": "diff adds or overrides a public method on a class that inherits from `Timetable` without a `-> ReturnType` annotation",
+      "evidence_prs": [
+        59115
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/timetables/base.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#14",
+      "rule": "Do not add `__all__` when a symbol is already re-exported via the `import X as X` pattern; the `as Name` form is the single authoritative re-export mechanism in airflow-core.",
+      "category": "api-design",
+      "trigger": "diff adds both `from module import Foo as Foo` and also lists `Foo` inside `__all__` in the same file",
+      "evidence_prs": [
+        53071
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/triggers/base.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#15",
+      "rule": "When `RunTrigger` or any callback trigger resolves a DAG module by hashed path, the absence of a run-version pin and cross-host path skew must be explicitly documented as a known limitation in the code if not addressed.",
+      "category": "correctness",
+      "trigger": "diff adds a trigger or callback that resolves a DAG file via `get_unique_dag_module_name` (sha1 of absolute path) without a `bundle_version` or run-version identifier on the trigger payload",
+      "evidence_prs": [
+        66608
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/triggers/callback.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#16",
+      "rule": "New `SharedStreamManager` stream types added for provider upstreams that require an ack/commit side-effect (e.g. Kafka offset commit) must not use the unidirectional `filter_shared_stream` API; scope such PRs to read-only/idempotent upstreams or extend the API with an ack path first.",
+      "category": "providers",
+      "trigger": "diff adds a `open_shared_stream` implementation that commits, acks, or advances a cursor after a filter accept, routed through the existing one-way `filter_shared_stream` channel",
+      "evidence_prs": [
+        66584
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/triggers/shared_stream.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#17",
+      "rule": "Do not expose a new public property on `CronMixin` (core timetables) solely to serve SDK-side consumers; SDK timetables already expose their own API surface and the core mixin's public API must have at least one in-core consumer.",
+      "category": "api-design",
+      "trigger": "diff adds a `@property` to `CronMixin` or another core timetable base class with no reference site in airflow-core code",
+      "evidence_prs": [
+        67717
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/timetables/_cron.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#2",
+      "rule": "New task-clearing behaviour flags (e.g. only_failed, only_running, new fields of the same kind) must be implemented inside `clear_task_instances`, not scattered across other call sites.",
+      "category": "correctness",
+      "trigger": "diff adds a new boolean filter field to a task-clearing code path and handles it outside of `clear_task_instances`",
+      "evidence_prs": [
+        59764
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/serialization/definitions/dag.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#3",
+      "rule": "In `create_dagrun()`, resolve the requested bundle version first and then validate partition key against the resolved DAG version, not against `self` (which is always the latest DAG).",
+      "category": "correctness",
+      "trigger": "diff adds or modifies `create_dagrun()` and calls `self.validate_partition_key(partition_key)` before resolving `bundle_version` to a `DagVersion`",
+      "evidence_prs": [
+        61550
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/serialization/definitions/dag.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#4",
+      "rule": "Custom sentinel / non-JSON-serializable types used in template fields must implement a `serialize()` method matching the pattern established by `SetDuringExecution`, so `serialize_template_field` does not fall back to `str()`.",
+      "category": "correctness",
+      "trigger": "diff introduces a new sentinel class (e.g. `ArgNotSet`, `NOTSET`-style) in airflow-core without a `serialize()` method",
+      "evidence_prs": [
+        65222
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/serialization/definitions/notset.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#5",
+      "rule": "TaskGroup `topological_sort()` must not rebuild the full DAG-level group mapping on every recursive call; build the mapping once and pass it through to nested calls to avoid O(G²) traversal cost.",
+      "category": "performance",
+      "trigger": "diff modifies `topological_sort()` in `taskgroup.py` (core or Task SDK) and constructs a group-lookup dict inside the function body without accepting it as a parameter",
+      "evidence_prs": [
+        69933
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/serialization/definitions/taskgroup.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#6",
+      "rule": "Do not open a new `create_session` block inside a method when an equivalent query can be routed through an existing model method (e.g. `XComModel.get_many`) that accepts the session.",
+      "category": "database",
+      "trigger": "diff adds a `with create_session()` block inside a method that already has access to a session parameter or can delegate to an existing model query method",
+      "evidence_prs": [
+        52325
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/serialization/serialized_objects.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#7",
+      "rule": "Compatibility shims for deprecated `settings.*` attributes (e.g. `SQL_ALCHEMY_CONN_ASYNC`) must be guarded by `block_orm_access` the same way as their `SQL_ALCHEMY_CONN` counterpart, so task code cannot bypass the metadatabase access block.",
+      "category": "security",
+      "trigger": "diff adds or modifies a `__getattr__` branch in `settings.py` for a `*_ASYNC` or secondary connection attribute without a `block_orm_access` guard",
+      "evidence_prs": [
+        61917
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/settings.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#8",
+      "rule": "SQLite in-memory detection in engine-configuration code must use SQLAlchemy URL parsing (check dialect and database target), not string equality against `\"sqlite://\"` or `\"sqlite:///:memory:\"`.",
+      "category": "database",
+      "trigger": "diff checks for in-memory SQLite using `==` or `in` with string literals `\"sqlite://\"` or `\"sqlite:///:memory:\"`",
+      "evidence_prs": [
+        64888
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/settings.py"
+      ]
+    },
+    {
+      "key": "t1/batch_009#9",
+      "rule": "When `map_index == -1` is used as a sentinel in `TaskScope`, its semantics (\"match all\" vs \"match only the non-mapped row\") must be identical across all methods that filter on it; inconsistent sentinel semantics must be replaced with an explicit boolean flag.",
+      "category": "correctness",
+      "trigger": "diff adds or modifies methods in a `TaskScope`-accepting state class where some methods skip the `map_index` filter for `-1` and others apply an exact-match filter for `-1`",
+      "evidence_prs": [
+        65759
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/state/metastore.py"
+      ]
+    },
+    {
+      "key": "t1/batch_010#0",
+      "rule": "Use a bounded `asyncio.Queue` (non-zero `maxsize`) for per-subscriber queues in shared-stream triggers; never use `put_nowait` into an unbounded queue from a broadcast producer.",
+      "category": "async",
+      "trigger": "asyncio.Queue() with no maxsize argument inside a trigger subscribe/poll method, combined with put_nowait calls from a producer loop",
+      "evidence_prs": [
+        66584
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/triggers/shared_stream.py"
+      ]
+    },
+    {
+      "key": "t1/batch_010#1",
+      "rule": "When adding a new i18n key to `en/common.json`, also seed the same English string into every other locale's `common.json` so missing-key fallback is consistent.",
+      "category": "docs",
+      "trigger": "diff adds a key to airflow-core/src/airflow/ui/public/i18n/locales/en/common.json but does not touch any other locale's common.json",
+      "evidence_prs": [
+        67207
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/public/i18n/locales/en/common.json"
+      ]
+    },
+    {
+      "key": "t1/batch_010#10",
+      "rule": "DagVersion and BundleVersion concepts must be represented by visually distinct icons; do not share the same icon between them.",
+      "category": "api-design",
+      "trigger": "diff causes DagVersionIndicator and BundleVersionIndicator (or equivalent DAG-version and bundle-version UI components) to render the same icon",
+      "evidence_prs": [
+        53216
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/components/ui/VersionIndicator.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_010#11",
+      "rule": "An 'All' / 'all' option in a state or status filter must reset the filter (omit the query parameter) rather than sending `state=all` to the API.",
+      "category": "correctness",
+      "trigger": "diff adds a filter option whose value is the string \"all\" (or equivalent) that gets passed as a query parameter to an Airflow API endpoint",
+      "evidence_prs": [
+        56920
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/constants/filterConfigs.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_010#12",
+      "rule": "Do not wrap a single-function delegation in `useCallback` with an empty dependency array when the Airflow UI project uses React Compiler; pass the stable function reference directly.",
+      "category": "performance",
+      "trigger": "diff adds useCallback(() => stableFn(arg), []) where stableFn is a module-level or otherwise stable function and the wrapper adds no logic",
+      "evidence_prs": [
+        64748
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/context/colorMode/useMonacoTheme.ts"
+      ]
+    },
+    {
+      "key": "t1/batch_010#2",
+      "rule": "New i18n keys must be placed under a namespace object matching the UI section (e.g. `taskGroup.documentation`), not as a flat top-level key (e.g. `taskGroupDocumentation`).",
+      "category": "naming",
+      "trigger": "diff adds a top-level key to a locale JSON file whose name concatenates an existing namespace with a sub-concept (e.g. fooBarBaz instead of foo.barBaz)",
+      "evidence_prs": [
+        67207
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/public/i18n/locales/en/common.json"
+      ]
+    },
+    {
+      "key": "t1/batch_010#3",
+      "rule": "Acronyms in translation strings must be capitalised consistently with their English form (e.g. `JSON`, not `json`).",
+      "category": "docs",
+      "trigger": "diff introduces a locale JSON value where a well-known acronym (JSON, DAG, API, UI, ID) appears in all-lowercase",
+      "evidence_prs": [
+        51233
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/public/i18n/locales/nl/browse.json"
+      ]
+    },
+    {
+      "key": "t1/batch_010#4",
+      "rule": "Prefer icons from the `react-icons` library over custom inline SVG icons in the Airflow UI; only add a custom icon if no suitable option exists in `react-icons`.",
+      "category": "api-design",
+      "trigger": "diff adds a new custom icon component (e.g. createIcon({...}) or raw <svg>) under airflow-core/src/airflow/ui/src/assets/ or components/",
+      "evidence_prs": [
+        62195
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/assets/DeadlineIcon.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_010#5",
+      "rule": "Pass only the i18n namespaces actually used in the file to `useTranslation`; do not list unused namespaces.",
+      "category": "performance",
+      "trigger": "diff adds or modifies a useTranslation([...]) call with multiple namespace strings; check whether each listed namespace is actually referenced via the returned translate function in the same file",
+      "evidence_prs": [
+        54640
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/components/Assets/AssetEventsFilter.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_010#6",
+      "rule": "Response-shape normalization and field mapping must be done in the backend API, not in the frontend; the API must return a consistent response type.",
+      "category": "api-design",
+      "trigger": "diff in a frontend component manually re-shapes or re-maps fields from an API response (e.g. destructuring and rebuilding a response object to normalise its shape)",
+      "evidence_prs": [
+        63484
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/components/Clear/Run/ClearRunDialog.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_010#7",
+      "rule": "Use `react-hook-form`'s `useForm({ values: ... })` option to sync async-loaded data into form fields; do not use a `useEffect` + `reset`/`setValue` pattern for this purpose.",
+      "category": "api-design",
+      "trigger": "diff adds a useEffect that calls form.reset() or form.setValue() to populate form fields after an async data fetch completes",
+      "evidence_prs": [
+        63884
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/components/DagActions/RunBackfillForm.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_010#8",
+      "rule": "An `/* eslint-disable max-lines */` comment must be accompanied by an inline justification explaining why the file legitimately exceeds the line limit.",
+      "category": "docs",
+      "trigger": "diff adds /* eslint-disable max-lines */ without a comment on the same line or the immediately following line explaining the reason",
+      "evidence_prs": [
+        63884
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/components/DagActions/RunBackfillForm.tsx"
+      ]
+    },
+    {
+      "key": "t1/batch_010#9",
+      "rule": "When a component mixes debounced and immediate calls to the same callback, cancel any pending debounced invocation before the immediate call to prevent stale-value race conditions.",
+      "category": "async",
+      "trigger": "diff adds code where both a debouncedX and a non-debounced X call the same underlying onChange/callback within the same event handler chain (e.g. onPaste calling onChange directly while an earlier onInput scheduled debouncedOnChange)",
+      "evidence_prs": [
+        66251
+      ],
+      "evidence_paths": [
+        "airflow-core/src/airflow/ui/src/components/DateTimeInput.tsx"
+      ]
+    }
+  ]
+}

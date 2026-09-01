@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding asks to shorten a 60-second blocking sleep for CI cost, while the human is only asking what the parenthetical '(sync, not a deferred sensor)' wording is meant to convey.",
+  "judge": "agent"
+}

@@ -1,0 +1,373 @@
+[
+  {
+    "rule": "Entity platform turn-on methods must apply every optional kwarg the platform contract passes them (e.g. fan async_turn_on must apply percentage and preset_mode) rather than accepting and discarding them.",
+    "category": "correctness",
+    "trigger": "A platform entity method signature declares optional service kwargs such as percentage, preset_mode, brightness or transition, but the body never reads them.",
+    "rationale": "Service calls silently lose user-supplied arguments: a turn_on with a percentage would leave the device at its previous speed, so the entity's advertised feature flags lie about what the service does.",
+    "evidence": [
+      {
+        "pr": 163379,
+        "url": "https://github.com/home-assistant/core/pull/163379#discussion_r2823522551",
+        "excerpt": "accepts `percentage` and `preset_mode` parameters but doesn't use them"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/prana/fan.py",
+      "homeassistant/components/*/fan.py",
+      "homeassistant/components/*/light.py",
+      "homeassistant/components/*/climate.py"
+    ]
+  },
+  {
+    "rule": "YAML configuration schemas must constrain enumerated options with vol.In over the known constants and normalize case with vol.Lower instead of accepting free-form cv.string when downstream code branches on specific values.",
+    "category": "api-design",
+    "trigger": "A voluptuous CONFIG_SCHEMA entry uses cv.string for a key whose value is later compared against named constants or treated specially by import/setup logic.",
+    "rationale": "Unvalidated free-form YAML values reach import and setup code that assumes one of a fixed set, so a differently-cased or unknown value produces incorrect handling instead of a config validation error at load time.",
+    "evidence": [
+      {
+        "pr": 166197,
+        "url": "https://github.com/home-assistant/core/pull/166197#discussion_r2974092423",
+        "excerpt": "Please constrain this schema (e.g., vol.In([...]) and/or normalize to lowercase)"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/proxmoxve/__init__.py",
+      "homeassistant/components/*/__init__.py"
+    ]
+  },
+  {
+    "rule": "Changes to config entry migration or import logic must ship migration tests covering the exact value shapes whose handling changed, including every stored location the value can come from.",
+    "category": "testing",
+    "trigger": "A diff modifies async_migrate_entry, an import step, or normalization of stored config entry data, without adding test cases for the newly-handled input variants.",
+    "rationale": "Existing migration tests exercise only one canonical value, so a case-normalization or extraction regression passes CI unnoticed and silently corrupts users' stored config entries on upgrade.",
+    "evidence": [
+      {
+        "pr": 176742,
+        "url": "https://github.com/home-assistant/core/pull/176742#discussion_r3606990242",
+        "excerpt": "Add migration coverage that asserts uppercase realms remain unchanged"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/proxmoxve/__init__.py",
+      "tests/components/proxmoxve/",
+      "homeassistant/components/*/__init__.py",
+      "tests/components/*/"
+    ]
+  },
+  {
+    "rule": "Platform entity classes must reuse the data attributes already stored by the integration's shared base entity in entity.py instead of re-assigning their own copy of the same object.",
+    "category": "api-design",
+    "trigger": "A platform module's __init__ assigns self.<something> to a constructor argument that it also passes to super().__init__, where the base entity in entity.py already stores it.",
+    "rationale": "Duplicate references to the same coordinator data must be kept in sync by hand and diverge as the base entity evolves; the base entity is the single place the integration keeps device context.",
+    "evidence": [
+      {
+        "pr": 163791,
+        "url": "https://github.com/home-assistant/core/pull/163791#discussion_r2838115878",
+        "excerpt": "is redundant since the parent class `ProxmoxNodeEntity` already stores the node data"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/proxmoxve/button.py",
+      "homeassistant/components/*/button.py",
+      "homeassistant/components/*/sensor.py",
+      "homeassistant/components/*/binary_sensor.py"
+    ]
+  },
+  {
+    "rule": "EntityDescription subclasses must be named for the object they describe followed by the platform, matching the naming already used by the integration's other platform modules.",
+    "category": "naming",
+    "trigger": "A new @dataclass EntityDescription subclass is added in a platform module with a name whose object/platform word order differs from the equivalent classes in the integration's sibling platforms.",
+    "rationale": "Each integration carries one description class per object per platform; inconsistent word order makes the parallel platform files impossible to scan and invites referencing a class name that does not exist.",
+    "evidence": [
+      {
+        "pr": 163791,
+        "url": "https://github.com/home-assistant/core/pull/163791#discussion_r2838288274",
+        "excerpt": "It should be named `ProxmoxVMButtonEntityDescription` to be consistent with the binary_sensor platform's naming convention"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/proxmoxve/button.py",
+      "homeassistant/components/*/button.py",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "Config flow error translation must map only 4xx API failures to specific user-facing error keys; server-side (5xx) failures must be reported the same way the runtime setup path reports them.",
+    "category": "correctness",
+    "trigger": "A config_flow except branch converts a broad API exception into a specific abort/error key without inspecting the HTTP status code, while coordinator.py distinguishes client from server errors on the same endpoint.",
+    "rationale": "A blanket translation shows the user a misleading cause (\"no active nodes were found\") for what the setup path already knows is a transient server error, sending them to fix the wrong thing.",
+    "evidence": [
+      {
+        "pr": 169682,
+        "url": "https://github.com/home-assistant/core/pull/169682#discussion_r3178134638",
+        "excerpt": "Translate only 4xx node-list failures to `no_nodes_found`"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/proxmoxve/config_flow.py",
+      "homeassistant/components/*/config_flow.py"
+    ]
+  },
+  {
+    "rule": "Trigger async_start_reauth only for authentication failures (401); authorization or permission failures (403) must raise ConfigEntryError instead, since re-entering credentials cannot fix them.",
+    "category": "correctness",
+    "trigger": "A setup or coordinator except branch calls config_entry.async_start_reauth for any 4xx status, or for a generic API exception, without isolating 401.",
+    "rationale": "Reauth on a 403 puts the user in a prompt loop re-entering credentials that were always correct; the actual fix is granting privileges, which only a ConfigEntryError message can communicate.",
+    "evidence": [
+      {
+        "pr": 164417,
+        "url": "https://github.com/home-assistant/core/pull/164417#discussion_r2867329718",
+        "excerpt": "narrowing reauth triggering to authentication failures only"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/proxmoxve/coordinator.py",
+      "homeassistant/components/*/coordinator.py",
+      "homeassistant/components/*/__init__.py"
+    ]
+  },
+  {
+    "rule": "When a translated setup error interpolates an exception into translation_placeholders, the placeholder must carry the original library exception's detail (its message or __cause__), never the repr of a bare wrapper exception.",
+    "category": "correctness",
+    "trigger": "A ConfigEntryNotReady/ConfigEntryError raised with translation_placeholders formats an exception that was itself raised bare with `raise CustomError from err`.",
+    "rationale": "The wrapper reprs as an empty class name, so the translated message that exists specifically to surface API error details shows the user nothing actionable.",
+    "evidence": [
+      {
+        "pr": 164417,
+        "url": "https://github.com/home-assistant/core/pull/164417#discussion_r2867329708",
+        "excerpt": "Consider either preserving the original exception message when raising `ProxmoxServerError`"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/proxmoxve/coordinator.py",
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "Dynamic entity add/remove logic must not treat a temporarily offline or unreachable device as removed; keep its last-known children or exclude it from the pruning step so entities are not re-added when it returns.",
+    "category": "correctness",
+    "trigger": "A coordinator update returns empty collections for a device based on an offline/unavailable status, and those collections feed a known-set intersection that drives async_add_entities.",
+    "rationale": "Pruning on transient unavailability makes the same items look new on recovery, so async_add_entities attempts duplicate unique_ids, which Home Assistant logs as an error and ignores.",
+    "evidence": [
+      {
+        "pr": 165986,
+        "url": "https://github.com/home-assistant/core/pull/165986#discussion_r2988457532",
+        "excerpt": "Preserve prior VM/container discovery for offline nodes"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/proxmoxve/coordinator.py",
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "Changes to DeviceInfo fields such as configuration_url must be covered by snapshot tests of the device and entity registry for every device type the integration creates.",
+    "category": "testing",
+    "trigger": "A diff adds or edits DeviceInfo attributes in an integration's entity.py without touching the snapshot tests or ambr snapshot files.",
+    "rationale": "Device info is part of entity registration, and snapshot testing is how this repo pins registration output, so an untested configuration_url can silently regress for one device class while others still pass.",
+    "evidence": [
+      {
+        "pr": 163414,
+        "url": "https://github.com/home-assistant/core/pull/163414#discussion_r2824753368",
+        "excerpt": "snapshot testing would be an appropriate way to test this functionality"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/proxmoxve/entity.py",
+      "tests/components/proxmoxve/",
+      "homeassistant/components/*/entity.py"
+    ]
+  },
+  {
+    "rule": "Entity unique_id and DeviceInfo identifiers must include the parent object's identifier whenever a child resource name is only unique within its parent, so two parents exposing the same name do not collide.",
+    "category": "correctness",
+    "trigger": "A unique_id or DeviceInfo identifiers f-string is built from the config entry id plus a resource name, for a resource enumerated per node/hub/bridge rather than globally.",
+    "rationale": "Names like `local` repeat across nodes, so without the parent identifier the second device collides with the first and its entities are dropped at registration.",
+    "evidence": [
+      {
+        "pr": 166409,
+        "url": "https://github.com/home-assistant/core/pull/166409#discussion_r2988646408",
+        "excerpt": "Include the node identifier in the storage DeviceInfo identifiers and entity unique_id"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/proxmoxve/entity.py",
+      "homeassistant/components/*/entity.py"
+    ]
+  },
+  {
+    "rule": "Numeric sensor entity descriptions must declare a state_class consistent with the integration's sibling sensors of the same device_class so the sensor participates in long-term statistics.",
+    "category": "api-design",
+    "trigger": "A new SensorEntityDescription sets device_class and native_unit_of_measurement for a numeric value but omits state_class, while neighbouring descriptions in the same tuple set one.",
+    "rationale": "Without a state_class the recorder keeps no long-term statistics for the sensor, so a capacity or total value silently behaves differently from every comparable sensor in the same integration.",
+    "evidence": [
+      {
+        "pr": 166409,
+        "url": "https://github.com/home-assistant/core/pull/166409#discussion_r2988513355",
+        "excerpt": "for the total storage sensor so it participates correctly in long-term statistics"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/proxmoxve/sensor.py",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "Uptime and other duration-since-boot sensors must not use SensorStateClass.MEASUREMENT; omit state_class or use TOTAL, matching how existing core integrations model uptime.",
+    "category": "api-design",
+    "trigger": "A SensorEntityDescription combines SensorDeviceClass.DURATION or an uptime translation_key with state_class=SensorStateClass.MEASUREMENT.",
+    "rationale": "Uptime resets to zero on reboot, so MEASUREMENT statistics average a monotonically climbing value into meaningless long-term data; core precedent (UPnP, asuswrt) omits the class or uses TOTAL.",
+    "evidence": [
+      {
+        "pr": 166275,
+        "url": "https://github.com/home-assistant/core/pull/166275#discussion_r2975837553",
+        "excerpt": "other integrations typically omit `state_class` (e.g. UPnP) or use a cumulative class"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/proxmoxve/sensor.py",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "Raw unit strings taken from a device or API payload must be normalized and validated against Home Assistant's canonical units for the entity's device_class, falling back to the entity description's default when unrecognized, before being assigned to native_unit_of_measurement.",
+    "category": "correctness",
+    "trigger": "A payload or MQTT property value is assigned directly to self._attr_native_unit_of_measurement without mapping it through the canonical unit constants.",
+    "rationale": "Payload units vary in capitalization, aliases and whitespace (`kwh` vs `kWh`), and a non-canonical unit breaks unit conversion and statistics for the whole entity.",
+    "evidence": [
+      {
+        "pr": 171588,
+        "url": "https://github.com/home-assistant/core/pull/171588#discussion_r3274736795",
+        "excerpt": "normalize and validate the unit before assigning it"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/qbus/sensor.py",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "An EntityDescription must keep a single source of truth for the callable that produces an entity's value; do not add a factory field alongside a mandatory value_fn that it overrides.",
+    "category": "api-design",
+    "trigger": "A description dataclass gains an optional *_factory callable while the original mandatory callable field stays required, and the entity picks one at runtime.",
+    "rationale": "Every description providing a factory must still supply a dead value_fn, so the two callables drift and readers cannot tell which one the entity actually uses.",
+    "evidence": [
+      {
+        "pr": 170480,
+        "url": "https://github.com/home-assistant/core/pull/170480#discussion_r3253215249",
+        "excerpt": "`value_fn_factory` makes `value_fn` effectively unused for any description that provides a factory"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/prusalink/sensor.py",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "When entity creation becomes conditional on optional payload keys, add a regression test using the reduced payload that asserts only the always-available entities are created and no KeyError occurs.",
+    "category": "testing",
+    "trigger": "A platform's async_setup_entry gains `if \"<key>\" in data` guards around entity creation without a matching test fixture that omits those keys.",
+    "rationale": "Reduced-permission or partial API responses are exactly the case the guard exists for; without a fixture exercising it, the reported KeyError can return unnoticed.",
+    "evidence": [
+      {
+        "pr": 176360,
+        "url": "https://github.com/home-assistant/core/pull/176360#discussion_r3567074399",
+        "excerpt": "Add a regression test using the reduced PVEVMUser node payload"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/proxmoxve/sensor.py",
+      "tests/components/proxmoxve/",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "When value helpers return None so an entity reports `unknown` instead of becoming unavailable, add tests feeding payloads with the missing or None fields to prove the helpers return None without raising and the update does not crash.",
+    "category": "testing",
+    "trigger": "New value_fn helpers introduce `return None` paths for absent payload fields, with tests covering only fully-populated and idle payloads.",
+    "rationale": "The unknown-versus-unavailable distinction is the behaviour the change exists to produce, and an unguarded key lookup on a partial payload would raise inside the coordinator update rather than yielding unknown.",
+    "evidence": [
+      {
+        "pr": 170480,
+        "url": "https://github.com/home-assistant/core/pull/170480#discussion_r3252992287",
+        "excerpt": "Add a test case that exercises an active/non-idle job payload with missing/`None` fields"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/prusalink/sensor.py",
+      "tests/components/prusalink/",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "A pull request must add only the entities and behaviour its title and description announce; extra platform entities must be removed or the PR description updated to cover them.",
+    "category": "commit-hygiene",
+    "trigger": "A platform module gains an additional entity description beyond the single feature named in the PR title/body.",
+    "rationale": "New entities are user-visible additions reviewed and released against the PR description, so an unannounced one escapes review and misleads the changelog.",
+    "evidence": [
+      {
+        "pr": 169862,
+        "url": "https://github.com/home-assistant/core/pull/169862#discussion_r3205685458",
+        "excerpt": "Update the PR description (or remove the extra change)"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/ptdevices/binary_sensor.py",
+      "homeassistant/components/*/binary_sensor.py",
+      "homeassistant/components/*/sensor.py"
+    ]
+  },
+  {
+    "rule": "Do not commit developer-machine artefacts into an integration directory: local AI-assistant instruction files and absolute paths under a contributor's home directory must be removed or replaced with generic placeholders.",
+    "category": "commit-hygiene",
+    "trigger": "A new integration adds files such as CLAUDE.md, or any committed file containing absolute paths like /Users/<name>/ or C:\\Users\\<name>\\.",
+    "rationale": "These paths mean nothing to other contributors and the instruction file is personal tooling configuration, not part of the integration shipped to users.",
+    "evidence": [
+      {
+        "pr": 160409,
+        "url": "https://github.com/home-assistant/core/pull/160409#discussion_r2890130699",
+        "excerpt": "contains absolute local file system paths specific to the developer's machine"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/qube_heatpump/CLAUDE.md",
+      "homeassistant/components/*/"
+    ]
+  },
+  {
+    "rule": "Integration code may only call library APIs that exist in the exact version pinned in manifest.json requirements; bump the pinned requirement in the same PR when the code depends on a newer attribute or method.",
+    "category": "providers",
+    "trigger": "A diff uses a client attribute or method while manifest.json requirements pin a version of that library that does not provide it.",
+    "rationale": "The pinned version is what users install, so the mismatch surfaces as a setup failure (`object has no attribute ...`) that CI mocks hide but every real installation hits.",
+    "evidence": [
+      {
+        "pr": 160409,
+        "url": "https://github.com/home-assistant/core/pull/160409#discussion_r2886963443",
+        "excerpt": "this version of the client doesn't seem to have `is_connected`"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/qube_heatpump/coordinator.py",
+      "homeassistant/components/*/manifest.json",
+      "homeassistant/components/*/coordinator.py"
+    ]
+  },
+  {
+    "rule": "When service registration is moved into services.py, __init__.py must import async_setup_services and call it from an async_setup, and define CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN).",
+    "category": "api-design",
+    "trigger": "A refactor adds services.py with async_setup_services while __init__.py loses its registration code and gains no async_setup that calls it.",
+    "rationale": "Without the async_setup hook nothing imports services.py, so every service the integration used to expose silently disappears; existing integrations such as rainbird show the required shape.",
+    "evidence": [
+      {
+        "pr": 174647,
+        "url": "https://github.com/home-assistant/core/pull/174647#discussion_r3467404665",
+        "excerpt": "Register the services by adding an `async_setup` that calls `async_setup_services`"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/rainmachine/__init__.py",
+      "homeassistant/components/*/__init__.py",
+      "homeassistant/components/*/services.py"
+    ]
+  }
+]

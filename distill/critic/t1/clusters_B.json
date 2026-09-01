@@ -1,0 +1,1326 @@
+{
+  "chunk": "chunk_B",
+  "n_candidates_in": 178,
+  "clusters": [
+    {
+      "rule": "Shared literal constants in the Airflow UI (localStorage keys, gradients, pixel offsets, colours) must live in a `constants.ts` module — the global `src/constants/` one for cross-cutting keys, the feature folder's own for feature-local values — not inline in components.",
+      "category": "api-design",
+      "trigger": "A `.tsx` component defines or inlines a string/number literal (localStorage key, gradient string, pixel offset) that is also used by another component instead of importing it from a constants module.",
+      "rationale": "Duplicated literals drift apart silently; the reviewers want one place to look for a key or a shared visual value.",
+      "kind": "convention",
+      "members": ["t1/batch_011#0", "t1/batch_011#2"]
+    },
+    {
+      "rule": "When a persisted UI state value becomes invalid because the URL context it depends on is absent (e.g. `dagView` set to gantt with no `runId`), add a `useEffect` that coerces the stored value back to a valid default.",
+      "category": "correctness",
+      "trigger": "A `useLocalStorage`-backed view mode is read in a layout that can be rendered without the URL param that mode requires.",
+      "rationale": "A stale localStorage value otherwise renders a view that cannot work for the current route.",
+      "kind": "incident",
+      "members": ["t1/batch_011#1"]
+    },
+    {
+      "rule": "Check API error HTTP status with `(error as ExpandedApiError).status` or optional chaining `error?.status`; do not use `instanceof ApiError`.",
+      "category": "correctness",
+      "trigger": "diff adds `instanceof ApiError` in a UI query or hook.",
+      "rationale": "The generated client does not guarantee the prototype chain, so `instanceof` silently fails to match real API errors.",
+      "kind": "convention",
+      "members": ["t1/batch_011#10"]
+    },
+    {
+      "rule": "Normalize field values (e.g. `\"\"` to `undefined`/`null`) before comparing them against the initial value when building an `updateMask`; do not push a field into `updateMask` based on an un-normalized comparison.",
+      "category": "correctness",
+      "trigger": "diff adds an `updateMask.push(...)` guarded by a raw `!==` comparison between a form value and its initial value.",
+      "rationale": "An empty input and an absent value are the same edit; comparing raw values marks untouched fields as changed.",
+      "kind": "convention",
+      "members": ["t1/batch_011#11"]
+    },
+    {
+      "rule": "When the UI must clear an existing server-side field, send `null` (not `undefined`) in the request body so the field appears in `model_fields_set` on the backend.",
+      "category": "correctness",
+      "trigger": "diff maps an empty form field to `undefined` in a PATCH/PUT request body.",
+      "rationale": "Pydantic drops `undefined`/missing keys from `model_fields_set`, so the backend never clears the field.",
+      "kind": "convention",
+      "members": ["t1/batch_011#12"]
+    },
+    {
+      "rule": "Use the OpenAPI-generated react-query hooks for all API calls in the UI; do not write raw `fetch` calls with manually encoded query strings.",
+      "category": "api-design",
+      "trigger": "diff adds `fetch(`${OpenAPI.BASE}...`)` or manual `encodeURIComponent`/`join(\"&\")` query construction in `airflow-core/src/airflow/ui/src/queries/`.",
+      "rationale": "Hand-rolled calls bypass generated types, auth handling and cache keys, and drift when the spec changes.",
+      "kind": "convention",
+      "members": ["t1/batch_011#13"]
+    },
+    {
+      "rule": "Do not prop-drill URL search-param values (e.g. `tryNumber`) through multiple component levels; read them directly from `useSearchParams` in the consuming component.",
+      "category": "api-design",
+      "trigger": "diff threads a value that originates from the URL through one or more intermediate component props.",
+      "rationale": "The URL is already global state; passing it down couples intermediate components to data they do not use.",
+      "kind": "convention",
+      "members": ["t1/batch_011#14"]
+    },
+    {
+      "rule": "Use Chakra semantic color tokens in `.tsx` component files; do not reference hardcoded colour-scale strings outside the designated theme/utils file.",
+      "category": "docs",
+      "trigger": "diff adds a literal colour scale reference (e.g. `blue.500`, `green.300`) in a component instead of a semantic token.",
+      "rationale": "Hardcoded scales break the light/dark theming the semantic tokens provide.",
+      "kind": "convention",
+      "members": ["t1/batch_011#15"]
+    },
+    {
+      "rule": "Use `total_entries` from the API response when displaying a count for a query that applies a hard `limit`; never display `array.length`.",
+      "category": "correctness",
+      "trigger": "diff renders `someList.length` as a count where the query that produced `someList` passes an explicit `limit`.",
+      "rationale": "With a limit applied, the array length is the page size, not the real total, so the UI understates the count.",
+      "kind": "convention",
+      "members": ["t1/batch_011#3"]
+    },
+    {
+      "rule": "When a component queries with a hard `limit`, compare `total_entries` against the limit and give the user a way to see the remainder (e.g. a '+ N more' modal) rather than silently truncating.",
+      "category": "api-design",
+      "trigger": "diff adds a component that renders a limited list without any affordance for the case `total_entries > limit`.",
+      "rationale": "Silent truncation hides data the user has no way of knowing exists.",
+      "kind": "convention",
+      "members": ["t1/batch_011#4"]
+    },
+    {
+      "rule": "Filter-reset logic must clear only filter search params; it must not delete the ordering/sort param.",
+      "category": "correctness",
+      "trigger": "diff adds a reset handler that deletes search params by iterating broadly or that includes the ordering key in the delete list.",
+      "rationale": "Sort order is a separate user preference from filtering and should survive a filter reset.",
+      "kind": "convention",
+      "members": ["t1/batch_011#5"]
+    },
+    {
+      "rule": "Guard on explicit absence (`value !== undefined && value !== null` in TS, `if value is not None` in Python) rather than truthiness whenever `0`, `False` or an empty string are legitimate values — for example counting an active `map_index = 0` filter or pushing a falsy XCom value.",
+      "category": "correctness",
+      "trigger": "diff adds `Boolean(value)`, `if (value)` or `if value:` as a presence check on a field whose valid domain includes falsy values.",
+      "rationale": "Truthiness checks drop valid falsy values, so filters read as inactive and XComs are never persisted.",
+      "kind": "convention",
+      "members": ["t1/batch_011#6", "t1/batch_019#15"]
+    },
+    {
+      "rule": "Filter inputs that are redundant in a context-specific view (e.g. a DAG ID filter on a page where `dagId` is already in the URL path) must be hidden by conditional rendering.",
+      "category": "api-design",
+      "trigger": "diff reuses a shared filters component on a scoped page without conditionally hiding the filter that the route already fixes.",
+      "rationale": "A filter that cannot change the result set is noise and invites confusing states.",
+      "kind": "convention",
+      "members": ["t1/batch_011#7"]
+    },
+    {
+      "rule": "Group a feature's sub-components in a named folder (e.g. `TaskFilters/`) with a single barrel export, and import only the folder's root component from outside.",
+      "category": "api-design",
+      "trigger": "diff adds an import that reaches into a feature folder for a non-root sub-component.",
+      "rationale": "Keeps the feature's internals refactorable and its public surface one component.",
+      "kind": "convention",
+      "members": ["t1/batch_011#8"]
+    },
+    {
+      "rule": "Reset the pagination OFFSET search param whenever a filter or filter mode changes, so the user is not left on a now-empty page.",
+      "category": "correctness",
+      "trigger": "diff adds a handler that sets a filter search param without also clearing/resetting the offset param.",
+      "rationale": "The offset from the previous, larger result set can exceed the new total and shows an empty table.",
+      "kind": "convention",
+      "members": ["t1/batch_011#9"]
+    },
+    {
+      "rule": "Use `airflow/utils/hashlib_wrapper.py` instead of calling `hashlib.md5()` directly, so hashing still works in FIPS-enabled environments.",
+      "category": "security",
+      "trigger": "diff adds `import hashlib` or a `hashlib.md5(` call in airflow-core Python source.",
+      "rationale": "Bare MD5 raises under FIPS; the wrapper passes `usedforsecurity=False`.",
+      "kind": "convention",
+      "members": ["t1/batch_012#0"]
+    },
+    {
+      "rule": "A new Alembic migration must add its `_REVISION_HEADS_MAP` entry for the next unreleased Airflow version, and the map must stay monotonic: each version's head must chain back through the previous version's head, never to a later revision.",
+      "category": "database",
+      "trigger": "diff adds a migration under `airflow/migrations/` without a `_REVISION_HEADS_MAP` entry, or adds/edits an entry under an already-released version key or one whose `down_revision` does not follow the previous head.",
+      "rationale": "The map drives upgrade/downgrade targeting per release; a mis-ordered or wrongly-versioned entry sends users to the wrong revision.",
+      "kind": "convention",
+      "members": ["t1/batch_012#1", "t1/batch_012#2"]
+    },
+    {
+      "rule": "E2e helpers and assertions must wait for the UI to settle rather than reading immediately after an action: navigation helpers must wait for a key element to be visible before returning, and post-click assertions (e.g. pagination) must use `expect.poll()`.",
+      "category": "testing",
+      "trigger": "diff adds a `goto(`/`navigateTo*` helper with no subsequent `waitFor`/`toBeVisible`, or compares page content immediately after a navigation click without `expect.poll`.",
+      "rationale": "Reading straight after navigation races the render and produces flaky e2e failures.",
+      "kind": "convention",
+      "members": ["t1/batch_012#10", "t1/batch_012#13"]
+    },
+    {
+      "rule": "E2e page objects and specs must take the DAG under test from `testConfig.testDag.id`; do not hardcode a DAG ID, neither as a spec-level constant nor as a default parameter value on a page-object method.",
+      "category": "testing",
+      "trigger": "diff adds `const DAG_ID = \"example_bash_operator\"` in `tests/e2e/specs/*.ts`, or a `tests/e2e/pages/*.ts` method with a default string argument such as `dagId: string = \"example_bash_operator\"`.",
+      "rationale": "A hidden default silently binds the suite to one example DAG and hides which DAG a test actually exercises.",
+      "kind": "convention",
+      "members": ["t1/batch_012#11", "t1/batch_012#9"]
+    },
+    {
+      "rule": "E2e specs that assert on state produced by a DAG run must trigger the DAG and wait for `\"success\"` in a `test.beforeAll` block before running assertions.",
+      "category": "testing",
+      "trigger": "diff adds a `test.describe` block in `tests/e2e/specs/*.ts` asserting run-dependent state without a `beforeAll` that triggers the DAG and verifies its status.",
+      "rationale": "Otherwise the assertions depend on leftover state from other specs.",
+      "kind": "convention",
+      "members": ["t1/batch_012#12"]
+    },
+    {
+      "rule": "E2e tests must not contain conditional logic that lets them pass whether or not the feature works.",
+      "category": "testing",
+      "trigger": "diff adds an `if (count > 0) { ... }` guard or similar short-circuit around the assertions in `tests/e2e/specs/*.ts`.",
+      "rationale": "A test that can never fail is worse than no test — it hides the regression it was written for.",
+      "kind": "convention",
+      "members": ["t1/batch_012#14"]
+    },
+    {
+      "rule": "Mermaid initialisation in the Airflow UI must be owned by a React context provider under `src/context`, not by a module-level mutable variable.",
+      "category": "api-design",
+      "trigger": "diff adds or modifies mermaid initialisation outside `airflow-core/src/airflow/ui/src/context/`.",
+      "rationale": "Module-level init state is not re-entrant across renders and cannot react to theme changes.",
+      "kind": "incident",
+      "members": ["t1/batch_012#15"]
+    },
+    {
+      "rule": "In e2e page objects targeting an `InputWithAddon`, locate the field with `getByText(label)` plus `.locator('input')` rather than `getByRole('textbox', { name: ... })`.",
+      "category": "testing",
+      "trigger": "diff adds `getByRole(\"textbox\", { name: ... })` in a page object for a field rendered by `InputWithAddon`.",
+      "rationale": "That component does not give the inner input an accessible name, so the role query never matches.",
+      "kind": "convention",
+      "members": ["t1/batch_012#16"]
+    },
+    {
+      "rule": "Do not log connection URIs or credential strings at any log level; redact them, or use the security code-scanning suppression, before logging.",
+      "category": "security",
+      "trigger": "diff adds a `log.` call whose argument derives from a connection URI, password or secret.",
+      "rationale": "Task and scheduler logs are widely readable; a URI leaks the password with it.",
+      "kind": "convention",
+      "members": ["t1/batch_012#3"]
+    },
+    {
+      "rule": "In `FileTaskHandler._read`, treat `UP_FOR_RETRY` and `UP_FOR_RESCHEDULE` as states with a completed attempt rather than actively-running states, and serve their logs through the fallback path.",
+      "category": "correctness",
+      "trigger": "diff changes the `ti.state` condition in `FileTaskHandler._read` around `TaskInstanceState.UP_FOR_RETRY` / `UP_FOR_RESCHEDULE`.",
+      "rationale": "Those states have finished an attempt, so streaming from a live worker returns nothing.",
+      "kind": "incident",
+      "members": ["t1/batch_012#4"]
+    },
+    {
+      "rule": "Express carve-outs from `State.unfinished` as a module-level `frozenset` constant rather than inline `... or state == SPECIFIC_MEMBER` conditions.",
+      "category": "correctness",
+      "trigger": "diff adds a `ti.state not in State.unfinished or ti.state == ...` pattern.",
+      "rationale": "The set of exceptional states is the thing being defined; naming it once keeps the branches consistent.",
+      "kind": "convention",
+      "members": ["t1/batch_012#5"]
+    },
+    {
+      "rule": "Do not prefix a TypeAlias or class with `Legacy` for a shape that will keep existing indefinitely; use a domain-meaningful contrast such as `LogResponse` vs `StreamingLogResponse`.",
+      "category": "naming",
+      "trigger": "diff introduces a `Legacy`-prefixed TypeAlias or class name.",
+      "rationale": "Non-streaming log providers are not going away, so `Legacy` misdescribes the type as deprecated.",
+      "kind": "incident",
+      "members": ["t1/batch_012#6"]
+    },
+    {
+      "rule": "Enums that DAG authors in other languages must understand (WeightRule, TriggerRule, and similar) must be defined in the ExecAPI OpenAPI spec, not shared through Python code or `airflow-shared`.",
+      "category": "api-design",
+      "trigger": "diff moves or adds an Airflow enum to `airflow-shared/`, or imports one from there in task-SDK or provider code.",
+      "rationale": "The Go and Java SDKs generate from the spec; a Python-only home makes the value unavailable to them.",
+      "kind": "convention",
+      "members": ["t1/batch_012#7"]
+    },
+    {
+      "rule": "Custom SQLAlchemy `@compiles` functions must emit bound parameters, never string-interpolated values.",
+      "category": "security",
+      "trigger": "diff adds a `@compiles` function building SQL with an f-string, `%` or `.format()` containing column or value expressions.",
+      "rationale": "Interpolating user-controlled values into compiled SQL is an injection path.",
+      "kind": "convention",
+      "members": ["t1/batch_012#8"]
+    },
+    {
+      "rule": "A provider module path may only be added to the `test_providers_modules_should_have_tests` allowlist in the same PR that adds the referenced test file.",
+      "category": "testing",
+      "trigger": "diff adds a path string to the project-structure allowlist without the corresponding test file in the same PR.",
+      "rationale": "The allowlist is a promise that coverage exists; adding the path first makes the check permanently lie.",
+      "kind": "convention",
+      "members": ["t1/batch_013#0"]
+    },
+    {
+      "rule": "Test names that reference a multi-word SQLAlchemy/DB exception must separate the words with underscores (`data_error`, not `dataerror`).",
+      "category": "naming",
+      "trigger": "diff adds a test function whose name concatenates a known multi-word exception name without underscores.",
+      "rationale": "Run-together names are unsearchable and read wrongly in test output.",
+      "kind": "convention",
+      "members": ["t1/batch_013#1"]
+    },
+    {
+      "rule": "Use `session.scalar(select(Model).where(...))` / `session.scalars(...)` instead of the legacy `session.query(Model).filter(...)` ORM style.",
+      "category": "database",
+      "trigger": "diff adds `session.query(...).filter(...)` in source or test code.",
+      "rationale": "The project has standardised on SQLAlchemy 2.0 style; legacy Query is on its way out.",
+      "kind": "convention",
+      "members": ["t1/batch_013#10"]
+    },
+    {
+      "rule": "airflow-core tests must not import from `airflow.sdk._shared` or other task-SDK internal paths.",
+      "category": "correctness",
+      "trigger": "diff changes an import in an `airflow-core` test from `airflow.X` to `airflow.sdk._shared.X` or another `airflow.sdk` internal namespace.",
+      "rationale": "It makes airflow-core tests unrunnable without task-sdk installed, which the core test suite must not require.",
+      "kind": "convention",
+      "members": ["t1/batch_013#11"]
+    },
+    {
+      "rule": "Alembic stairway migration tests must include the failing revision ID in the failure message.",
+      "category": "testing",
+      "trigger": "diff adds a loop over migration revisions calling `command.upgrade`/`downgrade` without re-raising or failing with the `revision_id` in the message.",
+      "rationale": "Without it the CI log says only that some migration broke, and the revision has to be bisected by hand.",
+      "kind": "convention",
+      "members": ["t1/batch_013#12"]
+    },
+    {
+      "rule": "When an airflow-core test exercises code whose raise site now lives in `airflow.sdk`, assert against the exception class imported from the SDK package, not the same-named class in `airflow.exceptions`.",
+      "category": "correctness",
+      "trigger": "diff imports an exception from `airflow.exceptions` in a test whose subject raises the SDK's copy of that class.",
+      "rationale": "After the class moved, the two are distinct types and the assertion can never match.",
+      "kind": "convention",
+      "members": ["t1/batch_013#13"]
+    },
+    {
+      "rule": "In prose — docstrings and test names — spell the Python class as `Dag`, not `DAG`.",
+      "category": "naming",
+      "trigger": "diff adds or edits a docstring or test name using all-caps `DAG` for the Python class in a sentence.",
+      "rationale": "The project renamed the class and standardised the prose spelling with it.",
+      "kind": "convention",
+      "members": ["t1/batch_013#14"]
+    },
+    {
+      "rule": "Tests asserting on a tag/stats dictionary that should be fully specified must assert full dict equality, not a series of per-key assertions.",
+      "category": "testing",
+      "trigger": "diff replaces `assert tags == {...}` with individual `assert tags[\"key\"] == ...` assertions.",
+      "rationale": "Per-key assertions let unexpected extra keys pass silently, which is exactly the regression these tests exist to catch.",
+      "kind": "convention",
+      "members": ["t1/batch_013#15"]
+    },
+    {
+      "rule": "Prefer top-level `def test_*` functions over tiny one-scenario test classes in files whose dominant pattern is top-level functions.",
+      "category": "testing",
+      "trigger": "diff adds a narrow new test class to a file where top-level test functions are the established pattern.",
+      "rationale": "A class per scenario adds nesting without shared setup and fragments the file.",
+      "kind": "convention",
+      "members": ["t1/batch_013#16"]
+    },
+    {
+      "rule": "Paginated bulk-action API endpoints must have a test that exercises multi-page traversal (e.g. `limit=1`) to prove the action applies across every page.",
+      "category": "testing",
+      "trigger": "diff adds tests for a paginated bulk PATCH/POST endpoint with no `limit=1` case.",
+      "rationale": "Bulk handlers commonly act only on the first page; single-page tests never see it.",
+      "kind": "convention",
+      "members": ["t1/batch_013#2"]
+    },
+    {
+      "rule": "New task-group / task-instance state-change API handlers must have unmocked integration tests covering upstream and downstream propagation, past/future run coverage and the deadlock/409 paths.",
+      "category": "testing",
+      "trigger": "diff adds a `TestPatch*TaskGroup`/`TestPatch*TaskInstance` class whose tests all mock the underlying state-transition method.",
+      "rationale": "Mocking the transition leaves the real DB logic — the part that breaks — untested.",
+      "kind": "convention",
+      "members": ["t1/batch_013#3"]
+    },
+    {
+      "rule": "Tests for endpoint parameters that accept several values (e.g. True/False/None filter flags) must be `@pytest.mark.parametrize`d, not folded into one assertion block.",
+      "category": "testing",
+      "trigger": "diff adds a test function asserting several filter-param combinations sequentially in a single body.",
+      "rationale": "Parametrized cases report which combination failed instead of stopping at the first assertion.",
+      "kind": "convention",
+      "members": ["t1/batch_013#4"]
+    },
+    {
+      "rule": "Tests for async-generator middleware in the execution API (e.g. `_extract_w3c_trace_context`) must cover the `athrow` path and assert whether `detach` is called on it.",
+      "category": "async",
+      "trigger": "diff adds or modifies tests for such a generator without a case that throws into the generator.",
+      "rationale": "Route errors take the throw path, which is where context leaks happen.",
+      "kind": "convention",
+      "members": ["t1/batch_013#5"]
+    },
+    {
+      "rule": "When an execution-API feature claims multi-backend support through SQLAlchemy constructs such as `regexp_match`, its tests must run against every claimed backend, not just Postgres.",
+      "category": "database",
+      "trigger": "diff adds tests marked only `@pytest.mark.backend(\"postgres\")` for a backend-portable construct.",
+      "rationale": "These constructs compile differently per dialect, so a Postgres-only test proves nothing about MySQL or SQLite.",
+      "kind": "convention",
+      "members": ["t1/batch_013#6"]
+    },
+    {
+      "rule": "Version-compat guards in airflow-core tests must name the lowest Airflow version at which the change actually landed (e.g. `AIRFLOW_V_3_0_PLUS` when the move happened in 3.0).",
+      "category": "correctness",
+      "trigger": "diff uses `AIRFLOW_V_3_1_PLUS` or higher to guard a symbol introduced or moved in an earlier 3.x release.",
+      "rationale": "An over-tight guard silently skips the test on versions where it should run.",
+      "kind": "convention",
+      "members": ["t1/batch_013#7"]
+    },
+    {
+      "rule": "Do not add redundant `try/except ImportError` compatibility shims: not in airflow-core tests for symbols that exist in the current core, and not in provider modules for imports that `airflow.providers.common.compat` already redirects.",
+      "category": "correctness",
+      "trigger": "diff introduces a `try: from airflow.X import Y / except ImportError: ...` block where the import cannot fail, or duplicates a redirect the common.compat layer already performs.",
+      "rationale": "Dead compat branches are never exercised and hide which versions are really supported.",
+      "kind": "convention",
+      "members": ["t1/batch_013#8", "t1/batch_020#1"]
+    },
+    {
+      "rule": "Imports inside test function bodies are permitted only for circular-import avoidance, lazy loading for worker isolation, or `TYPE_CHECKING`; everything else belongs at module level.",
+      "category": "correctness",
+      "trigger": "diff adds an `import` inside a test function body where none of those exceptions apply.",
+      "rationale": "Function-local imports hide dependencies and make collection-time errors surface late.",
+      "kind": "convention",
+      "members": ["t1/batch_013#9"]
+    },
+    {
+      "rule": "Consolidate multiple `session.flush()` calls in test setup into a single flush at the end, unless an earlier flush is required by a subsequent setup query.",
+      "category": "testing",
+      "trigger": "Two or more `session.flush()` calls appear in the setup section of one test function or fixture.",
+      "rationale": "Extra flushes add round trips and imply an ordering constraint that does not exist.",
+      "kind": "convention",
+      "members": ["t1/batch_014#0"]
+    },
+    {
+      "rule": "Guard performance-motivated ORM changes (e.g. replacing `session.merge()` with `session.add()`) with an `assert_queries_count()` assertion so a regression fails CI.",
+      "category": "testing",
+      "trigger": "diff swaps `session.merge(` for `session.add(` on a `task_instance`/`dag_run` path with no accompanying `assert_queries_count`.",
+      "rationale": "Without a query-count assertion the win silently disappears on the next refactor.",
+      "kind": "convention",
+      "members": ["t1/batch_014#1"]
+    },
+    {
+      "rule": "Bugfix entries in `chart/RELEASE_NOTES.rst` must be a concise one-line title; the detailed explanation belongs in the PR, not the release note.",
+      "category": "docs",
+      "trigger": "diff adds a multi-sentence bugfix entry to `chart/RELEASE_NOTES.rst`.",
+      "rationale": "Release notes are scanned as a list; long entries break the format.",
+      "kind": "convention",
+      "members": ["t1/batch_014#10"]
+    },
+    {
+      "rule": "When a Helm value is split into executor-specific keys (e.g. `workers.labels` into `workers.celery.labels` / `workers.kubernetes.labels`), document it as deprecated in favour of the per-executor keys — with an example for each new key — and never as a 'rename'.",
+      "category": "docs",
+      "trigger": "diff adds a deprecation notice in chart docs, `NOTES.txt` or `_helpers.yaml` that says 'renamed to X' for a split value, or removes the worker example without adding one per new key.",
+      "rationale": "There is no single replacement key; calling it a rename tells users to migrate to the wrong one.",
+      "kind": "convention",
+      "members": ["t1/batch_014#11", "t1/batch_014#13"]
+    },
+    {
+      "rule": "`chart/newsfragments/*.significant.rst` entries for breaking changes must enumerate every removed Helm value with its replacement as an explicit old-to-new mapping, not a prose summary.",
+      "category": "docs",
+      "trigger": "diff adds a `.significant.rst` newsfragment mentioning removed values or dropped executor support without listing the specific key mappings.",
+      "rationale": "Users upgrade by diffing their values file against this list; prose leaves them guessing.",
+      "kind": "convention",
+      "members": ["t1/batch_014#12"]
+    },
+    {
+      "rule": "Kustomize-overlay CI must not pull arbitrary third-party DockerHub images without an image-allowlist validation step.",
+      "category": "security",
+      "trigger": "diff adds an `image:` referencing a third-party DockerHub image under `chart/kustomize-overlays/` with no allowlist or validation check.",
+      "rationale": "An untrusted image running in CI can exfiltrate the job's credentials.",
+      "kind": "convention",
+      "members": ["t1/batch_014#14"]
+    },
+    {
+      "rule": "The Helm OTel collector ConfigMap must expose a values key that lets users supply their own complete collector `config.yml` instead of only the Airflow-generated body.",
+      "category": "api-design",
+      "trigger": "diff adds an OTel collector ConfigMap template with no `.Values` override for the whole config body.",
+      "rationale": "Collector configs are highly site-specific; without a full override users must fork the chart.",
+      "kind": "convention",
+      "members": ["t1/batch_014#15"]
+    },
+    {
+      "rule": "In the Helm OTel collector ConfigMap, the traces and metrics pipelines and their exporters must each be gated on their own feature-flag value (e.g. `otelCollector.tracesEnabled` / `otelCollector.metricsEnabled`).",
+      "category": "correctness",
+      "trigger": "diff renders both `traces:` and `metrics:` pipelines unconditionally regardless of which backends are enabled.",
+      "rationale": "An unconditional pipeline makes the collector fail or export to a backend the user never configured.",
+      "kind": "convention",
+      "members": ["t1/batch_014#16"]
+    },
+    {
+      "rule": "In Helm Service templates, name the user-supplied annotations key `.Values.<component>.service.annotations` (not `extraAnnotations`) when the resource has no Airflow-generated annotations of its own.",
+      "category": "api-design",
+      "trigger": "diff introduces `.Values.<component>.service.extraAnnotations` on a Service where no Airflow-generated annotations are applied.",
+      "rationale": "`extra` only makes sense when it is added to something; otherwise the key just reads wrong.",
+      "kind": "convention",
+      "members": ["t1/batch_014#17"]
+    },
+    {
+      "rule": "Tests for `@operator_defaults` must include a case where the operator explicitly overrides the decorator's default (e.g. `retries=0` beating `@operator_defaults(retries=3)`).",
+      "category": "testing",
+      "trigger": "diff adds `@operator_defaults` test cases that only cover the decorator supplying its value.",
+      "rationale": "Precedence is the whole contract of the feature and is the part most likely to break.",
+      "kind": "convention",
+      "members": ["t1/batch_014#2"]
+    },
+    {
+      "rule": "DAG serialization test fixtures containing fields that are always emitted because their defaults come from `airflow.cfg` at parse time (e.g. `catchup`, `max_active_runs`, `max_active_tasks`) must carry an inline comment saying so.",
+      "category": "docs",
+      "trigger": "diff adds or edits a serialization fixture including such fields with no explanatory comment.",
+      "rationale": "They look redundant against the schema, and future readers delete them.",
+      "kind": "convention",
+      "members": ["t1/batch_014#3"]
+    },
+    {
+      "rule": "Sentinel objects such as `NOTSET` and `SET_DURING_EXECUTION` must have `repr()` and `str()` return the same stable string their `serialize()` produces, not the class name.",
+      "category": "correctness",
+      "trigger": "diff changes `__repr__`/`__str__` on a sentinel class to return the class name.",
+      "rationale": "The serialized form is what shows up in logs and stored payloads; two spellings of the same sentinel confuse comparisons.",
+      "kind": "convention",
+      "members": ["t1/batch_014#4"]
+    },
+    {
+      "rule": "A test that takes the `caplog` fixture must assert on captured log output; if there is nothing to assert, remove `caplog` and its setup.",
+      "category": "testing",
+      "trigger": "A test function accepts `caplog` but contains no assertion against `caplog.text` or `caplog.records`.",
+      "rationale": "Unused caplog implies coverage that is not there and slows the test.",
+      "kind": "convention",
+      "members": ["t1/batch_014#5"]
+    },
+    {
+      "rule": "Do not bundle unrelated tightening (e.g. adding `spec=` to an existing MagicMock) into a PR whose title describes a distinct bug fix; drop the hunk or call it out in the PR body.",
+      "category": "commit-hygiene",
+      "trigger": "diff modifies an existing `mock.MagicMock()` to add `spec=` in a file otherwise changed only for an unrelated fix.",
+      "rationale": "Unannounced extra changes make the fix harder to review and to revert.",
+      "kind": "incident",
+      "members": ["t1/batch_014#6"]
+    },
+    {
+      "rule": "In `topological_sort` and other task-group ordering paths, index positions with a `dict[task_id, index]` rather than repeated `list.index()` lookups.",
+      "category": "performance",
+      "trigger": "diff introduces or retains a `.index(` call on a list inside a topological-sort or task-group ordering function.",
+      "rationale": "`.index()` in the loop makes ordering O(n squared) on DAGs with many tasks.",
+      "kind": "incident",
+      "members": ["t1/batch_014#7"]
+    },
+    {
+      "rule": "Docker Compose services under `airflow-e2e-tests/` must not set a fixed `container_name`, must address each other by service-name hostname, and must not publish host ports without a demonstrated external need.",
+      "category": "testing",
+      "trigger": "diff adds `container_name:` or a host-port mapping to a service in a compose file under `airflow-e2e-tests/`.",
+      "rationale": "Fixed names and published ports collide with whatever else is running on the CI host or a developer's machine.",
+      "kind": "convention",
+      "members": ["t1/batch_014#8"]
+    },
+    {
+      "rule": "In `chart/RELEASE_NOTES.rst`, wrap every Helm values key reference in double RST backticks (e.g. ``workers.celery.nodeSelector``).",
+      "category": "docs",
+      "trigger": "diff adds a line to `chart/RELEASE_NOTES.rst` containing a dotted Helm values path without surrounding double backticks.",
+      "rationale": "Unmarked paths render as prose and are unreadable in the published notes.",
+      "kind": "convention",
+      "members": ["t1/batch_014#9"]
+    },
+    {
+      "rule": "In `chart/values.yaml`, describe auto-generated config values as 'generated by default from `.Values.<helmPath>`' and point users at the Helm value, rather than calling the config key deprecated or the override the only option.",
+      "category": "docs",
+      "trigger": "A values.yaml comment says a config key is 'deprecated' or 'only possible' via direct `config.*` override when the chart actually generates it from a Helm value.",
+      "rationale": "The comment steers users away from the supported knob toward a raw override.",
+      "kind": "convention",
+      "members": ["t1/batch_015#0"]
+    },
+    {
+      "rule": "When a Helm config flag's behaviour depends on another value (e.g. `statsd_on` gated on `otelCollector.metricsEnabled`), document the dependency in both `values.yaml` and `values.schema.json`.",
+      "category": "docs",
+      "trigger": "A conditional expression in the `config:` block of values.yaml references two or more `.Values` fields but only one carries an explanatory comment.",
+      "rationale": "Users setting one flag cannot discover that another silently overrides it.",
+      "kind": "convention",
+      "members": ["t1/batch_015#1"]
+    },
+    {
+      "rule": "CI reproduction instructions generated by Breeze must check out `GITHUB_SHA`, not `FETCH_HEAD`, so the instructions keep pointing at the commit that failed.",
+      "category": "correctness",
+      "trigger": "A `ReproductionCommand` in `reproduce_ci.py` emits `git checkout FETCH_HEAD` after fetching `refs/pull/...`.",
+      "rationale": "`FETCH_HEAD` moves as the PR advances, so the reproduction no longer reproduces.",
+      "kind": "convention",
+      "members": ["t1/batch_015#10"]
+    },
+    {
+      "rule": "When Breeze renders CLI flags into reproduction commands, emit the long-form alias (`param.opts[-1]` / `param.secondary_opts[-1]`), not the first alias.",
+      "category": "correctness",
+      "trigger": "A flag-pair branch in `build_reproduction_command_from_context()` uses `param.opts[0]` or `param.secondary_opts[0]`.",
+      "rationale": "The first alias may be a single-letter short flag, which is unreadable in a pasted reproduction command.",
+      "kind": "convention",
+      "members": ["t1/batch_015#11"]
+    },
+    {
+      "rule": "The `KUSTOMIZE_OVERLAYS_FILES` group in `selective_checks.py` must include `^chart/templates/` and `^chart/files/`.",
+      "category": "testing",
+      "trigger": "diff adds or edits `FileGroupForCi.KUSTOMIZE_OVERLAYS_FILES` without those patterns.",
+      "rationale": "Overlay smoke tests render Helm templates, so template-only changes must trigger them.",
+      "kind": "convention",
+      "members": ["t1/batch_015#12"]
+    },
+    {
+      "rule": "Breeze utility functions must not mix human-readable error sentinel strings into a `list[str]` of job names; signal lookup failure with `None`, a result object, or an exception.",
+      "category": "api-design",
+      "trigger": "A function returning `list[str]` (or a similar job-name collection) returns a string constant such as `FAILED_JOBS_LOOKUP_ERROR` on failure.",
+      "rationale": "Callers cannot distinguish a job named like the sentinel from a failure, and the type says nothing about it.",
+      "kind": "convention",
+      "members": ["t1/batch_015#13"]
+    },
+    {
+      "rule": "Tests for Breeze CLI flag-pair rendering must include a flag that has both a short and a long alias, asserting the long form is the one emitted.",
+      "category": "testing",
+      "trigger": "A test in `dev/breeze/tests/` for flag-rendering logic only covers flags with a single long form.",
+      "rationale": "The alias-selection bug only shows up when there is more than one alias to choose from.",
+      "kind": "convention",
+      "members": ["t1/batch_015#14"]
+    },
+    {
+      "rule": "Do not put implementation-detail comments in `chart/values.yaml`; comments there describe what the field controls, not template guard logic, schema mechanics or helper internals.",
+      "category": "docs",
+      "trigger": "A values.yaml comment explains internal template or Helm helper behaviour rather than the field's user-facing effect.",
+      "rationale": "values.yaml is user documentation; internal notes belong in the templates.",
+      "kind": "convention",
+      "members": ["t1/batch_015#2"]
+    },
+    {
+      "rule": "Release-tooling shell scripts under `dev/` must branch on `$(uname)` so both macOS (BSD `date`) and Linux (GNU `date`) syntax work.",
+      "category": "commit-hygiene",
+      "trigger": "A shell script in `dev/` uses GNU-only `date --utc` or BSD-only `date -v` with no OS check.",
+      "rationale": "Release managers run these scripts on both platforms.",
+      "kind": "convention",
+      "members": ["t1/batch_015#3"]
+    },
+    {
+      "rule": "Images used only by kustomize-overlay smoke tests must not be added to the static Breeze k8s image preload list; they are discovered from the overlay manifest by `_discover_overlay_images()`.",
+      "category": "providers",
+      "trigger": "A new image entry is added to the static k8s preload list in `kubernetes_commands.py` for an image that appears only under `chart/kustomize-overlays/`.",
+      "rationale": "Duplicating the entry means the two lists drift and every overlay change needs a Breeze edit.",
+      "kind": "convention",
+      "members": ["t1/batch_015#4"]
+    },
+    {
+      "rule": "New path-parsing or git-worktree logic in Breeze must be covered by unit tests for an absolute gitdir path, a relative gitdir path, and the non-worktree case.",
+      "category": "testing",
+      "trigger": "A function reading `.git` file content or deriving paths from `AIRFLOW_ROOT_PATH` is added to `path_utils.py`/`shell_params.py` without those three cases.",
+      "rationale": "Worktree layouts vary by git version and by how the worktree was created; only all three cases prove the parsing.",
+      "kind": "convention",
+      "members": ["t1/batch_015#5"]
+    },
+    {
+      "rule": "Fragile path-derivation logic in Breeze (e.g. locating the main `.git` directory from a worktree gitdir) must live in one helper; do not duplicate it across `docker_command_utils.py` and `shell_params.py`.",
+      "category": "correctness",
+      "trigger": "A `.parent.parent`-style worktree-root derivation appears in more than one file under `dev/breeze/src/`.",
+      "rationale": "Two copies of a fragile heuristic fall out of sync the first time git changes its layout.",
+      "kind": "convention",
+      "members": ["t1/batch_015#6"]
+    },
+    {
+      "rule": "`get_git_worktree_root()` must resolve a relative `gitdir:` path to an absolute path (against `AIRFLOW_ROOT_PATH`) before returning it.",
+      "category": "correctness",
+      "trigger": "`Path(git_content.removeprefix(\"gitdir: \"))` is returned without an `is_absolute()` check and resolution.",
+      "rationale": "Docker bind mounts require absolute paths, so a relative gitdir breaks the container mount.",
+      "kind": "convention",
+      "members": ["t1/batch_015#7"]
+    },
+    {
+      "rule": "When invoking or documenting `prek` in Breeze code and messages, use `--hook-stage`, not `--stage`.",
+      "category": "commit-hygiene",
+      "trigger": "A prek invocation or instructional string under `dev/breeze/` uses `--stage`.",
+      "rationale": "`--stage` is the pre-commit spelling; prek rejects it, so the printed instructions do not work.",
+      "kind": "convention",
+      "members": ["t1/batch_015#8"]
+    },
+    {
+      "rule": "Breeze `CacheStore` entries must nest the stored payload under a dedicated key (e.g. `{\"profile\": ...}`) so cache metadata such as `cached_at` never leaks into the runtime object returned to callers.",
+      "category": "api-design",
+      "trigger": "A `CacheStore.save()` stores a plain dict and the matching `get()` result is used directly as the runtime object.",
+      "rationale": "Callers then see cache bookkeeping fields as if they were real data.",
+      "kind": "convention",
+      "members": ["t1/batch_015#9"]
+    },
+    {
+      "rule": "Use `time.monotonic()` rather than `time.time()` for deadline and elapsed-duration checks in triggers and operators.",
+      "category": "async",
+      "trigger": "diff adds `time.time()` to compute or compare a deadline or elapsed duration inside a Trigger or Operator.",
+      "rationale": "Wall-clock time can jump on NTP sync, which either fires or skips the timeout wrongly.",
+      "kind": "convention",
+      "members": ["t1/batch_016#0"]
+    },
+    {
+      "rule": "In a Trigger's polling loop, evaluate the execution deadline before checking job state, so a terminal status observed after the deadline still yields `timeout` rather than `success`/`error`.",
+      "category": "async",
+      "trigger": "diff adds or modifies a `while` loop in a Trigger `run()` that checks `is_still_running()` before comparing against `end_time`/`execution_deadline`.",
+      "rationale": "Otherwise the timeout is silently overridden by whatever status the last poll happened to see.",
+      "kind": "convention",
+      "members": ["t1/batch_016#1"]
+    },
+    {
+      "rule": "Helm test coverage for deprecated-but-still-supported value overrides (e.g. `workers.keda.query`) must be kept when the executor or CRD that exercised them is removed; migrate the case to an equivalent supported executor instead of deleting it.",
+      "category": "testing",
+      "trigger": "diff deletes a helm test parametrize case covering a value path still listed in the `NOTES.txt` deprecation notice.",
+      "rationale": "The value is still documented as working, so it still needs a test proving it does.",
+      "kind": "convention",
+      "members": ["t1/batch_016#10"]
+    },
+    {
+      "rule": "Name Helm test helper variables after the Kubernetes workload they actually read; do not call a value read from the worker StatefulSet `broker_url_secret_in_scheduler`.",
+      "category": "naming",
+      "trigger": "diff adds a helm test variable whose name references one workload while the value is fetched from another.",
+      "rationale": "The mismatched name makes the assertion look like it covers a workload it never touches.",
+      "kind": "incident",
+      "members": ["t1/batch_016#11"]
+    },
+    {
+      "rule": "Helm tests for a given component must live in that component's established `test_<component>.py` file, not be spread across other files.",
+      "category": "testing",
+      "trigger": "diff adds a test class for a component (e.g. `TestMetadataConnectionTplRendering`) to a file other than the component's dedicated test file.",
+      "rationale": "Scattered coverage means the next contributor cannot tell whether a case already exists.",
+      "kind": "convention",
+      "members": ["t1/batch_016#12"]
+    },
+    {
+      "rule": "Version strings that must track an external release (e.g. the provider version pinned in the Edge Worker) must be declared as named constants at the top of the file or in a constants file, not embedded as literals inside functions.",
+      "category": "providers",
+      "trigger": "diff changes a hard-coded version string literal inside a function or constructor in go-sdk or edge worker code.",
+      "rationale": "A literal buried in a call site is missed at every release bump.",
+      "kind": "convention",
+      "members": ["t1/batch_016#13"]
+    },
+    {
+      "rule": "Where the Go SDK and the Python supervisor use different frame-size caps for the IPC channel, each side's constant must carry a doc comment explaining its value and why the two sides differ.",
+      "category": "docs",
+      "trigger": "diff adds or changes a frame/buffer-size constant in `go-sdk/pkg/execution/` with no comment relating it to the Python cap.",
+      "rationale": "An unexplained asymmetry between the two ends of one protocol reads as a bug to the next reader.",
+      "kind": "convention",
+      "members": ["t1/batch_016#14"]
+    },
+    {
+      "rule": "Go IPC message structs that use `-1` as a sentinel for `map_index` must document the convention in a comment, and should prefer a nullable `*int` to match the Python side's `int | None`.",
+      "category": "api-design",
+      "trigger": "diff adds a Go IPC struct with an `int` `MapIndex` field using -1 as a sentinel while the Python counterpart in `comms.py` uses `int | None`.",
+      "rationale": "The two ends must agree on what 'no map index' means, or the sentinel is decoded as a real index.",
+      "kind": "convention",
+      "members": ["t1/batch_016#15"]
+    },
+    {
+      "rule": "ADR documents must cite the actual function or method where the described behaviour lives; do not name a helper when the logic sits in the exported entry point.",
+      "category": "docs",
+      "trigger": "diff adds or edits an ADR `.md` referencing a code symbol by name that does not match the real location.",
+      "rationale": "ADRs are read as a map of the code; a wrong symbol sends readers to the wrong place.",
+      "kind": "incident",
+      "members": ["t1/batch_016#16"]
+    },
+    {
+      "rule": "Source release tarballs built from the Java SDK must `export-ignore` binary wrapper artifacts such as `gradle-wrapper.jar`.",
+      "category": "commit-hygiene",
+      "trigger": "diff adds a `git archive` invocation in a Gradle release task without a `.gitattributes` export-ignore for `gradle-wrapper.jar`.",
+      "rationale": "Binaries in the source release trip the Apache release checker during the RC vote.",
+      "kind": "convention",
+      "members": ["t1/batch_016#17"]
+    },
+    {
+      "rule": "Public interfaces and classes in the Java/Kotlin SDK must carry KDoc/JavaDoc.",
+      "category": "docs",
+      "trigger": "diff adds a `public interface` or `public class` under `java-sdk/sdk/src/main/kotlin/` with no KDoc block.",
+      "rationale": "SDK documentation is generated from source and IDE users rely on the inline help.",
+      "kind": "convention",
+      "members": ["t1/batch_016#18"]
+    },
+    {
+      "rule": "`execute_complete` must branch on `event[\"status\"]` and handle every status its paired Trigger can emit — raising for error, cancelled and timeout statuses — before reading any payload field as a success.",
+      "category": "correctness",
+      "trigger": "diff implements or edits `execute_complete` that reads payload fields without a prior status check, or a Trigger gains a status (e.g. `\"cancelled\"`) with no matching branch in the operator.",
+      "rationale": "A missing branch silently reports the task successful for a job that was cancelled or failed.",
+      "kind": "convention",
+      "members": ["t1/batch_016#2", "t1/batch_017#9"]
+    },
+    {
+      "rule": "Do not add a `stream()` stub that raises `NotImplementedError` to a log handler; leave the method absent so the framework's `getattr` check falls back to `read()`.",
+      "category": "correctness",
+      "trigger": "diff adds `def stream(self, ...): raise NotImplementedError` to a class inheriting from a remote log handler.",
+      "rationale": "The log framework detects streaming support by attribute presence, so the stub turns a working fallback into a hard error.",
+      "kind": "convention",
+      "members": ["t1/batch_016#3"]
+    },
+    {
+      "rule": "A provider's `tags` in `provider.yaml` must match the tags declared in its `get_provider_info.py`.",
+      "category": "providers",
+      "trigger": "diff changes `tags:` in `provider.yaml` or the tags list in `get_provider_info.py` so the two disagree.",
+      "rationale": "The two sources feed generated provider docs and produce conflicting categorisation.",
+      "kind": "convention",
+      "members": ["t1/batch_016#4"]
+    },
+    {
+      "rule": "Hooks accepting an enum-like parameter such as `access_type` must validate it against the module's `VALID_*` constants and raise `ValueError` listing the allowed values before making any API call.",
+      "category": "correctness",
+      "trigger": "diff adds a hook method branching on `access_type`/`auth_type` with no `if ... not in VALID_...` guard first.",
+      "rationale": "Without the guard a typo silently falls through to a default branch or a confusing remote error.",
+      "kind": "convention",
+      "members": ["t1/batch_016#5"]
+    },
+    {
+      "rule": "Provider `changelog.rst` entries must use sentence-case commit titles; lowercase openers and conventional-commit prefixes such as `fix:` are not acceptable.",
+      "category": "docs",
+      "trigger": "diff adds a line to `providers/*/docs/changelog.rst` whose title starts with a lowercase word or a `fix:`/`feat:` prefix.",
+      "rationale": "The changelog is published prose, not a raw commit log.",
+      "kind": "convention",
+      "members": ["t1/batch_016#6"]
+    },
+    {
+      "rule": "When tightening a provider dependency with a `<X.Y` upper bound, record — in a comment or a linked issue — the condition under which the cap can be lifted.",
+      "category": "providers",
+      "trigger": "diff adds an upper-bound pin to a provider dependency without an accompanying note explaining when it may be relaxed.",
+      "rationale": "Undocumented caps outlive the incompatibility that caused them and block users for releases on end.",
+      "kind": "convention",
+      "members": ["t1/batch_016#7"]
+    },
+    {
+      "rule": "A Trigger test that verifies one deadline path (e.g. `execution_deadline`) must set the other deadline (`end_time`) to a future value so exactly one timeout branch is exercised.",
+      "category": "testing",
+      "trigger": "diff adds a Trigger unit test where both `end_time` and `execution_deadline` are already expired.",
+      "rationale": "With both expired the test passes whichever branch fires and proves neither.",
+      "kind": "convention",
+      "members": ["t1/batch_016#8"]
+    },
+    {
+      "rule": "Do not use `caplog` in Kubernetes/integration tests; capture logs with mocks instead.",
+      "category": "testing",
+      "trigger": "diff adds `caplog` as a parameter or fixture to a test under `kubernetes-tests/`.",
+      "rationale": "caplog is flaky in that environment and the CI static checks flag it as a failure.",
+      "kind": "convention",
+      "members": ["t1/batch_016#9"]
+    },
+    {
+      "rule": "Public provider API must stay backward compatible: renaming an executor attribute or method requires a deprecated property/forwarding wrapper under the old name, and removing an operator parameter requires deprecating it and mapping its values onto the replacement rather than dropping it.",
+      "category": "providers",
+      "trigger": "diff renames a public attribute or method on a `BaseExecutor` subclass with no shim, or removes a parameter (e.g. `wait_policy`) from an operator and hard-codes one of its former values.",
+      "rationale": "Users subclass executors and pass these parameters from their own DAGs; a silent rename or removal breaks them at runtime with no migration path.",
+      "kind": "convention",
+      "members": ["t1/batch_017#0", "t1/batch_017#1", "t1/batch_017#16"]
+    },
+    {
+      "rule": "When an operator's behaviour depends on a boolean that the trigger consumes (e.g. `cancel_on_kill`), the operator must expose it as a parameter and pass it through instead of hard-coding a value at trigger construction.",
+      "category": "providers",
+      "trigger": "diff instantiates a trigger with a boolean argument that is not exposed as a parameter on the enclosing operator.",
+      "rationale": "The behaviour is user-visible, so users must be able to choose it.",
+      "kind": "convention",
+      "members": ["t1/batch_017#10"]
+    },
+    {
+      "rule": "When refactoring an operator's execution paths, a documented parameter (e.g. `awslogs_enabled`) must keep its documented effect in both the deferrable and non-deferrable paths.",
+      "category": "providers",
+      "trigger": "diff refactors deferrable execution and leaves a previously-honoured parameter with no effect in `execute_complete`.",
+      "rationale": "The parameter is still documented and still set by users; silently ignoring it in one path is a behaviour regression.",
+      "kind": "convention",
+      "members": ["t1/batch_017#11"]
+    },
+    {
+      "rule": "Operator links whose data only exists after the job completes (e.g. a CloudWatch log stream ARN) must be persisted after the wait, not before it, in the non-deferrable path.",
+      "category": "providers",
+      "trigger": "diff calls `_persist_links()` or equivalent before `hook.wait_for_job()` where the link data is only available post-completion.",
+      "rationale": "Persisting early stores an incomplete link that never resolves for the user.",
+      "kind": "convention",
+      "members": ["t1/batch_017#12"]
+    },
+    {
+      "rule": "When changing behaviour that existing tests cover, update the tests to cover both the new branch and the altered or removed one; do not leave assertions describing behaviour that no longer exists.",
+      "category": "testing",
+      "trigger": "diff changes conditional logic in an operator without adding or updating tests for both sides of the condition.",
+      "rationale": "Stale assertions pass while describing the wrong contract.",
+      "kind": "incident",
+      "members": ["t1/batch_017#13"]
+    },
+    {
+      "rule": "Amazon provider docstrings must append `(templated)` to the description of every parameter listed in `template_fields`.",
+      "category": "docs",
+      "trigger": "diff adds a `:param:` line in an Amazon provider operator, trigger or sensor for a field present in `template_fields` without the `(templated)` marker.",
+      "rationale": "Users cannot otherwise tell which arguments accept Jinja.",
+      "kind": "convention",
+      "members": ["t1/batch_017#14"]
+    },
+    {
+      "rule": "An AWS operator's `execute()` should return a minimal meaningful identifier (ARN, URI, name) rather than the raw boto3 response dict.",
+      "category": "api-design",
+      "trigger": "diff ends an AWS operator's `execute()` with `return response` where `response` is the raw boto3 response.",
+      "rationale": "The whole response becomes an XCom payload with metadata users neither need nor can rely on.",
+      "kind": "convention",
+      "members": ["t1/batch_017#15"]
+    },
+    {
+      "rule": "Provider how-to RST docs must order lifecycle sections to follow the resource lifecycle: Create, Start, Stop, Update, Delete.",
+      "category": "docs",
+      "trigger": "diff adds a section to a provider how-to doc out of lifecycle order.",
+      "rationale": "Readers follow these pages top to bottom as a walkthrough.",
+      "kind": "convention",
+      "members": ["t1/batch_017#17"]
+    },
+    {
+      "rule": "A constraint stated in an operator docstring (e.g. a maximum list size) must be enforced by a runtime check in `__init__`; do not document bounds that are not validated.",
+      "category": "correctness",
+      "trigger": "diff adds a docstring stating a numeric bound for a parameter with no matching validation in `__init__`.",
+      "rationale": "An unvalidated bound surfaces as an opaque API error at execution time instead of a clear failure at parse time.",
+      "kind": "convention",
+      "members": ["t1/batch_017#18"]
+    },
+    {
+      "rule": "When a provider imports a symbol from airflow-core that does not exist in its minimum supported core version, gate the import behind a runtime version check instead of importing unconditionally.",
+      "category": "providers",
+      "trigger": "diff adds an unconditional import of a new airflow-core symbol in a provider whose `min_ver` predates it.",
+      "rationale": "Providers are installed against older cores; an unconditional import breaks import of the whole provider.",
+      "kind": "convention",
+      "members": ["t1/batch_017#2"]
+    },
+    {
+      "rule": "In `BaseExecutor._process_workloads` and its overrides, name the sequence parameter `workload_items`, not `workloads`.",
+      "category": "providers",
+      "trigger": "diff adds or edits an executor method with a parameter named `workloads` in a module that also does `from airflow.executors import workloads`.",
+      "rationale": "The parameter otherwise shadows the imported module inside the method body.",
+      "kind": "convention",
+      "members": ["t1/batch_017#3"]
+    },
+    {
+      "rule": "AWS executors must not log each individual task failure inline; aggregate failures and log them once at the summary point.",
+      "category": "providers",
+      "trigger": "diff adds a `self.log.info(...)`/`self.log.error(...)` inside a per-task failure branch of an AWS executor sync loop.",
+      "rationale": "A large failing batch floods the scheduler log with one line per task.",
+      "kind": "convention",
+      "members": ["t1/batch_017#4"]
+    },
+    {
+      "rule": "AWS hooks that build a boto3 client must subclass the Boto-specific base (`AwsBaseHook`), not the generic `BaseHook`.",
+      "category": "providers",
+      "trigger": "diff adds an AWS hook importing `BaseHook` from `airflow.providers.common.compat.sdk` while creating a boto3 client itself.",
+      "rationale": "`AwsBaseHook` already handles session, region and credential resolution consistently with every other AWS hook.",
+      "kind": "convention",
+      "members": ["t1/batch_017#5"]
+    },
+    {
+      "rule": "Do not raise `AirflowException` for failures that are not Airflow's own; raise the most appropriate built-in Python exception instead.",
+      "category": "providers",
+      "trigger": "diff raises `AirflowException` for an external-service error or bad user input.",
+      "rationale": "`AirflowException` signals an Airflow-infrastructure problem, and using it for everything destroys that signal.",
+      "kind": "convention",
+      "members": ["t1/batch_017#6"]
+    },
+    {
+      "rule": "In deferrable operators, call `self.persist()` (or any link/XCom persistence) before `self.defer()`.",
+      "category": "providers",
+      "trigger": "diff places a persist or XCom push after a `self.defer(...)` call in the same code path.",
+      "rationale": "`defer()` raises `TaskDeferred`, so every line after it is unreachable.",
+      "kind": "convention",
+      "members": ["t1/batch_017#7"]
+    },
+    {
+      "rule": "In `execute_complete`, read all required state from the trigger event dict; never fall back to an attribute set during `execute`.",
+      "category": "providers",
+      "trigger": "diff uses `self.job_id` or another `execute`-time attribute inside `execute_complete` as a fallback when the event lacks the value.",
+      "rationale": "`execute_complete` runs in a fresh task instance after deferral, so those attributes are not the ones `execute` set.",
+      "kind": "convention",
+      "members": ["t1/batch_017#8"]
+    },
+    {
+      "rule": "Do not replace `AirflowException` with `RuntimeError` in operator, sensor or trigger error paths without auditing every caller that catches the original type.",
+      "category": "correctness",
+      "trigger": "diff removes `raise AirflowException(` and adds `raise RuntimeError(` in an operator, sensor or trigger.",
+      "rationale": "Downstream code and user DAGs catch the declared type; swapping it silently changes which handlers fire.",
+      "kind": "convention",
+      "members": ["t1/batch_018#0"]
+    },
+    {
+      "rule": "An async trigger's `run()` must define and handle distinct SUCCESS and FAILURE terminal states; do not collapse every non-transitional status into a single success event.",
+      "category": "async",
+      "trigger": "diff adds an `async def run()` that yields a `TriggerEvent` without separate success/failure handling, or compares status against a single string rather than the provider's Enum.",
+      "rationale": "Collapsing terminal states makes a failed remote job complete the task successfully.",
+      "kind": "convention",
+      "members": ["t1/batch_018#1"]
+    },
+    {
+      "rule": "Avoid adding unit tests that only re-exercise paths an existing broader test already covers; prefer fewer, higher-value tests over branch-by-branch duplication.",
+      "category": "testing",
+      "trigger": "diff adds several small test functions each covering a single branch already exercised as a sub-case of an existing test in the same file.",
+      "rationale": "Duplicate coverage costs CI time and has to be maintained twice.",
+      "kind": "incident",
+      "members": ["t1/batch_018#10"]
+    },
+    {
+      "rule": "In caplog-based trigger tests, call `caplog.set_level(...)` before invoking the method under test.",
+      "category": "testing",
+      "trigger": "diff adds an `async def test_*` that asserts on `caplog.records`/`caplog.text` without a preceding `caplog.set_level`.",
+      "rationale": "Otherwise capture depends on the ambient log level and the test fails only on some machines.",
+      "kind": "convention",
+      "members": ["t1/batch_018#11"]
+    },
+    {
+      "rule": "Use the provider's existing Hook class (e.g. `KafkaProducerHook`) rather than constructing the underlying client directly inside operator, trigger or listener code.",
+      "category": "providers",
+      "trigger": "diff constructs a provider client (e.g. `confluent_kafka.Producer(...)`) directly where a Hook already wraps it.",
+      "rationale": "The hook is where connection resolution, extras handling and lifecycle already live.",
+      "kind": "convention",
+      "members": ["t1/batch_018#12"]
+    },
+    {
+      "rule": "Instance attributes — resource handles such as a consumer or client, and state flags such as submission status — must be initialised in `__init__` and, for resources, reset to `None` after cleanup; do not first-assign or reset them inside `run()`, `submit()` or `execute()`.",
+      "category": "correctness",
+      "trigger": "diff assigns `self.<resource>` or a state flag for the first time inside `async def run()`, `submit()` or another non-`__init__` method of a trigger, hook or operator.",
+      "rationale": "Attributes that only exist after a method runs make cleanup non-idempotent and raise `AttributeError` on the paths that never ran it.",
+      "kind": "convention",
+      "members": ["t1/batch_018#13", "t1/batch_018#16"]
+    },
+    {
+      "rule": "A new third-party import in provider source must be declared as a dependency in that provider's `pyproject.toml` in the same PR.",
+      "category": "providers",
+      "trigger": "diff adds `import <package>` under `providers/<name>/src/` where `<package>` is not listed in `providers/<name>/pyproject.toml`.",
+      "rationale": "The provider otherwise installs cleanly and fails at import time for users.",
+      "kind": "convention",
+      "members": ["t1/batch_018#14"]
+    },
+    {
+      "rule": "Operator parameters referenced as `self.<param>` in `execute()`/`execute_complete()` must be declared as constructor arguments and assigned in `__init__`.",
+      "category": "correctness",
+      "trigger": "diff references `self.<param>` in an operator method where `<param>` is absent from the class `__init__` signature.",
+      "rationale": "Users cannot set the value and the attribute does not exist at runtime.",
+      "kind": "convention",
+      "members": ["t1/batch_018#15"]
+    },
+    {
+      "rule": "In `SparkSubmitHook.submit()`, post-submit commands and cleanup that must run after the job finishes belong in a `try/finally` so they execute whether the job succeeded or raised.",
+      "category": "correctness",
+      "trigger": "diff adds a call such as `self._run_post_submit_commands()` after an `AirflowException` raise site inside `submit()` with no `try/finally`.",
+      "rationale": "On failure the raise skips the cleanup entirely, which is precisely when it is needed.",
+      "kind": "convention",
+      "members": ["t1/batch_018#17"]
+    },
+    {
+      "rule": "Spark provider docs for K8s-API tracking must state that the worker's kube client is used for pod tracking and that the K8s path bypasses `ResumableJobMixin`, so a retry submits a fresh driver rather than reattaching.",
+      "category": "docs",
+      "trigger": "diff adds or edits a Requirements/Caveats section for K8s-based Spark submission under `providers/apache/spark/docs/`.",
+      "rationale": "Operators of large clusters need to know a retry means a second driver, not a reattach.",
+      "kind": "incident",
+      "members": ["t1/batch_018#18"]
+    },
+    {
+      "rule": "Spark provider documentation describing worker-crash and resubmission behaviour must mention that a non-idempotent job can conflict on resubmission, not only that compute is wasted.",
+      "category": "docs",
+      "trigger": "diff adds prose about job resubmission under `providers/apache/spark/docs/` without mentioning idempotency conflicts.",
+      "rationale": "The conflict, not the wasted compute, is the failure mode that corrupts user data.",
+      "kind": "incident",
+      "members": ["t1/batch_018#19"]
+    },
+    {
+      "rule": "Compare states against the provider's Enum (e.g. `DmsTaskWaiterStatus`) inside triggers and operators, not raw string literals.",
+      "category": "correctness",
+      "trigger": "diff adds a comparison like `if status != \"<state_string>\"` where a corresponding Enum already exists in the provider.",
+      "rationale": "String literals drift from the Enum and typos are undetectable.",
+      "kind": "convention",
+      "members": ["t1/batch_018#2"]
+    },
+    {
+      "rule": "Inside async trigger methods (including helpers such as `safe_to_cancel()`), wrap synchronous DB and hook calls in `sync_to_async()`.",
+      "category": "async",
+      "trigger": "diff adds a synchronous call (e.g. `self.get_task_instance()`, `hook.stop_query()`) inside an `async def` of a `BaseTrigger` subclass without `await sync_to_async(...)`.",
+      "rationale": "A blocking call in the triggerer stalls every other trigger sharing that event loop.",
+      "kind": "convention",
+      "members": ["t1/batch_018#3"]
+    },
+    {
+      "rule": "In system tests, set `AIRFLOW_CONN_*` environment variables and perform connection setup — including reads of `SystemTestContextBuilder` values — inside a `@task`-decorated function, never at DAG-parse scope.",
+      "category": "testing",
+      "trigger": "diff adds `os.environ[...] = ...` or connection construction at module/DAG-definition scope in a system test file.",
+      "rationale": "Parse-time setup runs in the wrong process and resolves XComs before they exist, so the connection is missing in the worker that runs the tasks.",
+      "kind": "convention",
+      "members": ["t1/batch_018#4", "t1/batch_018#7"]
+    },
+    {
+      "rule": "System tests must mark each step of the task chain with its phase — setup, test body, teardown — following the pattern in canonical examples such as `example_sqs.py`.",
+      "category": "testing",
+      "trigger": "diff adds a `chain(...)` in a system test with no comments or naming distinguishing the phases.",
+      "rationale": "The system-test harness and readers rely on that structure to tell fixture work from the assertion under test.",
+      "kind": "convention",
+      "members": ["t1/batch_018#5"]
+    },
+    {
+      "rule": "System tests must be run end-to-end locally before submission; reviewers reject system tests that have not been exercised.",
+      "category": "testing",
+      "trigger": "diff adds or substantially modifies a file under `providers/*/tests/system/`.",
+      "rationale": "System tests hit real cloud services that CI does not exercise on PRs, so review is the only gate.",
+      "kind": "convention",
+      "members": ["t1/batch_018#6"]
+    },
+    {
+      "rule": "`pytest.raises(ClientError)` in provider tests must carry a `match=` asserting the specific AWS error code under test.",
+      "category": "testing",
+      "trigger": "diff adds `pytest.raises(ClientError)` without `match=` in a provider unit test.",
+      "rationale": "Any boto error satisfies the bare form, including one from unrelated setup.",
+      "kind": "convention",
+      "members": ["t1/batch_018#8"]
+    },
+    {
+      "rule": "Remove unused `moto` fixtures and their `mock_aws` imports from unit test modules that make no real AWS API calls.",
+      "category": "testing",
+      "trigger": "diff adds a `@pytest.fixture` wrapping a hook in `mock_aws()` that no test in the module references.",
+      "rationale": "Leftover moto scaffolding implies AWS interaction that the module does not have and slows the suite.",
+      "kind": "convention",
+      "members": ["t1/batch_018#9"]
+    },
+    {
+      "rule": "Kerberos auth resolution in the Spark provider hook must handle the krb5 ccache path alongside keytab/principal so REST calls to a Kerberized YARN RM always carry an Authorization header.",
+      "category": "correctness",
+      "trigger": "A method builds an auth object from the `keytab` and `principal` connection fields with no branch for `_use_krb5ccache` or its equivalent.",
+      "rationale": "Deployments that authenticate via ccache get unauthenticated requests and an opaque 401.",
+      "kind": "convention",
+      "members": ["t1/batch_019#0"]
+    },
+    {
+      "rule": "Do not land code nothing reaches: a new module-level constant must be referenced in the same PR, and a runtime-gated branch must be reachable from an entry point added in that PR or carry a TODO naming the follow-up PR that will make it reachable.",
+      "category": "correctness",
+      "trigger": "diff adds a `_SOME_CONF = \"...\"` constant with no call site, or an `if self._hook._is_yarn:`-style branch no added entry point can enter.",
+      "rationale": "Scaffolding merged ahead of its caller is indistinguishable from a bug and rots before the follow-up lands.",
+      "kind": "incident",
+      "members": ["t1/batch_019#1", "t1/batch_019#5"]
+    },
+    {
+      "rule": "`ImportError` compatibility shims for Task SDK symbols must carry a comment naming the minimum `>=X.Y.Z` release that exports the symbol.",
+      "category": "providers",
+      "trigger": "A `try: from airflow.sdk... except ImportError: Symbol = None` block is added with no minimum-version comment.",
+      "rationale": "Without the version the shim can never be removed with confidence when the floor moves.",
+      "kind": "convention",
+      "members": ["t1/batch_019#10"]
+    },
+    {
+      "rule": "When a broad `except Exception` wraps code that deliberately raises `AirflowException`, re-raise `AirflowException` unchanged before the generic handler.",
+      "category": "correctness",
+      "trigger": "diff adds a specific `raise AirflowException(...)` inside a `try` whose downstream `except Exception as e` re-wraps or swallows it.",
+      "rationale": "The deliberate message is the one the user needs; the generic handler replaces it with a worse one.",
+      "kind": "convention",
+      "members": ["t1/batch_019#11"]
+    },
+    {
+      "rule": "Notes and warnings in provider changelog RST must use the `.. note::` / `.. warning::` directive rather than plain prose.",
+      "category": "docs",
+      "trigger": "A `docs/changelog.rst` diff adds a paragraph that reads as a note or warning without the directive.",
+      "rationale": "Plain prose renders as body text on the docs site and loses the emphasis it was written for.",
+      "kind": "convention",
+      "members": ["t1/batch_019#12"]
+    },
+    {
+      "rule": "Documentation claims about KubernetesPodOperator deduplication or ambiguity prevention must be scoped to the specific code path where the guarantee actually holds (e.g. `get_or_create_pod`), not asserted end-to-end.",
+      "category": "docs",
+      "trigger": "A provider docs RST diff claims 'no possibility of ambiguity failure' or equivalent absolute language about pod reconnect behaviour.",
+      "rationale": "The guarantee holds only inside one function; stated absolutely it promises something the operator does not deliver.",
+      "kind": "incident",
+      "members": ["t1/batch_019#13"]
+    },
+    {
+      "rule": "New keyword arguments on `KubernetesPodOperator.__init__` (and other cncf.kubernetes operators) need a matching `:param name:` docstring entry describing the type; for `Callable` parameters the entry must name what each positional argument means.",
+      "category": "docs",
+      "trigger": "diff adds a keyword argument to such an `__init__` with no corresponding `:param:` entry.",
+      "rationale": "A bare callable signature is unusable without knowing what gets passed to it.",
+      "kind": "convention",
+      "members": ["t1/batch_019#14"]
+    },
+    {
+      "rule": "When persisting pod identity to the task state store, either verify the stored `uid` against the live pod on reconnect or leave `uid` out of the payload.",
+      "category": "correctness",
+      "trigger": "diff stores `uid` alongside `name`/`namespace` for pod identity while the reconnect path compares only `name`/`namespace`.",
+      "rationale": "Storing a field nothing checks implies a verification the code does not perform.",
+      "kind": "incident",
+      "members": ["t1/batch_019#16"]
+    },
+    {
+      "rule": "When a parameter's behaviour is gated on a minimum Airflow version, its `:param:` docstring entry must state the constraint explicitly (e.g. \"Only available for Airflow 3.3+\").",
+      "category": "docs",
+      "trigger": "A new operator parameter whose full behaviour requires Airflow >= X.Y is documented without the version constraint.",
+      "rationale": "Users on older Airflow otherwise set it and see no effect with no explanation.",
+      "kind": "convention",
+      "members": ["t1/batch_019#17"]
+    },
+    {
+      "rule": "When replacing a deprecated parameter with a version-gated successor, translate the deprecated parameter's value automatically for runtimes below the required version instead of forcing users to switch names.",
+      "category": "api-design",
+      "trigger": "diff deprecates parameter A and adds replacement B that only works on Airflow >= X.Y, with no fallback making B behave like A below X.Y.",
+      "rationale": "Otherwise users on supported older versions must keep the deprecated name and are warned for doing the only thing that works.",
+      "kind": "convention",
+      "members": ["t1/batch_019#18"]
+    },
+    {
+      "rule": "Kubernetes field selectors built from comma-separated `!=` expressions must be checked for the intended Boolean semantics (`NOT A AND NOT B`) before merging.",
+      "category": "correctness",
+      "trigger": "diff introduces a field selector of the form `status.phase!=X,status.phase!=Y` intended to exclude pods in either state.",
+      "rationale": "The comma is an AND, which is easy to write when an OR of exclusions was meant.",
+      "kind": "incident",
+      "members": ["t1/batch_019#19"]
+    },
+    {
+      "rule": "Failures deleting a Kubernetes driver pod must not surface as task errors; wrap the cleanup call in `contextlib.suppress` or a flag that downgrades the failure to a warning.",
+      "category": "correctness",
+      "trigger": "A `_delete_driver_pod()` or equivalent cleanup call appears inline in a polling loop with no error suppression or configurable severity.",
+      "rationale": "A cleanup hiccup should not fail a job that otherwise succeeded.",
+      "kind": "convention",
+      "members": ["t1/batch_019#2"]
+    },
+    {
+      "rule": "Do not change the default value of an existing operator or hook parameter used by pre-existing code paths; a new path may enforce its own floor (e.g. with `max()`), but the legacy default must stay as it was.",
+      "category": "api-design",
+      "trigger": "diff changes the default of an `__init__` parameter (e.g. `status_poll_interval`) that pre-existing execution paths already use.",
+      "rationale": "Changing a default silently changes behaviour for every existing user who never set it.",
+      "kind": "convention",
+      "members": ["t1/batch_019#3"]
+    },
+    {
+      "rule": "When calling the Spark Standalone REST submission API, check the response's `success` field before reading `driverState`, and raise with the response's `message` on failure.",
+      "category": "correctness",
+      "trigger": "Code accesses `response.json()[\"driverState\"]` without first asserting `success` is true.",
+      "rationale": "On failure the payload has no `driverState`, so the real error is replaced by a KeyError.",
+      "kind": "convention",
+      "members": ["t1/batch_019#4"]
+    },
+    {
+      "rule": "Spark provider REST calls must derive scheme and port from the Airflow connection extras rather than hardcoding `http://` and a fixed port.",
+      "category": "providers",
+      "trigger": "diff adds a `requests.get(f\"http://{host}:<hardcoded_port>/...\")` call in a Spark provider operator or hook.",
+      "rationale": "Real clusters run TLS and non-default ports, and the connection already carries both.",
+      "kind": "convention",
+      "members": ["t1/batch_019#6"]
+    },
+    {
+      "rule": "Transient HTTP calls inside provider status-polling loops must be wrapped in a retry/backoff strategy (e.g. `tenacity`).",
+      "category": "providers",
+      "trigger": "A `requests.get(...)` or similar appears inside a polling loop (`get_job_status`, `poll_until_complete`, ...) with no retry wrapper.",
+      "rationale": "A one-second network blip should not burn one of the task's retries and resubmit the job.",
+      "kind": "convention",
+      "members": ["t1/batch_019#7"]
+    },
+    {
+      "rule": "Do not add a provider changelog release entry for a PR that changed only test files or non-functional `pyproject.toml` marker comments.",
+      "category": "docs",
+      "trigger": "A provider `docs/changelog.rst` diff adds a version section for a PR whose changed files are all under `tests/` or are only `# use next version` comments.",
+      "rationale": "The changelog records user-visible change; test-only churn is noise there.",
+      "kind": "convention",
+      "members": ["t1/batch_019#8"]
+    },
+    {
+      "rule": "Provider CLI commands must raise `SystemExit` for user-facing configuration errors, not `AirflowConfigException`/`AirflowException`.",
+      "category": "correctness",
+      "trigger": "A `raise AirflowConfigException(...)`/`raise AirflowException(...)` appears inside a CLI command function.",
+      "rationale": "CLI argument validation elsewhere exits with a message rather than a traceback.",
+      "kind": "convention",
+      "members": ["t1/batch_019#9"]
+    },
+    {
+      "rule": "Provider secrets-backend classes must implement only the methods declared on `BaseSecretsBackend`; do not add extra public methods (e.g. `get_config`) absent from the base interface.",
+      "category": "api-design",
+      "trigger": "A class extending `BaseSecretsBackend` defines a public method not present in `airflow/secrets/base_secrets.py`.",
+      "rationale": "Nothing calls the extra method, and it implies a backend capability the secrets machinery does not use.",
+      "kind": "convention",
+      "members": ["t1/batch_020#0"]
+    },
+    {
+      "rule": "In Kubernetes-provider tests, set pod status with `V1PodStatus(...)` objects rather than plain dicts.",
+      "category": "testing",
+      "trigger": "Test code assigns `pod.status = {\"key\": value}` instead of a `V1PodStatus` instance.",
+      "rationale": "Only the model object serializes through `to_dict()` the way the real API client does, so dict-based mocks pass where production fails.",
+      "kind": "convention",
+      "members": ["t1/batch_020#2"]
+    },
+    {
+      "rule": "Freeze time with `time_machine` in tests that compare timestamps or durations; do not derive expected values from `datetime.now()`/`utcnow()`.",
+      "category": "testing",
+      "trigger": "A test calls `datetime.datetime.now()` or `utcnow()` to compute an expected duration or timestamp rather than using `@time_machine.travel`.",
+      "rationale": "Clock-relative expectations are flaky under slow CI.",
+      "kind": "convention",
+      "members": ["t1/batch_020#3"]
+    },
+    {
+      "rule": "In `SparkKubernetesOperator` pod-selection tests, keep `metadata.name` identical across all mock pods and set `deletion_timestamp` explicitly so each selection criterion is exercised independently.",
+      "category": "testing",
+      "trigger": "A test for `find_spark_job`/`get_or_create_pod` builds mock pods with differing names or omits `deletion_timestamp`.",
+      "rationale": "Differing names let the name check alone decide the result, so the other criteria are never tested.",
+      "kind": "incident",
+      "members": ["t1/batch_020#4"]
+    },
+    {
+      "rule": "Provider documentation that exposes a subset of an upstream library's capabilities must link the upstream capability list and state which features are not yet supported.",
+      "category": "docs",
+      "trigger": "A provider `.rst` lists supported backends/integrations without referencing the upstream list or noting the gaps.",
+      "rationale": "Users otherwise read the shorter list as the library's full capability.",
+      "kind": "convention",
+      "members": ["t1/batch_020#5"]
+    },
+    {
+      "rule": "Complete runnable DAGs in provider documentation must be pulled in with `.. exampleinclude::` from a tested file under `example_dags/`; `.. code-block:: python` is for fragments only.",
+      "category": "docs",
+      "trigger": "A provider `.rst` contains a `.. code-block:: python` holding a full, runnable DAG.",
+      "rationale": "Inline DAGs are never executed by CI and rot; included examples are tested.",
+      "kind": "convention",
+      "members": ["t1/batch_020#6"]
+    },
+    {
+      "rule": "Provider example DAGs must set `schedule=None` explicitly.",
+      "category": "providers",
+      "trigger": "A new `example_dags/*.py` omits `schedule` on its `@dag` or `DAG()` definition.",
+      "rationale": "An unspecified schedule inherits a default that starts running the example on import.",
+      "kind": "convention",
+      "members": ["t1/batch_020#7"]
+    },
+    {
+      "rule": "Provider factory mappings keyed by enum members must be annotated `dict[EnumType, ...]`, and public entry points must accept both the enum and a string, normalising strings with an informative `ValueError`.",
+      "category": "api-design",
+      "trigger": "A `_providers` dict annotated `dict[str, type]` is keyed with enum instances, or a factory accepts only the enum where callers pass strings from connection config or YAML.",
+      "rationale": "The values arrive as strings from user configuration, so an enum-only signature fails for every real caller.",
+      "kind": "convention",
+      "members": ["t1/batch_020#8"]
+    },
+    {
+      "rule": "Do not set `trigger_rule=\"all_success\"` explicitly on a `@task` or Operator.",
+      "category": "providers",
+      "trigger": "A task or Operator definition passes `trigger_rule=\"all_success\"`.",
+      "rationale": "It is the default, and stating it signals to readers that something non-standard is going on.",
+      "kind": "convention",
+      "members": ["t1/batch_020#9"]
+    },
+    {
+      "rule": "Provider hooks mapping Airflow connection extras onto a third-party library's kwargs must filter on truthiness (`if extra.get(k)`), not on `is not None`, so empty-string values entered in the UI fall through to environment-based auth.",
+      "category": "providers",
+      "trigger": "A hook builds kwargs as `{k: extra[k] for k in keys if extra.get(k) is not None}`.",
+      "rationale": "The connection UI stores untouched fields as empty strings, which then override the library's own credential discovery with nothing.",
+      "kind": "convention",
+      "members": ["t1/batch_020#10"]
+    },
+    {
+      "rule": "Connection-extra field names in a provider hook must match the exact parameter names the target library accepts; where they differ, document the mapping and convert or load the value before passing it.",
+      "category": "providers",
+      "trigger": "A hook passes a connection extra key straight into a third-party constructor whose parameter is named differently or expects a loaded object (e.g. `project_id` vs `project`, a service-account file vs a credentials object).",
+      "rationale": "The mismatched key is silently ignored by the library and the user sees an auth failure with no clue why.",
+      "kind": "convention",
+      "members": ["t1/batch_020#11"]
+    },
+    {
+      "rule": "Reuse the shared exception types from `providers/standard/exceptions.py` (e.g. `HITLRejectException`) instead of defining a per-provider duplicate for the same semantic error.",
+      "category": "api-design",
+      "trigger": "A provider defines a new exception class duplicating the purpose of one already in `providers/standard/exceptions.py`.",
+      "rationale": "User code catches one type; a per-provider clone silently escapes those handlers.",
+      "kind": "convention",
+      "members": ["t1/batch_020#12"]
+    },
+    {
+      "rule": "Do not expose operator or mixin parameters in `__init__` and docstrings before they are implemented; a stub parameter with no effect must be removed, or must raise/warn until the feature ships.",
+      "category": "correctness",
+      "trigger": "An operator stores `self.param = param` in `__init__` but no method in the class or its mixins ever reads it.",
+      "rationale": "A documented parameter that does nothing is worse than a missing one — users set it and believe it took effect.",
+      "kind": "convention",
+      "members": ["t1/batch_020#13"]
+    },
+    {
+      "rule": "Do not list `bytes` fields in `template_fields`.",
+      "category": "correctness",
+      "trigger": "An Operator subclass includes a parameter typed `bytes` in its `template_fields` sequence.",
+      "rationale": "Jinja renders bytes as their repr (`b'...'`), so `.decode()` raises and binary parsers receive literal repr text.",
+      "kind": "convention",
+      "members": ["t1/batch_020#14"]
+    },
+    {
+      "rule": "When building a prompt or string incrementally, do not interpolate the accumulator into the expression being appended to it; construct the string linearly from separate parts.",
+      "category": "correctness",
+      "trigger": "A method contains `prompt = prompt + (... f\"{prompt}\" ...)` where the variable being built is interpolated inside the appended expression.",
+      "rationale": "The accumulated text is duplicated on every append.",
+      "kind": "incident",
+      "members": ["t1/batch_020#15"]
+    },
+    {
+      "rule": "Provider operator methods that iterate over connection IDs must use the class's cached hook mapping (e.g. `self._db_hooks[conn_id]`) rather than constructing a hook on each iteration.",
+      "category": "performance",
+      "trigger": "A loop over connection IDs calls a factory such as `self._get_db_hook(conn_id)` inside the loop while a cached property already exists on the class.",
+      "rationale": "Each construction opens a fresh connection to the same database.",
+      "kind": "convention",
+      "members": ["t1/batch_020#16"]
+    }
+  ]
+}

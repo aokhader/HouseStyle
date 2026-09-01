@@ -1,0 +1,11 @@
+{"pr": 70238,
+ "findings": [
+   {"path": "chart/templates/_helpers.yaml",
+    "line": 1003,
+    "category": "security",
+    "message": "`disableDefaults` does more than the docs claim. This branch (and the identical one in externalContainerSecurityContext) also drops `allowPrivilegeEscalation: false` and `capabilities.drop: [ALL]`, but the production-guide section, the newsfragment, and the values.schema.json description all say it only omits runAsUser/fsGroup. Combined with the plan to flip the default to `true` in the next major release, that would silently un-harden every container in the chart for anyone who has not set securityContexts.containers explicitly - and OpenShift's restricted SCC does not object to those two keys, so dropping them is not needed for the stated use case. Please keep the privilege-escalation/capabilities defaults unconditional and scope the flag to the uid/gid keys, or say very clearly in the newsfragment what is being given up. Also note the `-}}` lost its trailing dash here, so the rendered securityContext now starts with a stray blank line."},
+   {"path": "chart/templates/workers/worker-deployment.yaml",
+    "line": 164,
+    "category": "correctness",
+    "message": "Adding `$securityContextsIds` to this condition means `persistence.fixPermissions: true` silently becomes a no-op once `disableDefaults` is set with no explicit uid/gid - the chown init container just disappears. The failure mode shows up much later as workers unable to write to the logs PVC, and nothing in the new production-guide section or the newsfragment mentions it. Worth at least documenting, and ideally a `fail`/NOTES warning when someone has fixPermissions enabled but no ids to chown to."}
+ ]}

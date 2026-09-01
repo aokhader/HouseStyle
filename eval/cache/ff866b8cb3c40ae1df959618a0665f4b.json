@@ -1,0 +1,5 @@
+{
+  "verdict": "PARTIAL",
+  "why": "Both want the version-conditional import block removed, but the finding's reason is that the pre-3.0 alias yields an unusable trigger while the human's is a general objection to version-based if/else.",
+  "judge": "agent"
+}

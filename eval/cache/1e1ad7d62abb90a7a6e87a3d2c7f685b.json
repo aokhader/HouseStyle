@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding asks to deduplicate resolve() against the Task SDK copy; the human asks whether AirflowRuntimeError should also be caught at this call site.",
+  "judge": "agent"
+}

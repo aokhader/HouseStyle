@@ -1,0 +1,5 @@
+{
+  "verdict": "PARTIAL",
+  "why": "Both argue the owner display-name resolution does not belong in this read-time service function, but for different reasons and with different remedies (move it into the response schema vs. resolve and persist it when the action is logged).",
+  "judge": "agent"
+}

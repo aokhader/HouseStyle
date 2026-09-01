@@ -1,0 +1,13 @@
+{"pr": 71073,
+ "findings": [
+   {"rule_id": "airflow-r002",
+    "path": "providers/common/ai/src/airflow/providers/common/ai/operators/llm_branch.py",
+    "line": 80,
+    "category": "api-design",
+    "message": "`fail_on_reject` defaults to `False`, so the new behaviour becomes the default: a rejected review that today raises `HITLRejectException` and leaves downstream tasks `upstream_failed` will silently start skipping them instead. Default it to `True` so existing DAGs keep the documented behaviour and the skip is opt-in, or emit a deprecation warning for one release before flipping the default."},
+   {"rule_id": "airflow-r014",
+    "path": "providers/common/ai/tests/unit/common/ai/operators/test_llm_branch.py",
+    "line": 409,
+    "category": "testing",
+    "message": "`task`, `ti` and `ctx` are bare `MagicMock()`s standing in for the task, TaskInstance and Context that `execute_complete` reads. Spec them (`MagicMock(spec=BaseOperator)` / `create_autospec`, and `spec=TaskInstance` for `ti`) so this test fails if `get_direct_relatives` or `is_teardown` stops existing on the real objects instead of fabricating them."}
+ ]}

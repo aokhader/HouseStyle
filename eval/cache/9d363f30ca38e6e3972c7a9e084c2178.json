@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding disputes the technical accuracy of stream versus datagram Unix sockets for StatsD, while the human is only pointing out that the word 'datagram' needs adding to spelling_wordlist.txt to unbreak CI.",
+  "judge": "agent"
+}

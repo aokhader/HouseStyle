@@ -1,0 +1,11 @@
+{"pr": 69827,
+ "findings": [
+   {"path": "java-sdk/sdk/src/main/kotlin/org/apache/airflow/sdk/execution/Task.kt",
+    "line": 90,
+    "category": "correctness",
+    "message": "An InvocationTargetException here means the user's own constructor body threw, which is not the same class of problem as a missing/inaccessible constructor - it is user code failing exactly like execute() failing, and execute() honours tiContext.shouldRetry. The comment says \"instantiation fails the same way on every try\", but a constructor that opens a connection, reads a file, or resolves a host can fail transiently. Silently overriding the task's configured retries for that case seems wrong; can this branch use request.tiContext.shouldRetry like the execute path does, and reserve the no-retry answer for the ReflectiveOperationException branch below where the class genuinely cannot ever be constructed?"},
+   {"path": "java-sdk/sdk/src/main/kotlin/org/apache/airflow/sdk/execution/Task.kt",
+    "line": 97,
+    "category": "async",
+    "message": "This catch-all swallows CancellationException, while the execute block a few lines down deliberately rethrows it so coroutine cancellation can unwind. A constructor or static initializer that touches coroutine code (runBlocking, a cancelled scope) would be reported as a failed task instead of a cancellation. Please mirror the `catch (e: CancellationException) { throw e }` guard here before the Throwable branch."}
+ ]}

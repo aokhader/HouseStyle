@@ -1,0 +1,5 @@
+{
+  "verdict": "PARTIAL",
+  "why": "The comment engages the same filter-semantics question and acknowledges the leftover killed-job rows, but it explicitly rejects the finding's state == RUNNING fix and instead asks for a different change, that an empty filtered list report DOWN rather than null.",
+  "judge": "agent"
+}

@@ -1,0 +1,13 @@
+{"pr": 64422,
+ "findings": [
+   {"rule_id": "hass-r024",
+    "path": "providers/git/tests/unit/git/hooks/test_git.py",
+    "line": 58,
+    "category": "testing",
+    "message": "`CONN_APP_INVALID_APP_ID` and `CONN_APP_INVALID_INSTALLATION_ID` are added here (and their connections registered in `setup_connections` at lines 186-209) but no test in this PR uses them. Either add the tests that assert what a non-integer `github_app_id`/`github_installation_id` does, or drop the two constants and their connection fixtures."},
+   {"rule_id": "hass-r018",
+    "path": "providers/git/src/airflow/providers/git/hooks/git.py",
+    "line": 149,
+    "category": "testing",
+    "message": "The two new rejection branches added here - `if self.auth_token: raise ValueError(\"Password field must be empty to use GitHub App Auth\")` and the non-HTTPS `repo_url` guard below it - are only exercised on their passing side by the added tests. Add cases for a GitHub App connection that also sets a password and one whose host is an ssh/non-HTTPS URL, asserting each ValueError."}
+ ]}

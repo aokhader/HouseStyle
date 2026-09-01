@@ -1,0 +1,8 @@
+{"pr": 64422,
+ "findings": [
+   {"rule_id": "airflow-r014",
+    "path": "providers/git/tests/unit/git/hooks/test_git.py",
+    "line": 681,
+    "category": "testing",
+    "message": "`mock_integration` and `mock_access_token` are bare `MagicMock()`s standing in for PyGithub's `GithubIntegration` and its `InstallationAuthorization` result, and the test then invents `.get_access_token`, `.token` and `.expires_at` on them. Spec them - `mock.MagicMock(spec=GithubIntegration)` and `spec=InstallationAuthorization` (or `create_autospec`) - so the test fails if PyGithub renames or drops the attributes `_get_github_app_token` reads."}
+ ]}

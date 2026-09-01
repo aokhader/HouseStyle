@@ -1,0 +1,1570 @@
+{
+  "chunk": "chunk_A",
+  "n_candidates_in": 169,
+  "clusters": [
+    {
+      "rule": "Do not perform per-row database work inside a loop over DAGs, task instances or task-map entries: hoist the query outside the loop, batch it, or pass the already-fetched data in; if the data comes from a SQLAlchemy relationship, eager-load it instead of touching the attribute lazily inside the loop.",
+      "category": "performance",
+      "trigger": "A session.scalars()/session.execute()/session.scalar() call, or a dotted lazy relationship access (e.g. record.dataset.uri), appears inside a for-loop over dags_needing_dagruns, dataset_triggered_dag_info, or mapped task instances.",
+      "rationale": "The scheduler and task-mapping loops run per DAG and per task instance on every scheduling cycle, so one extra query or one lazy load inside the loop becomes an N+1 that scales with the size of the deployment.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#0",
+        "t1/batch_001#1",
+        "t1/batch_008#14"
+      ]
+    },
+    {
+      "rule": "In hot-path queries, select only the columns actually used rather than the whole ORM entity: grid and UI endpoints must enumerate their columns instead of select(TaskInstance)/select(DagRun), and with_row_locks selects must fetch only the primary key when only the id is used.",
+      "category": "performance",
+      "trigger": "A query on a grid/UI endpoint uses select(SomeModel) instead of listing columns, or a with_row_locks(select(AssetModel).where(...)) retrieves the full model when only .id is consumed.",
+      "rationale": "Selecting whole ORM rows pulls back columns nobody reads and, for locking selects, widens the lock beyond an index scan; these endpoints and code paths are the ones that hurt at scale.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#5",
+        "t1/batch_005#2"
+      ]
+    },
+    {
+      "rule": "In user-facing prose - newsfragments, release notes and config.yml descriptions - write the Airflow concept as title-case \"Dag\"/\"Dags\", never all-caps \"DAG\"/\"DAGs\"; reserve all-caps DAG for code identifiers and quoted strings.",
+      "category": "docs",
+      "trigger": "A newsfragment, release note or config.yml description: block adds prose containing \"DAG\" or \"DAGs\" outside backticks or a code identifier.",
+      "rationale": "Airflow 3 standardised on the title-case spelling in user-facing text; mixed casing across changelog and config documentation is a recurring review nit.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#10",
+        "t1/batch_005#16"
+      ]
+    },
+    {
+      "rule": "Import symbols that have been migrated to the Task SDK from their airflow.sdk.* public path, not from the legacy airflow-core module (e.g. XCOM_RETURN_KEY from the Task SDK BaseXCom rather than airflow.models.xcom; exceptions from airflow.sdk.exceptions rather than airflow.exceptions).",
+      "category": "providers",
+      "trigger": "A file, docs example or provider imports a symbol from airflow.models.xcom / airflow.exceptions (often with a `# type: ignore[no-redef]`) when the same symbol is already exported by airflow.sdk.*.",
+      "rationale": "Task-facing code must not depend on airflow-core internals; the SDK path is the supported surface and the legacy path is being removed.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#6",
+        "t1/batch_008#7"
+      ]
+    },
+    {
+      "rule": "Do not grant the token:workload scope on state-changing execution-API routes; restrict token:workload to read-only endpoints (GET variable/keys, GET/HEAD xcom, GET connection, GET dag_run) and keep PUT/POST/DELETE routes token:execution only.",
+      "category": "security",
+      "trigger": "A router.put/post/delete endpoint in the execution API declares Security(require_auth, scopes=[..., \"token:workload\"]), or a has_variable_access / has_xcom_access dependency on a write route is replaced by a workload-inclusive scope list.",
+      "rationale": "The workload token is long-lived and low-privilege; widening it to mutations lets a worker hold write authority for far longer than the execution token it should be using.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#4",
+        "t1/batch_005#5"
+      ]
+    },
+    {
+      "rule": "In SQLAlchemy 2.0 declarative models the Mapped[...] annotation is authoritative for nullability: it must agree with the column's nullable setting, and a redundant nullable=True kwarg must not be passed alongside Mapped[X | None].",
+      "category": "database",
+      "trigger": "A mapped_column(...) carries nullable=True while its annotation is Mapped[X | None], or a Mapped[X | None] annotation sits on a column declared nullable=False (or vice versa).",
+      "rationale": "The annotation is what type checkers and readers trust; a mismatch between it and the column definition is a silent lie about the schema.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_007#5",
+        "t1/batch_008#1"
+      ]
+    },
+    {
+      "rule": "Keep a PR scoped to the change its title and description claim: unrelated uv.lock churn must be reverted, an Alembic migration that fixes a pre-existing schema issue must go in its own PR, and a second independent feature must either be split out or added to the PR description with its own rationale and compatibility notes.",
+      "category": "commit-hygiene",
+      "trigger": "The diff contains uv.lock changes with no dependency bump in the description, an independent schema-fix migration alongside a feature migration, or a second unrelated feature (e.g. worker recycling added to a DAG-caching PR).",
+      "rationale": "Reviewers approve what the description says; bundled unrelated changes get merged unreviewed and cannot be reverted independently when one of them regresses.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#3",
+        "t1/batch_005#21",
+        "t1/batch_007#11"
+      ]
+    },
+    {
+      "rule": "Read tri-state boolean config options (declared type: boolean with default: ~) through conf.getboolean without a fallback that contradicts the declared default, and never use conf.has_option to test whether such an option is enabled.",
+      "category": "correctness",
+      "trigger": "conf.getboolean(section, key, fallback=False) is used for a key whose config.yml default is True, or conf.has_option(section, key) is used as the condition for a boolean feature flag.",
+      "rationale": "has_option is true whenever the key exists, including when its value is False, and an explicit fallback silently overrides the value declared in config.yml - both produce a flag that ignores what the operator configured.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#18",
+        "t1/batch_005#18"
+      ]
+    },
+    {
+      "rule": "Help text for CLI date arguments that filter runs by partition or logical date must state the exact semantics: whether the end bound is inclusive or exclusive (and what value covers a whole calendar period), and that the calendar day is derived from the UTC instant rather than the user's local or the timetable's timezone.",
+      "category": "docs",
+      "trigger": "A CLI argument in cli_config.py / dag_command.py adds --start-date / --end-date (or another type=parsedate date filter) whose help text does not spell out inclusivity and the UTC-day interpretation.",
+      "rationale": "Ambiguity between midnight-on-the-last-day and first-of-next-month, or a tz-aware input shifting the interpreted day, causes silent data loss the user only notices later.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#19",
+        "t1/batch_005#20"
+      ]
+    },
+    {
+      "rule": "Changes to callback execution must be applied to both the executor path and the triggerer path so the two stay behaviourally identical: a new context key must be added via the shared build_context_from_dag_run helper (and declared in the Context TypedDict and KNOWN_CONTEXT_KEYS), and both paths must fail the same way when required context such as the DagRun cannot be fetched.",
+      "category": "correctness",
+      "trigger": "callback_supervisor.py populates context or handles a fetch failure differently from the corresponding build_context_from_dag_run / context-fetch code in triggerer_job_runner.py (e.g. one returns None while the other raises or exits).",
+      "rationale": "Callbacks can run on either path; divergence means a callback silently sees different context or keeps running with None instead of retrying, depending on where it happened to be scheduled.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_007#10",
+        "t1/batch_008#10"
+      ]
+    },
+    {
+      "rule": "New or changed behaviour on a public API endpoint must be covered by tests asserting the new response, including the new validation error path and the changed default.",
+      "category": "testing",
+      "trigger": "A bulk endpoint gains a validation guard, or a service method changes what an endpoint returns by default, without new or updated tests for those paths.",
+      "rationale": "Reviewers asked for the tests because the new branch was otherwise unexercised.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_004#3",
+        "t1/batch_004#19"
+      ]
+    },
+    {
+      "rule": "Bulk endpoints must enforce the same authorization and state guards as their single-item counterparts: shared helpers must take the HTTP method as a parameter instead of hardcoding \"PUT\", and handle_bulk_delete must apply the single-delete state checks unless the relaxation is documented and intentional.",
+      "category": "correctness",
+      "trigger": "A shared authorization helper (e.g. _categorize_entities) hardcodes method=\"PUT\" but is called from a bulk-delete path, or handle_bulk_delete omits a guard the single-delete route applies (e.g. refusing RUNNING DagRuns).",
+      "rationale": "The bulk route is the easy way around the single-item route; if it is laxer, the guards on the single-item endpoint are decorative.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#12",
+        "t1/batch_004#15"
+      ]
+    },
+    {
+      "rule": "Every actions/upload-artifact step in a GitHub Actions job must use a unique artifact name, including names built from a shared dynamic suffix.",
+      "category": "correctness",
+      "trigger": "Two or more upload-artifact steps in the same job share a name: value or the same name template (e.g. both container-logs-${{env.JOB_ID}}).",
+      "rationale": "Duplicate artifact names make the second upload clobber or fail against the first, so the logs the step exists to preserve are lost exactly when a job failed.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#2"
+      ]
+    },
+    {
+      "rule": "Task-SDK client changelog entries belong in the Task-SDK changelog, not in the airflow-core RELEASE_NOTES.rst.",
+      "category": "docs",
+      "trigger": "RELEASE_NOTES.rst gains a line mentioning task-sdk / Task SDK client inside an airflow-core section.",
+      "rationale": "The distributions release on separate cycles; an entry in the wrong changelog tells users a change shipped in a version that does not contain it.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#4"
+      ]
+    },
+    {
+      "rule": "A database migration shipped in a patch release may only repair a bug in an existing migration; it must not change payload semantics such that users who already ran the original upgrade end up in a different state from a fresh install.",
+      "category": "database",
+      "trigger": "A patch-release PR modifies a file under migrations/versions/ and changes upgrade()/downgrade() logic beyond a no-op correction.",
+      "rationale": "Patch releases are applied by users who have already migrated; divergent end states between upgraded and fresh installs are undetectable and unfixable after the fact.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#5"
+      ]
+    },
+    {
+      "rule": "A new config option introduced in a patch release must be declared in config.yml and explicitly called out in that minor version's upgrade notes.",
+      "category": "docs",
+      "trigger": "A patch PR adds a key to config.yml, or documents a new [section] key_name, with no corresponding entry in the upgrade notes.",
+      "rationale": "Operators read upgrade notes to decide whether a patch is safe; a silently added option changes behaviour they never opted into.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#6"
+      ]
+    },
+    {
+      "rule": "A reusable workflow whose workflow_dispatch trigger is gated by a committer allowlist must apply the same allowlist check to its workflow_call trigger.",
+      "category": "security",
+      "trigger": "A workflow defines a committer-restricted workflow_dispatch block but exposes workflow_call without an equivalent contains(fromJSON([...]), github.event.sender.login) guard.",
+      "rationale": "Otherwise any caller workflow bypasses the gate entirely, which is exactly the escalation the allowlist exists to prevent.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#7"
+      ]
+    },
+    {
+      "rule": "Provider governance documentation must not state that a sponsoring committer is absolved of technical responsibility for the PRs they merge; committers remain responsible for CI health and security review regardless of steward approval.",
+      "category": "providers",
+      "trigger": "PROVIDERS.rst or an equivalent governance document says the sponsor is NOT responsible for the codebase or for merged PRs.",
+      "rationale": "Merge rights carry ASF accountability; wording that disclaims it invites unreviewed provider code into the release.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#8"
+      ]
+    },
+    {
+      "rule": "Illustrate provider policy concepts in governance documentation with vendor-neutral examples (e.g. the http provider) rather than a named commercial vendor.",
+      "category": "providers",
+      "trigger": "PROVIDERS.rst or a provider governance document uses a specific vendor name (Slack, AWS, GCP) as the sole illustrative example of a policy.",
+      "rationale": "Naming one vendor in policy text reads as a statement about that vendor's standing in the project.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#9"
+      ]
+    },
+    {
+      "rule": "Every locale skill file under .github/skills/airflow-translations/locales/ must declare that it extends the global rules in ../SKILL.md and that the locale file takes precedence on conflict.",
+      "category": "docs",
+      "trigger": "A locale skill file (.github/skills/airflow-translations/locales/<lang>.md) is added or modified without a reference to ../SKILL.md and an explicit precedence statement.",
+      "rationale": "Without the precedence statement a translator cannot tell which rule wins when the global and locale guidance disagree.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#10"
+      ]
+    },
+    {
+      "rule": "In a locale's do-not-translate list, mark only the bare Airflow noun (e.g. \"Asset\") as untranslatable; do not block compound phrases (e.g. \"Asset Events\") whose surrounding words the existing locale JSON already translates.",
+      "category": "docs",
+      "trigger": "A locale skill file's do-not-translate list contains a multi-word phrase built around an Airflow term while the locale's JSON files translate the non-Airflow words of that phrase.",
+      "rationale": "Blocking the compound contradicts the translations already shipped for that locale and makes the skill file unusable as written.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#11"
+      ]
+    },
+    {
+      "rule": "Documentation for extensible Airflow interfaces (state backends, secrets backends, other plug points) must describe the contract and behaviour rather than enumerate concrete method signatures.",
+      "category": "docs",
+      "trigger": "A .rst file adds a list-table or code-block of full method signatures (e.g. async def ...) for a pluggable backend or extension point.",
+      "rationale": "Signatures change between releases; documented ones go stale immediately and mislead implementers.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#12"
+      ]
+    },
+    {
+      "rule": "A CI shell script that starts `airflow standalone` in the background and polls for readiness must check liveness with `kill -0 $AIRFLOW_PID` so it exits as soon as the process dies instead of waiting out the full timeout.",
+      "category": "correctness",
+      "trigger": "A CI script launches airflow standalone in the background, captures its PID, then polls in a timed loop with no kill -0 $AIRFLOW_PID check.",
+      "rationale": "Without the liveness check a crashed standalone burns the whole timeout on every CI run and reports a timeout instead of the real failure.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#13"
+      ]
+    },
+    {
+      "rule": "AIP skill SKILL.md files must anchor AIP URL detection to the Apache Confluence prefix https://cwiki.apache.org/confluence/display/AIRFLOW rather than treating any https:// argument as the AIP URL.",
+      "category": "docs",
+      "trigger": "A SKILL.md under .github/skills/aip-* describes AIP URL detection as \"other https:// arguments are the AIP URL\" with no cwiki.apache.org/confluence/display/AIRFLOW anchor.",
+      "rationale": "An unanchored pattern makes the skill fetch arbitrary URLs the user passed for another purpose.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#14"
+      ]
+    },
+    {
+      "rule": "Locale skill files must cross-reference the rationale already documented in airflow-core/src/airflow/ui/public/i18n/locales/<lang>/README.md when they consolidate that locale's translation conventions.",
+      "category": "docs",
+      "trigger": "A locale skill file under .github/skills/airflow-translations/locales/ is created or updated with no reference to the in-tree i18n README for that locale.",
+      "rationale": "The README holds the reasoning the locale's translators already agreed on; a skill file that restates conventions without pointing at it will drift from them.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_001#15"
+      ]
+    },
+    {
+      "rule": "Docs examples showing regex filtering of asset partition keys must call .partition_key_pattern(), not .partition_key() (which is exact-match).",
+      "category": "docs",
+      "trigger": "A docs example passes a regex string to .partition_key(.",
+      "rationale": "The example as written silently does an exact-match comparison and never fires.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_002#0"
+      ]
+    },
+    {
+      "rule": "Documentation for a feature introduced in a specific Airflow version must get its own .. note:: block or subheader rather than being nested under a section that documents a different feature.",
+      "category": "docs",
+      "trigger": "A diff adds documentation for a new feature (e.g. Resumable Tasks) inside an existing section covering a distinct feature (e.g. Deferred Operators).",
+      "rationale": "Readers scanning for the section's subject skip past the buried feature, and version applicability gets attached to the wrong thing.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#1"
+      ]
+    },
+    {
+      "rule": "Derive component versions such as TASK_SDK_VERSION from PACKAGE_VERSION with packaging.version.parse_version() and its .minor/.micro attributes, never by splitting the version string on \".\".",
+      "category": "correctness",
+      "trigger": "PACKAGE_VERSION.split('.') is used to derive a version component.",
+      "rationale": "String splitting breaks on pre-release, dev and post suffixes that the project's versions actually carry.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#2"
+      ]
+    },
+    {
+      "rule": "Auth-manager documentation must reference get_url_refresh() for the token-refresh endpoint rather than hardcoding a literal path such as POST /auth/token/refresh.",
+      "category": "api-design",
+      "trigger": "Documentation hardcodes an auth token refresh URL path instead of pointing at the get_url_refresh method.",
+      "rationale": "The path is auth-manager specific; a hardcoded one is wrong for every manager that overrides it.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#3"
+      ]
+    },
+    {
+      "rule": "Airflow documentation must describe the current behaviour without comparing it to earlier versions; drop phrases like \"no longer\", \"previously\", \"used to\" and \"as of version X\".",
+      "category": "docs",
+      "trigger": "Documentation prose adds \"no longer\", \"previously\", \"used to\", or \"as of Airflow X.Y\".",
+      "rationale": "Docs are versioned; historical comparison belongs in release notes and rots in place in the guide.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#4"
+      ]
+    },
+    {
+      "rule": "Document task-state-store and asset-state-store values as JsonValue (any JSON-serialisable type), not as strings.",
+      "category": "docs",
+      "trigger": "Docs describe a task store or asset store value type as \"string\"/\"str\" rather than JsonValue or JSON.",
+      "rationale": "The stores accept arbitrary JSON; documenting them as strings makes users serialise by hand.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#5"
+      ]
+    },
+    {
+      "rule": "Authentication documentation must not present the FAB Auth Manager as the default; the default auth manager in Airflow 3 is the Simple Auth Manager.",
+      "category": "docs",
+      "trigger": "Docs or configuration examples imply the FAB Auth Manager is in use by default.",
+      "rationale": "FAB moved to a provider in Airflow 3; examples assuming it fail on a stock install.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#7"
+      ]
+    },
+    {
+      "rule": "Getting-started and quickstart documentation must cover both the uv-based install path and the standard pip + venv path.",
+      "category": "docs",
+      "trigger": "The install quickstart section is added or rewritten covering only uv or only pip.",
+      "rationale": "Newcomers arrive with whichever tool they already have; a single-tool quickstart blocks the other half of them.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#8"
+      ]
+    },
+    {
+      "rule": "Use a bugfix.rst newsfragment rather than significant.rst for internal fixes with no observable user-facing behaviour change, and omit the fragment entirely when there is no user impact.",
+      "category": "commit-hygiene",
+      "trigger": "A significant.rst newsfragment is added for an internal race-condition fix or scheduler-internal improvement with no API or behaviour change.",
+      "rationale": "Significant fragments are read as migration-relevant; filling them with internal churn buries the entries that actually require action.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#9"
+      ]
+    },
+    {
+      "rule": "A significant newsfragment describing a permission or endpoint change must name the surface precisely (e.g. \"FastAPI UI /dags endpoint\") to distinguish it from other endpoints sharing the same path.",
+      "category": "commit-hygiene",
+      "trigger": "A significant.rst newsfragment mentions /dags or another ambiguous path without saying whether it is the UI route or the public REST API endpoint.",
+      "rationale": "Operators decide whether the change affects them from this line alone, and the two surfaces have different audiences.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#11"
+      ]
+    },
+    {
+      "rule": "Do not enable asyncio debug logging in production code paths or default configuration.",
+      "category": "security",
+      "trigger": "PYTHONASYNCIODEBUG, loop.set_debug(True), or asyncio debug logging is enabled in non-test code.",
+      "rationale": "Asyncio debug output includes coroutine arguments, which puts connection credentials into task logs.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#12"
+      ]
+    },
+    {
+      "rule": "Do not add native/binary C-extension libraries to the mandatory dependencies of airflow-core; they belong in an optional extra or a provider.",
+      "category": "correctness",
+      "trigger": "A library distributed only as a compiled wheel, with no pure-Python fallback, is added to the dependencies list in airflow-core/pyproject.toml.",
+      "rationale": "Core must install on every platform and Python build the project supports; a mandatory binary wheel makes core uninstallable wherever it has no wheel.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#13"
+      ]
+    },
+    {
+      "rule": "is_authorized_* methods on BaseAuthManager and its subclasses must take the generic auth-user type-var (user: T) and express multiple user ids as set[str]; they must not accept concrete Airflow model types such as HITLUser.",
+      "category": "api-design",
+      "trigger": "An is_authorized_* method is added or modified on an auth manager taking a concrete Airflow model type instead of user: T or primitives.",
+      "rationale": "BaseAuthManager is implemented outside the repo; binding its signatures to core models forces every third-party auth manager to import them.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_002#14"
+      ]
+    },
+    {
+      "rule": "Extend an existing is_authorized_* method with an optional parameter rather than adding a parallel is_authorized_<action>_for_<entity> method to the BaseAuthManager interface.",
+      "category": "api-design",
+      "trigger": "A new method matching is_authorized_.*_for_ is added to BaseAuthManager.",
+      "rationale": "Every method on this interface must be implemented by every downstream auth manager, so the interface has to stay small.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#0"
+      ]
+    },
+    {
+      "rule": "Do not set document.title from inside React components in the Airflow UI; the title is defined once in index.html.",
+      "category": "docs",
+      "trigger": "A document.title assignment appears inside a useEffect in a .tsx file under the Airflow UI source tree.",
+      "rationale": "Per-page title juggling in components fights the single definition and leaves stale titles when the component unmounts.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#1"
+      ]
+    },
+    {
+      "rule": "Resolve the authenticated user through resolve_user_from_token (core_api/security.py) rather than calling get_auth_manager().get_user_from_token directly from middleware or route code.",
+      "category": "api-design",
+      "trigger": "A direct get_auth_manager().get_user_from_token( call appears outside resolve_user_from_token.",
+      "rationale": "resolve_user_from_token carries the error translation and validation every caller needs; bypassing it produces routes that authenticate slightly differently.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#2"
+      ]
+    },
+    {
+      "rule": "Name JWT duration parameters valid_for (a relative duration); do not call them expiry or expires_at, which imply an absolute timestamp.",
+      "category": "naming",
+      "trigger": "A JWT-generation method takes a parameter named expiry or expires_at whose value is actually a TTL integer or timedelta.",
+      "rationale": "Callers pass what the name says; an absolute-sounding name receiving a TTL produces tokens with wildly wrong lifetimes.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#3"
+      ]
+    },
+    {
+      "rule": "When cursor pagination receives an unparseable cursor token (e.g. a malformed UUID for a Uuid column), raise HTTP 400 instead of silently falling back to the raw value.",
+      "category": "correctness",
+      "trigger": "An except block in _coerce_value or cursor-parsing code returns the original value rather than raising.",
+      "rationale": "A silently accepted bad cursor returns a plausible but wrong page, which the client cannot detect.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#4"
+      ]
+    },
+    {
+      "rule": "Keyset cursor pagination over a nullable sort column must use null-aware comparisons (an IS NULL tie-break or COALESCE) that match the ORDER BY null-ordering semantics.",
+      "category": "database",
+      "trigger": "Cursor code appends and_(*eq_conditions, col > value) for a column that can be NULL without an IS NULL guard.",
+      "rationale": "col > NULL is never true, so rows with a null sort key silently vanish from or terminate the paging sequence.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#5"
+      ]
+    },
+    {
+      "rule": "Use if/elif rather than consecutive if statements for the mutually exclusive lower_bound / lower_bound_excluded filter branches so the query does not emit redundant WHERE clauses.",
+      "category": "database",
+      "trigger": "Two consecutive `if self.value and self.value.lower_bound...` blocks appear for bound conditions that cannot both apply.",
+      "rationale": "The reviewer pointed out that both branches can run and add duplicate predicates.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_003#6"
+      ]
+    },
+    {
+      "rule": "Annotate DAG-bearing attributes in API parameter and datamodel classes as SerializedDAG (imported under TYPE_CHECKING from airflow.serialization.serialized_objects) rather than Any.",
+      "category": "api-design",
+      "trigger": "A property or attribute in a parameter/datamodel class is typed None | Any where the value is a serialized DAG.",
+      "rationale": "Any here hides the one type the code actually depends on and defeats the type checking these modules otherwise get.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#7"
+      ]
+    },
+    {
+      "rule": "Queries built from _RegexParam must be wrapped with apply_regex_query_timeout, and the _RegexParam docstring must state that obligation.",
+      "category": "performance",
+      "trigger": "A route uses _RegexParam or regex_param_factory without a corresponding apply_regex_query_timeout call, or a _RegexParam class/factory has no docstring warning about it.",
+      "rationale": "User-supplied regexes can be catastrophically slow in the database; the timeout is the only thing keeping one request from occupying a connection indefinitely.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#8"
+      ]
+    },
+    {
+      "rule": "In SortParam.get_resolved_columns(), derive attr_name after applying to_replace so the resolved name matches the ORM attribute used in ORDER BY and cursor encoding.",
+      "category": "correctness",
+      "trigger": "attr_name = lstriped_orderby is assigned before the to_replace mapping is applied.",
+      "rationale": "The reviewer caught the ordering defect: the encoded cursor referred to a column the ORDER BY did not use.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_003#9"
+      ]
+    },
+    {
+      "rule": "When a Pydantic validator silently coerces an unrecognised stored value to None, emit a log.warning so schema drift between the server and the database stays observable.",
+      "category": "correctness",
+      "trigger": "`except ValidationError: return None` in a Pydantic validator with no preceding log.warning when the value was not already None.",
+      "rationale": "Silent coercion turns a schema mismatch into an empty field in the UI with nothing anywhere indicating why.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#10"
+      ]
+    },
+    {
+      "rule": "Boolean timetable properties consumed by the API (e.g. is_backfillable) must be persisted as a DagModel column via a migration, not derived at runtime by matching timetable_summary strings.",
+      "category": "database",
+      "trigger": "A frozenset of timetable summary strings is used in a datamodel or route to derive a boolean DAG property instead of reading a DagModel column.",
+      "rationale": "Summary strings are display text from arbitrary timetables, including third-party ones; matching on them silently misclassifies any timetable not in the list.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#11"
+      ]
+    },
+    {
+      "rule": "When redacting a dict value in an API response serializer, keep it a JSON-serialisable dict rather than wrapping the result in str().",
+      "category": "api-design",
+      "trigger": "str(redact(value)) where value is a dict in a Pydantic response serializer or validator.",
+      "rationale": "Stringifying turns structured trigger kwargs into a Python repr the client has to parse, and it leaks into the public schema.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#12"
+      ]
+    },
+    {
+      "rule": "Compare DagRunType enum members directly against dm.allowed_run_types rather than comparing their .value.",
+      "category": "correctness",
+      "trigger": "DagRunType.<member>.value not in dm.allowed_run_types (accessing .value before the membership test).",
+      "rationale": "allowed_run_types holds enum members, so the .value comparison never matches and the check always rejects.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#13"
+      ]
+    },
+    {
+      "rule": "Partition-date-window localization implemented inline in a route must not silently use a different interval convention from DagRun.apply_partition_date_window; consolidate the logic or cross-reference it in a comment.",
+      "category": "correctness",
+      "trigger": "An inline timetable.localize_partition_datetime call in a route duplicates DagRun.apply_partition_date_window with a different inclusive/half-open boundary.",
+      "rationale": "The reviewer noticed the two copies had already drifted on the interval boundary.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_003#14"
+      ]
+    },
+    {
+      "rule": "Validate that a requested try_number exists in the database before using it to build extra links, and return 404 when it does not.",
+      "category": "correctness",
+      "trigger": "ti.try_number = try_number is assigned in an extra-links route with no preceding check that the try number exists.",
+      "rationale": "Without the check the endpoint renders links for a try that never ran, which look valid to the caller.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#15"
+      ]
+    },
+    {
+      "rule": "Do not name a variable task_instance when it may hold either a TaskInstance or a TaskInstanceHistory; use a neutral name such as row, entity, or model.",
+      "category": "naming",
+      "trigger": "A variable named task_instance is assigned from a query that can return either TI or TIH ORM objects.",
+      "rationale": "The two models have overlapping but different attributes; the name tells the next reader they can rely on TI behaviour that may not be there.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#16"
+      ]
+    },
+    {
+      "rule": "Define callback-definition objects such as _ImportPathCallbackDef in the domain model module (e.g. models/test_connection.py) rather than constructing them inline in a route handler.",
+      "category": "api-design",
+      "trigger": "An _ImportPathCallbackDef or ExecutorCallback construction is inlined inside a route handler body.",
+      "rationale": "The callback definition is part of the domain contract executors consume; keeping it in the route makes it unreachable from every other caller.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_003#17"
+      ]
+    },
+    {
+      "rule": "Use entity.name when collecting pool names in bulk-action validation; check attribute names against the actual Pydantic body class before building error lists.",
+      "category": "correctness",
+      "trigger": "invalid_entities.append(entity.pool) or a similar wrong attribute access on a PoolBody instance in bulk-action validation.",
+      "rationale": "PoolBody has no such attribute, so the validation path raises instead of reporting the invalid entities.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_003#18"
+      ]
+    },
+    {
+      "rule": "Cursor-paginated endpoints must fetch limit+1 rows to detect whether another page exists, and return next_cursor as null when it does not.",
+      "category": "api-design",
+      "trigger": "A paginated endpoint computes next_cursor/previous_cursor from the current page slice without fetching a probe row.",
+      "rationale": "Without the probe row the last page still advertises a next cursor, so clients keep paging into an empty response.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#0"
+      ]
+    },
+    {
+      "rule": "Tests for a cursor-paginated route must assert both boundaries: previous_cursor is null on the first page and next_cursor is null on the last.",
+      "category": "testing",
+      "trigger": "A new cursor-pagination route is added without tests covering previous_cursor on page 1 and next_cursor on the final page.",
+      "rationale": "These are the two cases clients depend on to terminate iteration, and the ones most often wrong.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#1"
+      ]
+    },
+    {
+      "rule": "PATCH routes that honour update_mask must return HTTP 422 when a field named in update_mask has a null value in the request body.",
+      "category": "api-design",
+      "trigger": "A PATCH handler iterates fields_to_update/update_mask without validating that each included field carries a non-null value.",
+      "rationale": "Passing the null downstream writes a null the client did not intend, instead of telling them the request was malformed.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#2"
+      ]
+    },
+    {
+      "rule": "Do not add CASE expressions to a query's ORDER BY to force NULL ordering; rely on the database's default NULL ordering so the sort can use an index.",
+      "category": "performance",
+      "trigger": "A SQLAlchemy query adds a CASE expression in ORDER BY to place NULLs first or last.",
+      "rationale": "A computed ORDER BY key makes the index unusable and turns a paged list query into a full sort.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#4"
+      ]
+    },
+    {
+      "rule": "Parallel EXISTS subquery predicates on the grid endpoint (e.g. has_note, has_missed_deadline) must use identical filter conditions for their DagRun and TaskInstance counterparts.",
+      "category": "correctness",
+      "trigger": "A subquery EXISTS predicate on DagRunNote differs in its filtering (e.g. an extra .isnot(None)) from the TaskInstanceNote version.",
+      "rationale": "The reviewer found the two note filters had diverged so the grid reported notes differently for runs and task instances.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_004#6"
+      ]
+    },
+    {
+      "rule": "Every new router included in the execution API's authenticated_router must have a matching endpoint(...).didnt_exist entry in the unreleased Cadwyn version file.",
+      "category": "api-design",
+      "trigger": "A new router is added to authenticated_router.include_router() in execution_api/routes/__init__.py with no corresponding didnt_exist entry in versions/v*.py.",
+      "rationale": "Cadwyn generates the older API versions from those declarations; a missing entry silently exposes the new endpoint on versions that predate it.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#7"
+      ]
+    },
+    {
+      "rule": "Query-string parameters that are used as regex patterns must reject the empty string with HTTP 400 rather than executing regexp_match(\"\").",
+      "category": "correctness",
+      "trigger": "A regex query parameter (e.g. partition_key_pattern) is validated against None only, not against the empty string.",
+      "rationale": "An empty pattern matches everything, so the filter the caller asked for silently does nothing.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#8"
+      ]
+    },
+    {
+      "rule": "A new state table keyed on an asset must come with a decided lifecycle for its rows when the corresponding AssetActive row is removed - a cascade delete or an explicit GC policy - not unbounded accumulation.",
+      "category": "database",
+      "trigger": "A new asset_state table/model is introduced with no cascade-delete from AssetActive removal and no GC policy.",
+      "rationale": "Orphaned state rows in the metadata database are never cleaned up by anything else and grow without limit.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#9"
+      ]
+    },
+    {
+      "rule": "Do not add a field to a Pydantic response model whose name is the singular or plural variant of an existing field unless the two have clearly distinct, documented semantics.",
+      "category": "api-design",
+      "trigger": "A Pydantic model gains a field whose name is the plural (or singular) form of an existing field, e.g. partition_key alongside partition_keys.",
+      "rationale": "API consumers cannot tell the two apart from the schema, and client code picks the wrong one.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#10"
+      ]
+    },
+    {
+      "rule": "Do not add fields to the execution-API worker context models (e.g. the DagRun model in execution_api/datamodels/taskinstance.py) that no worker code reads.",
+      "category": "correctness",
+      "trigger": "A nullable field is added to the DagRun StrictBaseModel in execution_api/datamodels/taskinstance.py with no worker-side consumer.",
+      "rationale": "The execution API is a versioned contract; an unread field is dead weight that still has to be maintained across API versions.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#11"
+      ]
+    },
+    {
+      "rule": "Do not drive a single-item state operation through the bulk service interface; use the single-item service code path.",
+      "category": "api-design",
+      "trigger": "A non-bulk route instantiates a BulkService with a dummy empty BulkBody to perform a single-item update.",
+      "rationale": "The bulk service carries per-entry error accumulation and partial-success semantics that make no sense for one item and obscure the real failure mode.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#13"
+      ]
+    },
+    {
+      "rule": "When a new conditional branch is added in a service method, update the response-serialisation helper to cover it so the branch is not dead code.",
+      "category": "correctness",
+      "trigger": "A new query branch is added in a service method while _serialize_response (or equivalent) still gates on the old condition.",
+      "rationale": "The reviewer found the new branch was unreachable in the response as written.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_004#14"
+      ]
+    },
+    {
+      "rule": "Assign a large dict to a named variable before passing it to Model.model_validate() rather than inlining the literal in the call.",
+      "category": "docs",
+      "trigger": "Model.model_validate({...}) is called with a multi-key inline dict containing computed or conditional expressions.",
+      "rationale": "Readability nit raised on one call site.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_004#16"
+      ]
+    },
+    {
+      "rule": "Do not use getattr(Model, \"field\") in SQLAlchemy column-selection expressions; resolve optional or dynamically named columns inside the model definition instead.",
+      "category": "correctness",
+      "trigger": "A select() call references a column via getattr(SomeModel, \"column_name\").",
+      "rationale": "The string reference is invisible to type checkers and to any rename, so the query breaks at runtime long after the model changed.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_004#17"
+      ]
+    },
+    {
+      "rule": "Use session.flush() rather than session.commit() inside a method that participates in a larger task-completion transaction, such as register_asset_change.",
+      "category": "database",
+      "trigger": "session.commit() is added or kept inside register_asset_change or another method invoked as part of a multi-model task-completion transaction.",
+      "rationale": "An early commit persists the AssetEvent even when a later step rolls back, leaving asset events that disagree with the task state that supposedly produced them.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#0"
+      ]
+    },
+    {
+      "rule": "When an AssetEvent must be visible before the caller's transaction commits, open an independent session with create_session(scoped=False) rather than committing the shared session.",
+      "category": "database",
+      "trigger": "A create_session call appears near AssetEvent insertion, or session.commit() is swapped for a separate session block in assets/manager.py.",
+      "rationale": "A scoped session shares the caller's connection, so committing it commits the caller's work too; only a genuinely separate session gives early visibility without that side effect.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#1"
+      ]
+    },
+    {
+      "rule": "Do not call session.flush() from a finally or except block reached on an error path.",
+      "category": "database",
+      "trigger": "session.flush() is added inside a finally: or except: clause in an asset or scheduler code path.",
+      "rationale": "The transaction is about to roll back, so the flush accomplishes nothing except obscuring the error handling.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#3"
+      ]
+    },
+    {
+      "rule": "On the /run endpoint, mint a new execution token only when the incoming token is workload-scoped; do not regenerate a token on every call.",
+      "category": "security",
+      "trigger": "Unconditional generator.generate(extras={\"scope\": \"execution\"}) plus a response.headers[\"Refreshed-API-Token\"] assignment inside the ti_run handler with no scope guard.",
+      "rationale": "Unconditional reissue replaces tokens that still have more validity left and bypasses the JWTReissueMiddleware 20%-remaining rule that governs refresh everywhere else.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#6"
+      ]
+    },
+    {
+      "rule": "When a route handler writes the Refreshed-API-Token header that JWTReissueMiddleware also writes, add an inline comment explaining why they cannot collide.",
+      "category": "docs",
+      "trigger": "response.headers[\"Refreshed-API-Token\"] is assigned in a route handler that coexists with JWTReissueMiddleware.",
+      "rationale": "The reviewer asked for the non-collision contract to be written down at the second writer.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_005#7"
+      ]
+    },
+    {
+      "rule": "Generate the execution JWT before the transition to the running state is committed.",
+      "category": "correctness",
+      "trigger": "generator.generate() or the Refreshed-API-Token assignment is placed after the session.commit()/session.flush() that moves the TI to running.",
+      "rationale": "If token generation fails after the commit, the task instance is stuck in running with no execution token and the worker has no way to recover it.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#8"
+      ]
+    },
+    {
+      "rule": "Keep JWT and token-generation code outside `except SQLAlchemyError` blocks in execution-API route handlers; the DB error handler must cover only database operations.",
+      "category": "correctness",
+      "trigger": "services.aget(JWTGenerator) or generator.generate() is placed inside a try/except SQLAlchemyError block in an execution API route.",
+      "rationale": "Widening the try block means a signing failure is reported as a database error, and the DB-specific recovery runs for something that was never a DB problem.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#9"
+      ]
+    },
+    {
+      "rule": "Every new router in the execution API must set route_class=ExecutionAPIRoute.",
+      "category": "security",
+      "trigger": "A new VersionedAPIRouter(...) is added under execution_api/routes/ without route_class=ExecutionAPIRoute.",
+      "rationale": "Without it allowed_token_types silently falls back to {\"execution\"} only, so any future token:workload route on that router is blocked with no obvious cause.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#10"
+      ]
+    },
+    {
+      "rule": "An execution-API parameter that widens a state mutation beyond the single task instance identified by the JWT subject (e.g. ?all_map_indices=true) must use a broader scope such as ti:fleet, require a leader check (map_index in (-1, 0)), or document the intentional fleet-wide authority in the docstring.",
+      "category": "security",
+      "trigger": "An endpoint gains a parameter (e.g. all_map_indices: bool) that lets one task instance's token mutate sibling mapped task instances.",
+      "rationale": "The execution token authorises one TI; silently letting it act on its siblings breaks the assumption the whole token scheme rests on.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#11"
+      ]
+    },
+    {
+      "rule": "Execution-API list endpoints that query the metadata database must apply pagination (limit/offset) or a documented hard cap.",
+      "category": "performance",
+      "trigger": "A GET list route in the execution API calls session.scalars(stmt).all() with no limit or offset.",
+      "rationale": "Tables like Variables are unbounded in real deployments, so an unbounded list query is a slow query on the metadata database that every worker can trigger.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#12"
+      ]
+    },
+    {
+      "rule": "Use log.debug rather than log.info for fall-through diagnostics on high-volume execution-API paths such as heartbeat.",
+      "category": "correctness",
+      "trigger": "log.info(...) is added on a fallback or miss path inside a heartbeat or other high-frequency execution API handler.",
+      "rationale": "These handlers run per task instance per heartbeat interval; INFO there floods production logs and hides everything else.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#13"
+      ]
+    },
+    {
+      "rule": "When archiving a task_instance_history row on the retry path, copy rendered_map_index whenever the field is present in the patch payload, including when its value is None.",
+      "category": "correctness",
+      "trigger": "A TIH archive path sets ti._rendered_map_index only under `if ti_patch_payload.rendered_map_index is not None:`.",
+      "rationale": "The None check conflates \"field absent\" with \"field cleared\", so a deliberately cleared value never reaches the archived row.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#14"
+      ]
+    },
+    {
+      "rule": "Declare static-path routes (e.g. HEAD routes) before parameterised routes at the same prefix in the execution API so greedy path-parameter matching cannot swallow them.",
+      "category": "correctness",
+      "trigger": "@router.head(...) declarations are reordered or removed relative to @router.get(...) with overlapping path patterns in the execution API routes.",
+      "rationale": "FastAPI matches in declaration order, so a parameterised route declared first captures requests meant for the static one.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#15"
+      ]
+    },
+    {
+      "rule": "config.yml descriptions must not name internal database tables; describe the concept in user-facing terms instead.",
+      "category": "docs",
+      "trigger": "A description: in config.yml references an internal table name such as \"task_state rows\" or \"dag_run rows\".",
+      "rationale": "These descriptions are rendered as operator-facing documentation, and the schema they name is not a public contract.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_005#17"
+      ]
+    },
+    {
+      "rule": "Extract logic shared between sibling asset-store endpoints (e.g. /by-uri/value and /by-name/value) into a helper instead of duplicating the body after the resolve call.",
+      "category": "correctness",
+      "trigger": "A second execution-API asset-store route repeats the body of an existing route after its _resolve_asset_id_by_* call.",
+      "rationale": "The reviewer flagged the copied body as guaranteed to drift between the two routes.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_005#22"
+      ]
+    },
+    {
+      "rule": "Do not add email- or SMTP-related configuration options to airflow-core; route email settings through the SMTP provider.",
+      "category": "providers",
+      "trigger": "A new config key referencing email, SMTP, or a notifier default is added to airflow-core/src/airflow/config_templates/config.yml.",
+      "rationale": "Email delivery moved out of core into the provider; core options for it recreate the coupling that migration removed.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_006#0"
+      ]
+    },
+    {
+      "rule": "Do not define domain-model enums (e.g. WeightRule) in configuration.py; put them in the module that owns the concept.",
+      "category": "api-design",
+      "trigger": "A class definition for an Enum or domain type is added to airflow-core/src/airflow/configuration.py.",
+      "rationale": "configuration.py is imported extremely early and by everything; putting domain types there creates import cycles and makes the concept unfindable.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_006#1"
+      ]
+    },
+    {
+      "rule": "Expose internal collections from AirflowConfigParser through methods returning immutable sequences (tuple), not as mutable list properties.",
+      "category": "api-design",
+      "trigger": "A @property in AirflowConfigParser or a subclass is annotated as returning list[...].",
+      "rationale": "A returned list lets a caller mutate parser state in place, and the config parser is global.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_006#2"
+      ]
+    },
+    {
+      "rule": "Type warning_types-style parameters as an open-ended homogeneous tuple (tuple[DagWarningType, ...]) rather than a fixed-length tuple.",
+      "category": "api-design",
+      "trigger": "A parameter typed tuple[DagWarningType, DagWarningType] is added or modified in dag_processing/collection.py.",
+      "rationale": "A fixed-length tuple type breaks every caller the moment another warning type is added.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_006#3"
+      ]
+    },
+    {
+      "rule": "When a parameter of DagBag or DagBag.collect_dags stops being used, either remove it from the signature and docstring entirely or emit a UserWarning when it is supplied; do not silently ignore it.",
+      "category": "api-design",
+      "trigger": "A DagBag.__init__ or DagBag.collect_dags parameter is dropped from the implementation body but kept in the signature or docstring.",
+      "rationale": "DagBag is called from user DAG-processing code; a silently ignored argument makes callers believe an option still takes effect.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_006#4"
+      ]
+    },
+    {
+      "rule": "In DagBundleManager._refresh_dag_bundles, remove a bundle from _force_refresh_bundles only after DB persistence succeeds, and clear _bundle_versions when persistence fails.",
+      "category": "correctness",
+      "trigger": "A bundle is removed from _force_refresh_bundles before update_bundle_state, or an exception from update_bundle_state is swallowed without clearing _bundle_versions.",
+      "rationale": "The reviewer traced a case where a failed persist left a stale version cached and short-circuited the next refresh.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_006#5"
+      ]
+    },
+    {
+      "rule": "Do not rely on a SQLAlchemy UPDATE returning rowcount == 0 to detect a missing row; use an explicit SELECT or EXISTS check.",
+      "category": "database",
+      "trigger": "`if result.rowcount == 0: raise` follows a single-row update() call.",
+      "rationale": "rowcount semantics differ across the databases Airflow supports, including returning 0 for an update that matched but changed nothing.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_006#6"
+      ]
+    },
+    {
+      "rule": "Docstrings on overridable DAG-processing methods must state the conditions under which the default implementation does nothing.",
+      "category": "docs",
+      "trigger": "A method in dag_processing/ intended for override has a docstring that omits its no-op conditions.",
+      "rationale": "Subclass authors outside the repo cannot see the body, and a silently skipped default is indistinguishable from a broken override.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_006#7"
+      ]
+    },
+    {
+      "rule": "Broad `except Exception` handlers in dag_processing must not re-wrap purpose-built sentinel exceptions such as CallbackBundleUnavailable; let them propagate or re-raise them explicitly.",
+      "category": "correctness",
+      "trigger": "An except Exception block in dag_processing/ wraps or swallows an exception that can be CallbackBundleUnavailable.",
+      "rationale": "The sentinel exists so callers can distinguish that condition; wrapping it turns a handled case back into a generic failure.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_006#8"
+      ]
+    },
+    {
+      "rule": "In DagFileProcessorProcess, pass dag_file.rel_path from the DagFileInfo object instead of recomputing it with Path.relative_to().",
+      "category": "correctness",
+      "trigger": "dag_processing/processor.py calls Path(path).relative_to(bundle_path) when a DagFileInfo with rel_path is already in the call chain.",
+      "rationale": "The reviewer pointed at the value already carried through the call chain.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_006#9"
+      ]
+    },
+    {
+      "rule": "A fix to an example DAG for a timezone or datetime bug must come with a regression test that imports the DAG under a non-UTC [core] default_timezone.",
+      "category": "testing",
+      "trigger": "An example_dags/ file is modified to fix a datetime/timezone issue with no test exercising a non-UTC default_timezone.",
+      "rationale": "These bugs only appear when the configured timezone is not UTC, which is exactly what the default test environment never exercises.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_006#10"
+      ]
+    },
+    {
+      "rule": "Guard setproctitle usage in executor entry-points (BaseExecutor.run_workload and friends) with a darwin platform check.",
+      "category": "correctness",
+      "trigger": "Code under airflow-core/src/airflow/executors/ calls setproctitle() without a `sys.platform != \"darwin\"` or equivalent guard.",
+      "rationale": "setproctitle misbehaves on macOS, which is where a large share of contributors run the executors locally.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_006#11"
+      ]
+    },
+    {
+      "rule": "Implement new executor workload features in BaseExecutor or a shared mixin so each concrete executor does not have to be updated individually.",
+      "category": "api-design",
+      "trigger": "A new workload-handling method or branch is added to multiple concrete executor files (local_executor.py, celery_executor.py, ...) with no base-class implementation.",
+      "rationale": "Concrete executors also live in providers and out of tree; a feature that has to be copied into each one is a feature most of them will never get.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_006#12"
+      ]
+    },
+    {
+      "rule": "Generate the executor workload type error message from the ExecutorWorkload union rather than listing the type names by hand in an f-string.",
+      "category": "correctness",
+      "trigger": "An f-string in base_executor.py enumerates concrete workload type names manually instead of unpacking the type alias.",
+      "rationale": "The reviewer noted the hand-written list would go stale the next time a workload type was added.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_006#13"
+      ]
+    },
+    {
+      "rule": "In prepare_file_queue, look file stats up through the pre-built presence_key index dict in O(1) rather than scanning _file_stats linearly per file.",
+      "category": "performance",
+      "trigger": "dag_processing/manager.py builds a dict keyed by file.presence_key but then calls a helper (e.g. processed_recently) that iterates over _file_stats.",
+      "rationale": "The linear helper inside the per-file loop makes queue preparation O(n squared) in the number of DAG files, which large deployments feel directly.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_006#14"
+      ]
+    },
+    {
+      "rule": "After queuing a workload with an executor, set the workload state to QUEUED, not RUNNING.",
+      "category": "correctness",
+      "trigger": "callback.state (or an equivalent workload state) is set to RUNNING immediately after executor.queue_workload().",
+      "rationale": "Queueing is not acceptance; marking it running means a workload the executor never picked up looks in-flight forever.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_007#0"
+      ]
+    },
+    {
+      "rule": "Do not add a separate query for an individual task state inside the scheduler critical section; fold the new state condition into the existing query.",
+      "category": "performance",
+      "trigger": "A new session.execute(select(...).where(TI.state == ...)) is added inside _critical_section_* or an adjacent scheduler method.",
+      "rationale": "The critical section holds locks other schedulers wait on, so each additional round trip lengthens the window for every scheduler in the deployment.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_007#1"
+      ]
+    },
+    {
+      "rule": "Any new scheduler workload type must check available executor slots before submitting, following _enqueue_executor_callbacks and _critical_section_enqueue_task_instances.",
+      "category": "correctness",
+      "trigger": "A new method calls executor.queue_workload() for a new workload type without first reading available executor slots.",
+      "rationale": "Ignoring slots lets one workload type starve task instances of the executor's fixed capacity.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_007#2"
+      ]
+    },
+    {
+      "rule": "Select scheduler-owned rows that concurrent schedulers could pick up with with_row_locks(..., skip_locked=True).",
+      "category": "correctness",
+      "trigger": "session.scalars(select(<Model>).where(...)) inside the scheduler loop returns rows that are then mutated or dispatched, with no with_row_locks wrapper.",
+      "rationale": "Airflow supports multiple active schedulers; without skip-locked selection two of them dispatch the same row.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_007#3"
+      ]
+    },
+    {
+      "rule": "Prefer a ~exists(select(...).where(...)) anti-join over <col>.not_in(select(...)) in ORM queries.",
+      "category": "database",
+      "trigger": "The diff contains .not_in(select(...)) or NOT IN (SELECT ...) in a SQLAlchemy query.",
+      "rationale": "NOT IN against a subquery that can yield NULL returns no rows at all, and it prevents the planner from using an index.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_007#4"
+      ]
+    },
+    {
+      "rule": "A foreign-key column used as a subquery filter predicate in scheduler queries must have an explicit Index(...) declaration unless an existing index is confirmed to cover it.",
+      "category": "database",
+      "trigger": "A subquery filter on an FK column (e.g. .where(<Model>.trigger_id == ...)) is added with no Index(\"idx_<table>_<column>\", ...) in the model definition.",
+      "rationale": "Airflow does not get an index on an FK for free on all supported databases, and these predicates run on every scheduler loop.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_007#6"
+      ]
+    },
+    {
+      "rule": "To call get_template_context from the triggerer, construct a RuntimeTaskInstance via RuntimeTaskInstance.model_construct(...); do not call it on a plain TaskInstance.",
+      "category": "api-design",
+      "trigger": ".get_template_context() is called on an airflow.executors.workloads TaskInstance inside the triggerer job runner.",
+      "rationale": "The workloads TaskInstance lacks the runtime attributes the context builder reads, so the context it produces is subtly incomplete.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_007#7"
+      ]
+    },
+    {
+      "rule": "A significant change to triggerer behaviour must ship with a newsfragment.",
+      "category": "docs",
+      "trigger": "The diff changes triggerer behaviour (new capability, protocol change, significant fix) with no file added under newsfragments/.",
+      "rationale": "The triggerer is operator-visible infrastructure; behaviour changes there need to reach the changelog.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_007#8"
+      ]
+    },
+    {
+      "rule": "In triggerer cleanup paths, replace bare `with suppress(Exception)` with a try/except that logs via self.log.exception(...).",
+      "category": "async",
+      "trigger": "`with suppress(Exception):` is introduced around an await call in triggerer_job_runner.py.",
+      "rationale": "Cleanup failures in the triggerer are otherwise completely invisible, and the triggerer is a long-lived process where they accumulate.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_007#9"
+      ]
+    },
+    {
+      "rule": "An Alembic upgrade() must not DELETE or truncate existing rows in place of a data-preserving migration; a bare DELETE FROM with a TODO is not acceptable.",
+      "category": "database",
+      "trigger": "op.execute(\"DELETE FROM ...\") is added in an upgrade() function alongside a \"# TODO: Implement data-preserving migration\" comment.",
+      "rationale": "Users run these migrations against production metadata databases; silent data destruction on upgrade is unrecoverable.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_007#12"
+      ]
+    },
+    {
+      "rule": "An expires_at column in an Airflow state or retention table must mean \"never expires\" when NULL, and its GC query must be a single `WHERE expires_at < now()` predicate rather than a two-path check mixing updated_at with a default retention config.",
+      "category": "database",
+      "trigger": "An expires_at column is added whose NULL is documented as \"use default retention\", with a GC query combining expires_at and updated_at + config conditions.",
+      "rationale": "The two-path form makes the retention behaviour of any given row impossible to reason about and changes retroactively when the config changes.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_007#13"
+      ]
+    },
+    {
+      "rule": "Route SQLAlchemy 1.4/2.0 compatibility shims through airflow.utils.sqlalchemy rather than inline try/except ImportError blocks in individual model files.",
+      "category": "database",
+      "trigger": "A model file adds a try/except ImportError block to shim mapped_column or Mapped from sqlalchemy.orm instead of importing from airflow.utils.sqlalchemy.",
+      "rationale": "One shim in one place is what makes the eventual version drop a single-file change instead of a sweep across every model.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_008#0"
+      ]
+    },
+    {
+      "rule": "Validate user-supplied DAG run configuration with dag.params.deep_merge(dag_run_conf).validate() before starting a backfill.",
+      "category": "api-design",
+      "trigger": "A backfill code path passes dag_run_conf to create_dagrun (or similar) without first calling dag.params.deep_merge(...).validate().",
+      "rationale": "Without the validation, bad user input surfaces as a 500 from deep inside run creation instead of a 4xx naming the offending param.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_008#2"
+      ]
+    },
+    {
+      "rule": "Extract the duplicated encrypt/decrypt field logic into a shared mixin instead of copying the Connection model's get_extra/set_extra + synonym pattern into a new model.",
+      "category": "correctness",
+      "trigger": "A new model re-implements the get_extra/set_extra property and synonym pattern already present in the Connection model.",
+      "rationale": "The reviewer flagged the copied Fernet handling on connection_test.py.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_008#3"
+      ]
+    },
+    {
+      "rule": "Guard bundle_version lookups with `is not None` rather than truthiness.",
+      "category": "correctness",
+      "trigger": "A conditional uses `if bundle_version:` instead of `if bundle_version is not None:`.",
+      "rationale": "An empty-string bundle version is a real value that truthiness silently routes to the latest-version path.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_008#4"
+      ]
+    },
+    {
+      "rule": "Write SQLAlchemy type constructors as instantiated calls in mapped_column and in Alembic migrations - sa.JSON() rather than sa.JSON.",
+      "category": "database",
+      "trigger": "mapped_column(sa.JSON, ...) or Column(sa.JSON, ...) appears without parentheses on the type.",
+      "rationale": "The project writes them instantiated throughout, and the bare-class form behaves differently once a type takes arguments.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_008#5"
+      ]
+    },
+    {
+      "rule": "Prefix module-internal helper functions with an underscore so they do not become part of the public API surface.",
+      "category": "api-design",
+      "trigger": "A new module-level function is added in airflow-core without a leading underscore but referenced only within the same file or package.",
+      "rationale": "General Python API-surface hygiene raised on one new helper.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_008#6"
+      ]
+    },
+    {
+      "rule": "Every cache hit path - including the double-checked-locking fast path - must increment Stats.incr(\"api_server.dag_bag.cache_hit\").",
+      "category": "performance",
+      "trigger": "A double-checked locking block or secondary fast path returns a cached DAG without calling Stats.incr(\"api_server.dag_bag.cache_hit\").",
+      "rationale": "The hit rate is the metric operators use to size this cache; a path that skips the counter makes it read low exactly under the concurrency it is meant to measure.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_008#8"
+      ]
+    },
+    {
+      "rule": "Bound DAG cache TTLs to min_serialized_dag_update_interval rather than an arbitrary shorter value.",
+      "category": "performance",
+      "trigger": "A DAG bag or serialized-DAG cache introduces a TTL constant or parameter that neither references nor defaults to min_serialized_dag_update_interval.",
+      "rationale": "DAGs cannot be reparsed more often than that interval, so a shorter TTL only re-fetches identical data.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_008#9"
+      ]
+    },
+    {
+      "rule": "Do not call session.flush() midway through a write_dag unit of work; add every related object to the session first and flush once at the end.",
+      "category": "database",
+      "trigger": "A session.flush() call appears mid-function inside write_dag or a similar multi-object DB write, before all related objects have been added.",
+      "rationale": "A mid-way flush leaves half the DAG's rows persisted if a later step raises, which the readers of those tables cannot distinguish from a complete write.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_008#11"
+      ]
+    },
+    {
+      "rule": "When updating a DagVersion record, update bundle_version alongside the other version metadata.",
+      "category": "correctness",
+      "trigger": "Code updates DagVersion (or calls DagVersion.get_latest_version) without also updating the associated bundle_version.",
+      "rationale": "Workers running versioned bundles resolve code by bundle_version; leaving it stale means they never see newly added tasks.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_008#12"
+      ]
+    },
+    {
+      "rule": "Count deferred task instances against max_active_tis_per_dag and max_active_tis_per_dagrun.",
+      "category": "correctness",
+      "trigger": "A query counting active task instances for concurrency limits filters on [running, queued] and omits deferred.",
+      "rationale": "A deferred task still holds its slot logically; excluding it lets a DAG exceed the concurrency limit its author set.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_008#13"
+      ]
+    },
+    {
+      "rule": "In PartitionMapper.to_upstream() implementations, derive the parse format from self.output_format rather than hard-coding a slice length and format string.",
+      "category": "correctness",
+      "trigger": "A to_upstream method in a temporal partition mapper uses a hard-coded downstream_key[:10] slice and a \"%Y-%m-%d\" literal instead of self.output_format.",
+      "rationale": "output_format is overridable, so a hard-coded parse silently misreads keys the mapper itself produced.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_008#15"
+      ]
+    },
+    {
+      "rule": "Partition-mapper methods that format upstream/downstream keys must use timezone-aware datetimes anchored to the mapper's configured timezone, never naive datetimes.",
+      "category": "correctness",
+      "trigger": "A to_upstream()/to_downstream() method calls datetime.strptime or does timedelta arithmetic without attaching self._timezone.",
+      "rationale": "The scheduler waits on the key the mapper emits; a naive datetime shifts it by the UTC offset and the dependency never resolves.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#0"
+      ]
+    },
+    {
+      "rule": "Update the docstring when a method is decorated with @provider_info_cache so it describes the cached semantics rather than the former uncached helper's.",
+      "category": "docs",
+      "trigger": "A docstring is moved from an uncached helper onto a @provider_info_cache-decorated method, or the decorator is added without revising the docstring.",
+      "rationale": "The reviewer spotted docstring text about avoiding caching left on the now-cached method.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_009#1"
+      ]
+    },
+    {
+      "rule": "Implement new task-clearing behaviour flags (only_failed, only_running, and the like) inside clear_task_instances rather than at individual call sites.",
+      "category": "correctness",
+      "trigger": "A new boolean filter for task clearing is added and handled outside clear_task_instances.",
+      "rationale": "Every clearing entry point - UI, API, CLI - goes through that function; a flag handled elsewhere applies on some paths and not others.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#2"
+      ]
+    },
+    {
+      "rule": "In create_dagrun(), resolve the requested bundle version to a DagVersion first and validate the partition key against that resolved version, not against self.",
+      "category": "correctness",
+      "trigger": "create_dagrun() calls self.validate_partition_key(partition_key) before resolving bundle_version.",
+      "rationale": "self is always the latest DAG, so validating against it accepts or rejects keys according to a version the run will not use.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#3"
+      ]
+    },
+    {
+      "rule": "Custom sentinel or non-JSON-serialisable types used in template fields must implement a serialize() method following the SetDuringExecution pattern.",
+      "category": "correctness",
+      "trigger": "A new sentinel class (ArgNotSet / NOTSET-style) is introduced in airflow-core with no serialize() method.",
+      "rationale": "Otherwise serialize_template_field falls back to str() and the UI shows a Python repr where the value should be.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#4"
+      ]
+    },
+    {
+      "rule": "TaskGroup.topological_sort() must not rebuild the DAG-level group mapping on each recursive call; build it once and pass it into nested calls.",
+      "category": "performance",
+      "trigger": "topological_sort() in taskgroup.py constructs a group-lookup dict in its body instead of accepting one as a parameter.",
+      "rationale": "Rebuilding per recursion makes traversal O(G squared) in the number of task groups, on a path that runs during every DAG parse.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#5"
+      ]
+    },
+    {
+      "rule": "Do not open a new create_session block inside a method that already has a session or can delegate to an existing model query method (e.g. XComModel.get_many) that accepts one.",
+      "category": "database",
+      "trigger": "A `with create_session()` block is added inside a method that already has access to a session parameter.",
+      "rationale": "A second session opens a second transaction against the same data, so the method reads a snapshot that disagrees with its caller's.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#6"
+      ]
+    },
+    {
+      "rule": "Compatibility shims for deprecated settings.* attributes (e.g. SQL_ALCHEMY_CONN_ASYNC) must be guarded by block_orm_access exactly as SQL_ALCHEMY_CONN is.",
+      "category": "security",
+      "trigger": "A __getattr__ branch in settings.py for a *_ASYNC or secondary connection attribute is added or modified without a block_orm_access guard.",
+      "rationale": "The block exists to keep task code off the metadata database; an unguarded alias is a hole straight through it.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#7"
+      ]
+    },
+    {
+      "rule": "Detect in-memory SQLite in engine-configuration code by parsing the SQLAlchemy URL (dialect plus database target), not by string comparison against \"sqlite://\" or \"sqlite:///:memory:\".",
+      "category": "database",
+      "trigger": "In-memory SQLite is tested with == or in against the string literals \"sqlite://\" or \"sqlite:///:memory:\".",
+      "rationale": "The same database is reachable through several equivalent URL spellings, so string equality misses most of them.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#8"
+      ]
+    },
+    {
+      "rule": "The meaning of map_index == -1 as a TaskScope sentinel must be identical across every method that filters on it; if two meanings are needed, use an explicit boolean flag instead.",
+      "category": "correctness",
+      "trigger": "Methods in a TaskScope-accepting state class differ in their handling of -1: some skip the map_index filter, others apply an exact-match filter.",
+      "rationale": "A sentinel that means \"all\" in one method and \"the unmapped row\" in another silently reads or writes the wrong set of rows.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#9"
+      ]
+    },
+    {
+      "rule": "State-store write methods must use a single database-level UPSERT (INSERT ... ON CONFLICT DO UPDATE) rather than a SELECT followed by an INSERT.",
+      "category": "database",
+      "trigger": "A state-write method does session.get(...) or a SELECT and then session.add(row) for the same primary or unique key.",
+      "rationale": "Two workers writing the same key race between the check and the insert and one of them gets an IntegrityError.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#10"
+      ]
+    },
+    {
+      "rule": "Asset-store upsert calls must omit the writer-attribution columns from the update set when kind is None.",
+      "category": "correctness",
+      "trigger": "_set_asset_store or a _build_upsert_stmt call for AssetStoreModel unconditionally includes last_updated_by_* columns in the update dict.",
+      "rationale": "An attribution-less write would otherwise blank out the attribution recorded by whoever wrote the value before it.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#11"
+      ]
+    },
+    {
+      "rule": "Name state-set constants in ti_deps/dependencies_states.py after their semantic role - ACTIVE_STATES for anything still in flight, EXECUTION_STATES for actively executing tasks - not after the implementation detail that defines them.",
+      "category": "naming",
+      "trigger": "A new frozenset of TaskInstanceState values is added in ti_deps/dependencies_states.py whose name ends in _EXECUTION_STATES while the set includes DEFERRED or another non-executing in-flight state.",
+      "rationale": "These sets are reused across dependency checks and concurrency accounting; a name that overstates what is in the set is how the wrong one gets picked.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#12"
+      ]
+    },
+    {
+      "rule": "Public method overrides on Timetable subclasses must carry an explicit return-type annotation.",
+      "category": "api-design",
+      "trigger": "A public method is added or overridden on a Timetable subclass with no -> ReturnType annotation.",
+      "rationale": "Timetable is implemented by providers and by users; the annotations are the contract they code against.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#13"
+      ]
+    },
+    {
+      "rule": "Do not add __all__ when the module already re-exports symbols with the `import X as X` pattern; that form is the single authoritative re-export mechanism in airflow-core.",
+      "category": "api-design",
+      "trigger": "A file adds both `from module import Foo as Foo` and lists Foo in __all__.",
+      "rationale": "Two overlapping re-export mechanisms in one module drift apart, and the redundant one is what readers check first.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#14"
+      ]
+    },
+    {
+      "rule": "When RunTrigger or a callback trigger resolves a DAG module by hashed absolute path, document the absence of a run-version pin and the cross-host path skew as a known limitation in the code if it is not addressed.",
+      "category": "correctness",
+      "trigger": "A trigger or callback resolves a DAG file via get_unique_dag_module_name (sha1 of the absolute path) with no bundle_version or run-version identifier on the trigger payload.",
+      "rationale": "The reviewer asked for the limitation to be written down at the resolution site.",
+      "kind": "incident",
+      "members": [
+        "t1/batch_009#15"
+      ]
+    },
+    {
+      "rule": "A new SharedStreamManager stream type whose upstream requires an ack or commit side-effect (e.g. a Kafka offset commit) must not be routed through the unidirectional filter_shared_stream API; scope the change to read-only or idempotent upstreams, or extend the API with an ack path first.",
+      "category": "providers",
+      "trigger": "An open_shared_stream implementation commits, acks, or advances a cursor after a filter accepts, through the one-way filter_shared_stream channel.",
+      "rationale": "The one-way channel gives the producer no way to learn whether the consumer actually handled the message, so acking there loses data on failure.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#16"
+      ]
+    },
+    {
+      "rule": "Do not add a public property to CronMixin or another core timetable base class solely to serve SDK-side consumers; core public API must have at least one in-core consumer.",
+      "category": "api-design",
+      "trigger": "A @property is added to CronMixin or another core timetable base class with no reference site in airflow-core.",
+      "rationale": "SDK timetables expose their own surface; a core property with no core caller is public API the project has to keep forever for nothing.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_009#17"
+      ]
+    },
+    {
+      "rule": "Use a bounded asyncio.Queue (non-zero maxsize) for per-subscriber queues in shared-stream triggers; never put_nowait into an unbounded queue from a broadcast producer.",
+      "category": "async",
+      "trigger": "asyncio.Queue() with no maxsize inside a trigger subscribe/poll method, combined with put_nowait from a producer loop.",
+      "rationale": "A slow subscriber on an unbounded queue turns into unbounded memory growth in the triggerer process, which serves every deferred task.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_010#0"
+      ]
+    },
+    {
+      "rule": "When adding an i18n key to en/common.json, seed the same English string into every other locale's common.json.",
+      "category": "docs",
+      "trigger": "A key is added to ui/public/i18n/locales/en/common.json and no other locale's common.json is touched.",
+      "rationale": "Missing-key fallback behaves inconsistently across locales, so some users see the key name instead of text.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_010#1"
+      ]
+    },
+    {
+      "rule": "Place new i18n keys under the namespace object matching their UI section (taskGroup.documentation), not as a flat concatenated top-level key (taskGroupDocumentation).",
+      "category": "naming",
+      "trigger": "A top-level key is added to a locale JSON file whose name concatenates an existing namespace with a sub-concept.",
+      "rationale": "Translators work namespace by namespace; flat keys fall outside the section they belong to and get missed.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_010#2"
+      ]
+    },
+    {
+      "rule": "Capitalise acronyms in translation strings as they are in English (JSON, DAG, API, UI, ID).",
+      "category": "docs",
+      "trigger": "A locale JSON value introduces a well-known acronym in all-lowercase.",
+      "rationale": "The acronyms are product terms users match against the UI and docs; lowercasing them reads as a different word.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_010#3"
+      ]
+    },
+    {
+      "rule": "Prefer icons from react-icons over custom inline SVG in the Airflow UI; add a custom icon only when react-icons has no suitable option.",
+      "category": "api-design",
+      "trigger": "A new custom icon component (createIcon({...}) or a raw <svg>) is added under ui/src/assets/ or ui/src/components/.",
+      "rationale": "The shared library keeps sizing, stroke weight and theming consistent, which hand-rolled SVGs silently break.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_010#4"
+      ]
+    },
+    {
+      "rule": "Pass only the i18n namespaces a file actually uses to useTranslation.",
+      "category": "performance",
+      "trigger": "A useTranslation([...]) call lists namespaces that the file's translate calls never reference.",
+      "rationale": "Each listed namespace is loaded for the component, so unused ones are bundle and fetch cost for nothing.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_010#5"
+      ]
+    },
+    {
+      "rule": "Normalise response shapes and map fields in the backend API so it returns one consistent response type; do not re-shape API responses in frontend components.",
+      "category": "api-design",
+      "trigger": "A frontend component destructures and rebuilds an API response object to normalise its shape.",
+      "rationale": "Every other consumer of that endpoint has to repeat the same re-shaping, and they will not do it the same way.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_010#6"
+      ]
+    },
+    {
+      "rule": "Sync async-loaded data into react-hook-form fields with the useForm({ values: ... }) option rather than a useEffect that calls reset() or setValue().",
+      "category": "api-design",
+      "trigger": "A useEffect calls form.reset() or form.setValue() to populate fields after an async fetch resolves.",
+      "rationale": "The values option is the library's supported path and does not fight user edits that land while the fetch is in flight.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_010#7"
+      ]
+    },
+    {
+      "rule": "An /* eslint-disable max-lines */ comment must be accompanied by an inline justification for why the file legitimately exceeds the limit.",
+      "category": "docs",
+      "trigger": "/* eslint-disable max-lines */ is added with no explanatory comment on the same or the following line.",
+      "rationale": "Without a reason the disable outlives the situation that justified it and nobody can tell whether removing it is safe.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_010#8"
+      ]
+    },
+    {
+      "rule": "When a component calls the same callback both debounced and immediately, cancel any pending debounced invocation before making the immediate call.",
+      "category": "async",
+      "trigger": "Both a debouncedX and a direct X call reach the same onChange within one event-handler chain (e.g. onPaste calling onChange while an earlier onInput scheduled debouncedOnChange).",
+      "rationale": "The queued debounced call fires afterwards with the older value and overwrites what the immediate call just applied.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_010#9"
+      ]
+    },
+    {
+      "rule": "DagVersion and BundleVersion must be represented by visually distinct icons in the UI.",
+      "category": "api-design",
+      "trigger": "DagVersionIndicator and BundleVersionIndicator (or equivalent components) render the same icon.",
+      "rationale": "The two versions differ and users act on that difference; one icon for both makes the distinction invisible.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_010#10"
+      ]
+    },
+    {
+      "rule": "An \"All\" option in a state or status filter must clear the filter by omitting the query parameter, not send state=all to the API.",
+      "category": "correctness",
+      "trigger": "A filter option whose value is the string \"all\" is passed through as a query parameter to an Airflow API endpoint.",
+      "rationale": "The API has no \"all\" state, so the request either 422s or filters to nothing.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_010#11"
+      ]
+    },
+    {
+      "rule": "Do not wrap a single stable function delegation in useCallback with an empty dependency array in the Airflow UI; pass the stable reference directly.",
+      "category": "performance",
+      "trigger": "useCallback(() => stableFn(arg), []) is added where stableFn is already stable and the wrapper adds no logic.",
+      "rationale": "The UI builds with React Compiler, which already handles memoisation; the manual wrapper is noise that can also capture a stale arg.",
+      "kind": "convention",
+      "members": [
+        "t1/batch_010#12"
+      ]
+    }
+  ]
+}

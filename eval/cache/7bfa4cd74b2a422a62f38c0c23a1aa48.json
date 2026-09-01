@@ -1,0 +1,5 @@
+{
+  "verdict": "MATCH",
+  "why": "Both raise the same concern that a bare DeprecationWarning should be the project's own deprecation warning class (RemovedInAirflow4Warning); the finding merely adds extra asks around the removal version and newsfragment.",
+  "judge": "agent"
+}

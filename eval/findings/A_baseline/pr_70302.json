@@ -1,0 +1,7 @@
+{"pr": 70302,
+ "findings": [
+   {"path": "providers/common/ai/src/airflow/providers/common/ai/utils/file_analysis.py",
+    "line": 565,
+    "category": "correctness",
+    "message": "Switching to bz2.open/lzma.open means a truncated or corrupted bzip2/xz file is silently read only up to the first invalid stream boundary, so the LLM is handed partial content and the task still succeeds. gzip raises BadGzipFile in the same situation; documenting the divergence in the .rst does not make it safe. Please either detect the trailing bytes and raise LLMFileAnalysisUnsupportedFormatError, or at minimum log a warning when the underlying handle is not at EOF after decompression."}
+ ]}

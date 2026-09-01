@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding is a correctness/security concern about unescaped ';' and '=' in interpolated DSN values, while the human only asks for a structural refactor into a get_conn_str() method whose suggested code concatenates just as unsafely.",
+  "judge": "agent"
+}

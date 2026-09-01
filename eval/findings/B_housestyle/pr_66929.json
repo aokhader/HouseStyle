@@ -1,0 +1,8 @@
+{"pr": 66929,
+ "findings": [
+   {"rule_id": "airflow-r011",
+    "path": "providers/google/src/airflow/providers/google/suite/operators/sheets.py",
+    "line": 38,
+    "category": "docs",
+    "message": "`drive_id` is a new keyword on `GoogleSheetsCreateSpreadsheetOperator.__init__` and its `:param:` entry records a real behaviour change - with `drive_id` set, everything in `spreadsheet` except `properties.title` is discarded. Nothing under `providers/google/docs/operators/` is touched in this PR, so DAG authors reading the published Sheets guide never see the option or that caveat. Update the operator's RST guide in the same change."}
+ ]}

@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding argues `fail_on_reject` should default to True to preserve existing behaviour, while the human argues the flag should live on the shared approval mixin so all LLM operators behave consistently.",
+  "judge": "agent"
+}

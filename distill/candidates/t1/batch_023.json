@@ -41,7 +41,7 @@
       {
         "pr": 63814,
         "url": "https://github.com/apache/airflow/pull/63814#discussion_r3025334096",
-        "excerpt": "`self.version` is treated elsewhere as a general "commit-ish""
+        "excerpt": "`self.version` is treated elsewhere as a general \"commit-ish\""
       }
     ],
     "scope_paths": [

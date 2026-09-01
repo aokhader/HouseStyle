@@ -1,0 +1,247 @@
+[
+  {
+    "rule": "Declare list-valued service schema fields with a real voluptuous list validator such as vol.All(cv.ensure_list, [str]), never with a bare Python type annotation like list[str].",
+    "category": "api-design",
+    "trigger": "A vol.Schema in an integration's services.py using a typing construct (list[str], dict[str, str]) as the validator for a Required/Optional key.",
+    "rationale": "list[str] is not a voluptuous validator: it silently coerces a single string into a list of its characters, producing confusing validation errors for YAML and service calls that pass one value.",
+    "evidence": [
+      {
+        "pr": 159603,
+        "url": "https://github.com/home-assistant/core/pull/159603#discussion_r2852849403",
+        "excerpt": "In voluptuous this is not a safe list validator"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/services.py"]
+  },
+  {
+    "rule": "Resolve a config entry from a service call with the core helper homeassistant.helpers.service.async_get_config_entry instead of hand-rolling entry-exists / correct-domain / loaded-state checks in the integration.",
+    "category": "api-design",
+    "trigger": "An integration service handler defining its own _async_get_config_entry-style function that looks up hass.config_entries by id and raises ServiceValidationError for missing/unloaded entries.",
+    "rationale": "The core helper already performs the same validation and emits the standardized error translations, so duplicating it diverges error messages from every other integration.",
+    "evidence": [
+      {
+        "pr": 159603,
+        "url": "https://github.com/home-assistant/core/pull/159603#discussion_r2853062215",
+        "excerpt": "Home Assistant provides a standard helper for this: homeassistant.helpers.service.async_get_config_entry"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/services.py"]
+  },
+  {
+    "rule": "When an entity platform method maps a Home Assistant enum value onto a vendor constant, validate membership before indexing and raise HomeAssistantError, so an unsupported mode never escapes as a raw KeyError.",
+    "category": "correctness",
+    "trigger": "An async_set_* entity method indexing a module-level HA-to-vendor mapping dict (e.g. HVAC_TO_WF_MODE[hvac_mode]) inside a try block that only catches library or ValueError exceptions.",
+    "rationale": "Service calls can carry any value of the HA enum, including ones the device does not support; an uncaught KeyError surfaces as an internal traceback rather than an actionable error.",
+    "evidence": [
+      {
+        "pr": 168729,
+        "url": "https://github.com/home-assistant/core/pull/168729#discussion_r3141166752",
+        "excerpt": "HVAC_TO_WF_MODE[hvac_mode] will raise KeyError for any unexpected/unsupported value"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/climate.py"]
+  },
+  {
+    "rule": "Do not add strings.json entries or icons for preset modes that already exist as core common presets; use the core PRESET_* constants in code and let the built-in translations and icons apply.",
+    "category": "api-design",
+    "trigger": "New state_attributes.preset_mode entries in an integration's strings.json or icons.json naming standard presets such as eco, comfort, away, boost.",
+    "rationale": "Common presets are already translated and iconed in core; re-declaring them in an integration duplicates translations and drifts from the shared vocabulary.",
+    "evidence": [
+      {
+        "pr": 169546,
+        "url": "https://github.com/home-assistant/core/pull/169546#discussion_r3169807440",
+        "excerpt": "Eco and comfort are already built in common preset modes, so you can omit"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/*/strings.json",
+      "homeassistant/components/*/icons.json",
+      "homeassistant/components/*/climate.py"
+    ]
+  },
+  {
+    "rule": "Do not create entities for static device metadata; firmware version, mDNS name and similar constants belong in the device registry entry, not in the state machine.",
+    "category": "api-design",
+    "trigger": "A new sensor entity description whose value is a device identity or configuration constant (firmware version, mdns name, serial, IP) rather than a changing measurement, even under EntityCategory.DIAGNOSTIC.",
+    "rationale": "Values that never change do not belong in the state machine and are already carried on the device registry entry; each one adds a permanently-recorded state for no benefit.",
+    "evidence": [
+      {
+        "pr": 165238,
+        "url": "https://github.com/home-assistant/core/pull/165238#discussion_r3023915566",
+        "excerpt": "mdns name is static, so doesn't belong in the state machine"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/sensor.py"]
+  },
+  {
+    "rule": "Key an entity's icons.json entry by the exact translation_key set on its entity description, not by the sensor's internal key.",
+    "category": "api-design",
+    "trigger": "An added icons.json entity key under a platform that does not literally match the translation_key of the corresponding EntityDescription.",
+    "rationale": "Icon lookup is performed by translation_key, so a mismatched key silently fails and the entity renders with no icon.",
+    "evidence": [
+      {
+        "pr": 169561,
+        "url": "https://github.com/home-assistant/core/pull/169561#discussion_r3169916787",
+        "excerpt": "Use the translation_key (uv_index) as the icons.json entity key"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/icons.json"]
+  },
+  {
+    "rule": "Bound any integration-held cache keyed by a client- or peer-supplied identifier with a global cap or TTL, not just a per-key size limit.",
+    "category": "security",
+    "trigger": "A dict on an integration object indexed by an externally supplied id (session id, request id) that is written on inbound messages and only pruned per entry.",
+    "rationale": "A per-key cap still lets a caller allocate unbounded keys by inventing new ids, growing the dict without limit and exhausting memory.",
+    "evidence": [
+      {
+        "pr": 172831,
+        "url": "https://github.com/home-assistant/core/pull/172831#discussion_r3346698809",
+        "excerpt": "the number of distinct session_id keys in _pending_candidates is currently unbounded"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/camera.py"]
+  },
+  {
+    "rule": "Reuse the integration's existing const.py constant when another platform module already defines the same tuning value; do not repeat the literal in a second platform.",
+    "category": "api-design",
+    "trigger": "A numeric literal in an integration platform module (delay, timeout, threshold) duplicating a value already named in that integration's const.py or another platform file.",
+    "rationale": "The same wait-then-refresh behaviour is implemented in several platforms of one integration; keeping the value in const.py means it is tuned in one place instead of drifting per platform.",
+    "evidence": [
+      {
+        "pr": 174276,
+        "url": "https://github.com/home-assistant/core/pull/174276#discussion_r3487432969",
+        "excerpt": "Avoid hardcoding the refresh delay. switch.py already uses the SWITCH_REFRESH_DELAY constant from const.py"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/*/button.py", "homeassistant/components/*/const.py"]
+  },
+  {
+    "rule": "Include the idle notification value 0 in not_states for Z-Wave notification binary sensors so the entity clears when the device reports idle.",
+    "category": "correctness",
+    "trigger": "A NotificationZWaveJSEntityDescription whose not_states set lists only the specific event enum members and omits 0.",
+    "rationale": "Z-Wave notification state variables latch; without the idle value in not_states the binary sensor never turns back off.",
+    "evidence": [
+      {
+        "pr": 165236,
+        "url": "https://github.com/home-assistant/core/pull/165236#discussion_r2917434129",
+        "excerpt": "I think we need to include the idle state 0 here too."
+      }
+    ],
+    "scope_paths": ["homeassistant/components/zwave_js/binary_sensor.py"]
+  },
+  {
+    "rule": "Adding a NewZWaveDiscoverySchema for a value that a legacy DISCOVERY_SCHEMAS entry already matches must preserve the existing entities: set allow_multi and adjust the legacy catch-all's not_states, or migrate the whole notification type and add it to MIGRATED_NOTIFICATION_TYPES.",
+    "category": "correctness",
+    "trigger": "A new NewZWaveDiscoverySchema entry in zwave_js covering a notification value or command class that legacy discovery schemas already produce entities for.",
+    "rationale": "New-style schemas run before the legacy list and mark the value discovered, so the legacy schema is skipped and its entity silently disappears from users' installations; for latching notifications that also removes the only way to reset the state.",
+    "evidence": [
+      {
+        "pr": 177471,
+        "url": "https://github.com/home-assistant/core/pull/177471#discussion_r3666975957",
+        "excerpt": "New-style schemas are evaluated before the legacy DISCOVERY_SCHEMAS"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/zwave_js/discovery.py",
+      "homeassistant/components/zwave_js/binary_sensor.py"
+    ]
+  },
+  {
+    "rule": "Gate a report_usage deprecation warning on the deprecated condition actually being present, so callers that do not use the deprecated pattern never see it logged.",
+    "category": "api-design",
+    "trigger": "A report_usage call with breaks_in_ha_version placed on a common code path in core helpers without a check that the deprecated feature is in use.",
+    "rationale": "An unconditional report fires on every call of the surrounding helper, producing a false breaking-change warning and significant log noise for integrations doing nothing wrong.",
+    "evidence": [
+      {
+        "pr": 169198,
+        "url": "https://github.com/home-assistant/core/pull/169198#discussion_r3143741315",
+        "excerpt": "Only log/report this deprecation when the entry actually has update listeners"
+      }
+    ],
+    "scope_paths": ["homeassistant/config_entries.py", "homeassistant/helpers/"]
+  },
+  {
+    "rule": "Keep a guard that prevents a registry's _async_load from running more than once.",
+    "category": "correctness",
+    "trigger": "Removal of the loaded-event assertions or any other once-only guard from a registry _async_load in homeassistant/helpers.",
+    "rationale": "_async_load calls async_setup_cleanup, so a second invocation registers the cleanup listeners again and duplicates cleanup work and events.",
+    "evidence": [
+      {
+        "pr": 167653,
+        "url": "https://github.com/home-assistant/core/pull/167653#discussion_r3049569642",
+        "excerpt": "Reintroduce a guard to prevent _async_load from running more than once"
+      }
+    ],
+    "scope_paths": ["homeassistant/helpers/device_registry.py", "homeassistant/helpers/entity_registry.py"]
+  },
+  {
+    "rule": "Do not assume a sibling registry is set up when one registry helper calls another; guard dr.async_get / er.async_get so lookups still work with mocked or partially initialised registries.",
+    "category": "correctness",
+    "trigger": "A new dr.async_get(self._hass) or er.async_get(hass) call added inside an entity_registry or device_registry method that previously touched only its own data.",
+    "rationale": "Tests and partially initialised setups call registry lookups before the other registry exists, so an unguarded cross-registry access breaks lookups that used to work.",
+    "evidence": [
+      {
+        "pr": 175785,
+        "url": "https://github.com/home-assistant/core/pull/175785#discussion_r3530031844",
+        "excerpt": "Guard dr.async_get() so entity lookups still work in tests/mocked registries"
+      }
+    ],
+    "scope_paths": ["homeassistant/helpers/entity_registry.py", "homeassistant/helpers/device_registry.py"]
+  },
+  {
+    "rule": "Do not key a long-lived registry or cache by entity_id; entity_id changes at runtime on registry rename, so track the key used at insert time or keep it in sync on entity_id updates.",
+    "category": "correctness",
+    "trigger": "A module-level or hass-data dict indexed by entity.entity_id in async_added_to_hass and deleted by entity.entity_id in async_will_remove_from_hass.",
+    "rationale": "After a registry rename the delete raises KeyError and leaves a stale key behind, breaking every later lookup through that dict.",
+    "evidence": [
+      {
+        "pr": 160860,
+        "url": "https://github.com/home-assistant/core/pull/160860#discussion_r2891529593",
+        "excerpt": "get_group_entities is keyed by entity.entity_id, but entity_id can change at runtime"
+      }
+    ],
+    "scope_paths": ["homeassistant/helpers/group.py", "homeassistant/helpers/"]
+  },
+  {
+    "rule": "Match entity registry entries on domain and platform in addition to unique_id; unique_id alone is not unique across integrations.",
+    "category": "correctness",
+    "trigger": "An entity_registry_updated event handler or registry lookup whose condition tests only entry.unique_id against a set of known ids.",
+    "rationale": "unique_id is only unique within a platform and domain, so an unrelated integration's entity with a colliding id triggers cache invalidation and state updates for the wrong entity.",
+    "evidence": [
+      {
+        "pr": 160860,
+        "url": "https://github.com/home-assistant/core/pull/160860#discussion_r2737614738",
+        "excerpt": "without verifying that the entry belongs to the same domain and platform"
+      }
+    ],
+    "scope_paths": ["homeassistant/helpers/group.py", "homeassistant/helpers/"]
+  },
+  {
+    "rule": "Keep the dependency between core helper modules one-way: do not add a top-level import that closes a cycle between helpers modules; use a function-local import or move the logic into the module that already owns the dependency.",
+    "category": "api-design",
+    "trigger": "A new top-level `from .<helper> import ...` in homeassistant/helpers/ where the imported module already imports the importing one.",
+    "rationale": "helpers.network already imports helpers.http for current_request; the reverse top-level import creates a circular import that breaks as soon as either module touches the other at import time.",
+    "evidence": [
+      {
+        "pr": 166213,
+        "url": "https://github.com/home-assistant/core/pull/166213#discussion_r2971875725",
+        "excerpt": "introduces a circular import (helpers.network imports helpers.http for current_request)"
+      }
+    ],
+    "scope_paths": ["homeassistant/helpers/http.py", "homeassistant/helpers/network.py"]
+  },
+  {
+    "rule": "Use plain string values, not enum members, in selector option and mode lists so voluptuous validation errors show the user-facing string rather than an enum repr.",
+    "category": "api-design",
+    "trigger": "A selector constant in homeassistant/helpers/selector.py listing StrEnum members that are later fed to vol.In or exposed in a selector config.",
+    "rationale": "vol.In error messages and comparisons render the enum representation, leaking internal class names into messages that users and the frontend see.",
+    "evidence": [
+      {
+        "pr": 166484,
+        "url": "https://github.com/home-assistant/core/pull/166484#discussion_r2988879535",
+        "excerpt": "Use plain string values so vol.In error messages don't expose enum representations"
+      }
+    ],
+    "scope_paths": ["homeassistant/helpers/selector.py"]
+  }
+]

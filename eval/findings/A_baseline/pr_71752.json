@@ -1,0 +1,7 @@
+{"pr": 71752,
+ "findings": [
+   {"path": "providers/databricks/src/airflow/providers/databricks/triggers/databricks.py",
+    "line": 432,
+    "category": "async",
+    "message": "The poll loop has no exception handling, so any Databricks API failure that outlives the retry policy (auth expiry, a 404 after the warehouse is deleted, a persistent 5xx) escapes `run()` as a raw traceback from the triggerer instead of a structured event. Wrap the call and yield an `{\"status\": \"error\", ...}` event like the other triggers in this module, and add the matching branch to `execute_complete` — right now an error status would fall through to the \"unexpected status\" message."}
+ ]}

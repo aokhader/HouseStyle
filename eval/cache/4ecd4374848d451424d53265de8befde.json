@@ -1,0 +1,5 @@
+{
+  "verdict": "NO_MATCH",
+  "why": "The finding is about the removed hasattr guard silently returning None for the deprecated manager path; the human only objects to a code comment's wording about lazy loading.",
+  "judge": "agent"
+}

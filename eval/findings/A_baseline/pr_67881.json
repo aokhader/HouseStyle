@@ -1,0 +1,15 @@
+{"pr": 67881,
+ "findings": [
+   {"path": "airflow-core/src/airflow/executors/local_executor.py",
+    "line": 274,
+    "category": "correctness",
+    "message": "`while proc.is_alive(): ... proc.join(timeout=0.05)` is still an unbounded wait; it only fixes the case where the worker is blocked writing to a full result queue. A worker stuck for any other reason (a task ignoring SIGTERM, a blocking syscall) will still hang the scheduler forever, now while busy-looping every 50ms. Please give the loop an overall deadline and fall back to `_terminate_worker_process` when it expires."},
+   {"path": "airflow-core/src/airflow/executors/local_executor.py",
+    "line": 251,
+    "category": "correctness",
+    "message": "`_read_results` is also called from `sync()` on every scheduler loop, so swallowing `OSError`/`EOFError` here means task results are silently dropped and those task instances are never transitioned out of running. It will also emit a full traceback every 50ms from the drain loop in `end()` if the pipe is permanently broken. Consider re-raising (or at least breaking out and logging once) rather than continuing as if nothing happened."},
+   {"path": "airflow-core/src/airflow/executors/local_executor.py",
+    "line": 305,
+    "category": "correctness",
+    "message": "A 0.2s grace period between SIGTERM and SIGKILL is very short for a worker that is mid-task; it will rarely have finished writing its result or run its cleanup before being killed, so tasks will be left in an inconsistent state. This also changes `terminate()` from a documented no-op into a force-kill, which is a behaviour change for anything that calls `terminate()` before `end()`."}
+ ]}

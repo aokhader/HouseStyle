@@ -25,4 +25,4 @@ packages = ["harvest", "distill"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["harvest/tests", "distill/tests"]
+testpaths = ["harvest/tests", "distill/tests", "eval/tests"]

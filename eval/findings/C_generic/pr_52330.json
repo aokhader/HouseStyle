@@ -1,0 +1,23 @@
+{"pr": 52330,
+ "findings": [
+   {"rule_id": "hass-r002",
+    "path": "providers/apache/arrow/tests/unit/apache/arrow/hooks/test_adbc.py",
+    "line": 66,
+    "category": "api-design",
+    "message": "`AdbcHook` already names these two values separately - `conn_name_attr = \"adbc_conn_id\"` and `default_conn_name = \"adbc_default\"` - and restating the literal here (and again at line 269 in `AdbcHookWithRealGetConn`) has collapsed them: the mock sets `conn_name_attr` to the *default conn id*, so the subclass under test no longer accepts `adbc_conn_id=` at all and only works by accident. Drop the override and let the mock inherit `AdbcHook.conn_name_attr`; likewise build the `Connection(...)` fixtures from `AdbcHook.default_conn_name` / `AdbcHook.conn_type` rather than repeating \"adbc_default\"/\"adbc\" in six places."},
+   {"rule_id": "hass-r018",
+    "path": "providers/apache/arrow/src/airflow/providers/apache/arrow/hooks/adbc.py",
+    "line": 131,
+    "category": "testing",
+    "message": "`_driver_path` is added here with four outcomes - the wheel-bundled `lib<driver>.so`, the `sys.prefix/lib` `.so`/`.dylib` pair, the Conda-on-Windows `.dll`, and the bare-`self.driver` fallback - and no test takes any of them: every `get_conn` test stubs it out with `hook.__dict__[\"_driver_path\"] = \"adbc_driver_sqlite\"`, and `test_dbapi_connection` is skipped unless `adbc_driver_sqlite` is installed and asserts nothing about the resolved path. Add cases that fake each lookup (patch `importlib_resources.files` / `pathlib.Path.is_file`) and assert the path chosen, including the fallback."},
+   {"rule_id": "hass-r018",
+    "path": "providers/apache/arrow/src/airflow/providers/apache/arrow/hooks/adbc.py",
+    "line": 153,
+    "category": "testing",
+    "message": "Only the `\"::\" in host` side of this conditional is exercised - every test connection uses `host=\"file::memory:\"` - so the else branch that calls `get_uri()` and rewrites the `adbc://` scheme to the dialect name never runs, even though docs/connections/adbc.rst documents it as the login/password path (`<dialect>://login:password@host/schema`). Add a `uri` test with a plain host plus login/password and `dialect: postgresql`, asserting the scheme is rewritten."},
+   {"rule_id": "hass-r024",
+    "path": "providers/apache/arrow/tests/system/apache/arrow/example_adbc.py",
+    "line": 44,
+    "category": "testing",
+    "message": "`ENV_ID` is added here and no task, id or resource name in this Dag reads it - `DAG_ID` and `CONN_ID` are both fixed strings. Either fold it into the identifiers the system test creates (as the other system-test Dags do) or drop the constant and the `os` import."}
+ ]}

@@ -1,0 +1,19 @@
+{"pr": 71920,
+ "findings": [
+   {"path": "providers/fab/src/airflow/providers/fab/auth_manager/security_manager/override.py",
+    "line": 33,
+    "category": "providers",
+    "message": "requests was deliberately imported inside _get_authentik_jwks and _get_microsoft_jwks; hoisting it to module scope makes it a hard import-time dependency of the FAB security manager, which is imported on every FAB start. Is requests actually declared in providers/fab's dependencies, or only available transitively? If the latter, this turns an OAuth-only failure into an import failure for everyone."},
+   {"path": "providers/fab/src/airflow/providers/fab/auth_manager/security_manager/override.py",
+    "line": 2461,
+    "category": "correctness",
+    "message": "The commercial-cloud host is now hardcoded in three new places - this hostname check, the discovery URL, and the issuer fullmatch - so Azure Government (login.microsoftonline.us) and China (login.partner.microsoftonline.cn) deployments cannot configure a tenant at all, and a sovereign-cloud tenant given as a domain will have discovery pointed at the wrong cloud and fail closed at login. Since this PR is specifically about tenant canonicalization, the authority host should be derived from the configured endpoints rather than assumed."},
+   {"path": "providers/fab/src/airflow/providers/fab/auth_manager/security_manager/override.py",
+    "line": 2497,
+    "category": "performance",
+    "message": "This puts a synchronous outbound HTTPS call with a 5s timeout and no retry directly in the OAuth callback path, and the cache is per security-manager instance, so every webserver worker (and every worker restart or reload) pays it again and a single transient blip locks users out with an opaque error. Since the domain-to-GUID mapping is static configuration, resolving it once during _init_config - failing fast at startup - would be a better place for it."},
+   {"path": "providers/fab/src/airflow/providers/fab/auth_manager/security_manager/override.py",
+    "line": 2554,
+    "category": "api-design",
+    "message": "This branch is a pure misconfiguration (tenant-agnostic authority, or nothing tenant-specific configured), not a resolution failure, so AirflowConfigException still seems like the right type here. AzureTenantResolutionError derives from FabException, which is a plain Exception, so anything keying on AirflowException to report config problems will no longer see it."}
+ ]}

@@ -1,0 +1,222 @@
+[
+  {
+    "rule": "When deprecating a Python dependency, update DEPRECATED_PACKAGES in homeassistant/requirements.py and the FORBIDDEN_PACKAGES entry in script/hassfest/requirements.py together, including the replacement package named in the reason text.",
+    "category": "api-design",
+    "trigger": "A change to the DEPRECATED_PACKAGES dict in homeassistant/requirements.py with no matching change to FORBIDDEN_PACKAGES in script/hassfest/requirements.py.",
+    "rationale": "The two lists express the same deprecation to different audiences; leaving hassfest pointing at the old replacement means new integrations are steered to a package that is itself deprecated.",
+    "evidence": [
+      {
+        "pr": 174013,
+        "url": "https://github.com/home-assistant/core/pull/174013#discussion_r3420739802",
+        "excerpt": "pyserial-asyncio-fast should be added to FORBIDDEN_PACKAGES since it is also now deprecated"
+      }
+    ],
+    "scope_paths": ["homeassistant/requirements.py", "script/hassfest/requirements.py"]
+  },
+  {
+    "rule": "Keep the pylint plugin README's description of a checker's accepted and rejected patterns exactly in step with the checker implementation and its test cases.",
+    "category": "docs",
+    "trigger": "A change to pylint/plugins/README.md or a checker module docstring describing which code shapes the checker accepts, without a matching implementation or test in pylint/plugins/pylint_home_assistant/checkers/.",
+    "rationale": "The README is what contributors consult when a custom check fires; documenting a guard form as rejected when the checker actually accepts it sends people to work around a rule that does not exist.",
+    "evidence": [
+      {
+        "pr": 172815,
+        "url": "https://github.com/home-assistant/core/pull/172815#discussion_r3384352008",
+        "excerpt": "The README documentation incorrectly states that raise guards break the guarantee"
+      }
+    ],
+    "scope_paths": ["pylint/plugins/README.md", "pylint/plugins/pylint_home_assistant/checkers/"]
+  },
+  {
+    "rule": "Custom pylint checkers that recognise service registrations must handle the service_func= keyword form as well as the positional argument, for both async_register and async_register_admin_service.",
+    "category": "correctness",
+    "trigger": "A checker helper in pylint/plugins that extracts a handler from hass.services.async_register / async_register_admin_service using only call.args positional indexes.",
+    "rationale": "Several integrations register actions with the keyword form, so a positional-only matcher silently skips their handlers and the check never runs where it matters.",
+    "evidence": [
+      {
+        "pr": 170652,
+        "url": "https://github.com/home-assistant/core/pull/170652#discussion_r3243378269",
+        "excerpt": "Handle service_func= keyword registrations here; several integrations register services this way"
+      }
+    ],
+    "scope_paths": ["pylint/plugins/pylint_home_assistant/checkers/actions/"]
+  },
+  {
+    "rule": "Narrow custom pylint checks so they fire only on the exact pattern they target; a check on exception construction must require a literal string or f-string message, not merely the presence of a positional argument.",
+    "category": "correctness",
+    "trigger": "A checker condition of the form `if node.args and not has_translation_key` (or similar) that inspects only argument count rather than the argument node type.",
+    "rationale": "Broad conditions flag idiomatic code such as `raise ConfigEntryAuthFailed(err) from err`, generating false positives across the tree and forcing widespread pylint disable comments.",
+    "evidence": [
+      {
+        "pr": 171453,
+        "url": "https://github.com/home-assistant/core/pull/171453#discussion_r3273884908",
+        "excerpt": "Refine the W7417 check to only trigger when a positional string message is provided"
+      }
+    ],
+    "scope_paths": ["pylint/plugins/pylint_home_assistant/checkers/"]
+  },
+  {
+    "rule": "Keep file-glob constants in script/ tooling identical to the paths: filter of the GitHub workflow that invokes them.",
+    "category": "correctness",
+    "trigger": "A TRACKED_PATTERNS-style glob tuple in script/ that is narrower than the paths: filter of the corresponding .github/workflows/*.yml.",
+    "rationale": "The workflow triggers on a broader pattern than the script matches, so files that started the run are ignored by the diff parser and the check passes without examining them.",
+    "evidence": [
+      {
+        "pr": 171466,
+        "url": "https://github.com/home-assistant/core/pull/171466#discussion_r3273349789",
+        "excerpt": "Align the tracked file patterns with the deterministic workflow's paths filter"
+      }
+    ],
+    "scope_paths": ["script/check_requirements/", ".github/workflows/"]
+  },
+  {
+    "rule": "New hassfest validation must ship with hassfest tests exercising both the valid case and each distinct failure mode it can report.",
+    "category": "testing",
+    "trigger": "A new validation branch in script/hassfest/*.py that adds an error message, with no corresponding case added under tests/hassfest/.",
+    "rationale": "Hassfest errors gate every integration PR, so validation that is never exercised can reject correct manifests or silently stop validating after a refactor.",
+    "evidence": [
+      {
+        "pr": 166333,
+        "url": "https://github.com/home-assistant/core/pull/166333#discussion_r2981426032",
+        "excerpt": "Add hassfest tests that cover valid and invalid context usage"
+      }
+    ],
+    "scope_paths": ["script/hassfest/", "tests/hassfest/"]
+  },
+  {
+    "rule": "When a config flow gains a fallback path, add a test for its success case end to end, not only for the error case that motivated it.",
+    "category": "testing",
+    "trigger": "A new branch in an integration's config_flow.py that calls the client on a cache miss, with test_config_flow.py changes covering only the failure outcome.",
+    "rationale": "Config flow branches are the code users hit first; an untested success path means the new fallback can be broken end to end while the suite stays green.",
+    "evidence": [
+      {
+        "pr": 167844,
+        "url": "https://github.com/home-assistant/core/pull/167844#discussion_r3060785206",
+        "excerpt": "Add a test that covers the success path where the selected model"
+      }
+    ],
+    "scope_paths": ["tests/components/*/test_config_flow.py"]
+  },
+  {
+    "rule": "When a platform converts raw API values into device_class or state_class enums, add a test feeding a missing or invalid value and assert setup does not raise and the entity is still created with the attribute unset.",
+    "category": "testing",
+    "trigger": "New SensorDeviceClass/SensorStateClass enum lookups on payload data in an integration's sensor.py, with tests covering only well-formed payloads.",
+    "rationale": "Device payloads omit or misspell these fields in the wild; an unguarded enum conversion takes down entity creation for the whole device.",
+    "evidence": [
+      {
+        "pr": 172264,
+        "url": "https://github.com/home-assistant/core/pull/172264#discussion_r3304282855",
+        "excerpt": "Add a test case that feeds a message producing a reading with state_class=None"
+      }
+    ],
+    "scope_paths": ["tests/components/*/test_sensor.py"]
+  },
+  {
+    "rule": "Do not assert exact library call counts during setup; assert the resulting device and entity registry state instead.",
+    "category": "testing",
+    "trigger": "An assertion of the form `assert mock_client.<method>.call_count == N` in an integration test covering config entry setup.",
+    "rationale": "Call counts encode internal polling and refresh details, so any change to setup ordering breaks tests that are not actually about the behaviour under test.",
+    "evidence": [
+      {
+        "pr": 168885,
+        "url": "https://github.com/home-assistant/core/pull/168885#discussion_r3132239656",
+        "excerpt": "Avoid asserting an exact get_bluetooth_remotes.call_count during setup; validate behavior via the device/entity registry"
+      }
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Test module and test function docstrings must name the platform and behaviour actually under test; update them when the parametrization or the file's subject changes.",
+    "category": "testing",
+    "trigger": "A new or copied test file whose module docstring names a different platform than the file tests, or a parametrized test whose docstring describes only a subset of the cases in its params list.",
+    "rationale": "The docstring is what a reader sees first in a failure report, so a copy-pasted or stale one misdirects whoever is triaging the failure.",
+    "evidence": [
+      {
+        "pr": 163306,
+        "url": "https://github.com/home-assistant/core/pull/163306#discussion_r2829296458",
+        "excerpt": "The test file docstring incorrectly says Tests for the Cambridge Audio select platform"
+      },
+      {
+        "pr": 164545,
+        "url": "https://github.com/home-assistant/core/pull/164545#discussion_r3273884908",
+        "excerpt": "this parametrized test also covers counter.incremented/counter.decremented, which are direction-based transitions"
+      },
+      {
+        "pr": 164545,
+        "url": "https://github.com/home-assistant/core/pull/164545#discussion_r2936867126",
+        "excerpt": "Updating the docstring would avoid confusion when reading failures."
+      }
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Drive a test's expected end state with a realistic mock sequence (raise once, then return data) rather than an always-raising mock that reaches the expected state only through internal retry or swallowing.",
+    "category": "testing",
+    "trigger": "A test parametrized over ConfigEntryState.LOADED whose client mock has an unconditional side_effect exception on the data-fetch method.",
+    "rationale": "An always-failing mock makes the loaded case depend on internal swallow/retry behaviour instead of a successful fetch, so the test passes for the wrong reason and stops protecting the reauth path.",
+    "evidence": [
+      {
+        "pr": 171793,
+        "url": "https://github.com/home-assistant/core/pull/171793#discussion_r3286274990",
+        "excerpt": "Consider using a sequential side_effect that raises once and then returns valid data"
+      }
+    ],
+    "scope_paths": ["tests/components/*/test_init.py"]
+  },
+  {
+    "rule": "Use the integration's DOMAIN constant wherever the domain appears, including as the key of the configuration dict passed to async_setup_component, rather than repeating the domain string.",
+    "category": "naming",
+    "trigger": "A hardcoded domain string in a test or component module that already imports DOMAIN, e.g. async_setup_component(hass, DOMAIN, {\"counter\": {...}}).",
+    "rationale": "Mixing the constant and the literal in the same call leaves half the references unprotected against a domain rename and reads as an oversight in a PR whose whole point was to use the constant.",
+    "evidence": [
+      {
+        "pr": 164020,
+        "url": "https://github.com/home-assistant/core/pull/164020#discussion_r2851849675",
+        "excerpt": "The configuration dictionary key should also use the DOMAIN constant instead of the hardcoded string"
+      }
+    ],
+    "scope_paths": ["tests/components/"]
+  },
+  {
+    "rule": "Do not stack repeated await hass.async_block_till_done() calls to make a fixture settle; use a single deterministic wait or document why more than one pass is required.",
+    "category": "testing",
+    "trigger": "Two or more consecutive `await hass.async_block_till_done()` statements in a test or conftest fixture.",
+    "rationale": "Repeated passes paper over a scheduling or race problem in setup rather than exposing it, so the test keeps passing while the underlying ordering bug stays hidden.",
+    "evidence": [
+      {
+        "pr": 166923,
+        "url": "https://github.com/home-assistant/core/pull/166923#discussion_r3028545662",
+        "excerpt": "Replace the repeated async_block_till_done() calls with a single deterministic wait"
+      }
+    ],
+    "scope_paths": ["tests/components/*/conftest.py", "tests/components/"]
+  },
+  {
+    "rule": "Mock an integration's library with AsyncMock-based fixtures rather than hand-written fake client classes.",
+    "category": "testing",
+    "trigger": "A new conftest.py defining a stub class that reimplements the vendor library's properties and setters instead of patching the client with AsyncMock.",
+    "rationale": "Fake classes look tidy at first but accumulate customization as tests grow; existing integrations such as niko_home_control show the AsyncMock fixture shape reviewers expect.",
+    "evidence": [
+      {
+        "pr": 166923,
+        "url": "https://github.com/home-assistant/core/pull/166923#discussion_r3028746145",
+        "excerpt": "not a big fan of mock classes; I prefer AsyncMocks way more nowadays"
+      }
+    ],
+    "scope_paths": ["tests/components/*/conftest.py"]
+  },
+  {
+    "rule": "When core code branches on whether the caller is a built-in integration (module starting with homeassistant.components.), test both the warning branch and the suppression branch.",
+    "category": "testing",
+    "trigger": "A new report/warning in homeassistant/ that is skipped for modules under homeassistant.components., with tests asserting only the warning case.",
+    "rationale": "Without coverage of the suppression branch a later change silently reintroduces startup warnings from core integrations, which is exactly what the branch exists to prevent.",
+    "evidence": [
+      {
+        "pr": 171819,
+        "url": "https://github.com/home-assistant/core/pull/171819#discussion_r3296477220",
+        "excerpt": "Add test coverage for the branch that suppresses the warning for built-in integrations"
+      }
+    ],
+    "scope_paths": ["tests/components/device_tracker/test_entity.py", "tests/"]
+  }
+]

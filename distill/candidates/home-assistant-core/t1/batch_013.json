@@ -1,0 +1,275 @@
+[
+  {
+    "rule": "Code reachable when the integration runs in public-API-only mode must not read the private bootstrap; resolve the needed identity at setup or omit the optional field.",
+    "category": "providers",
+    "trigger": "An entity constructor or DeviceInfo build that dereferences api.bootstrap (e.g. via_device=(DOMAIN, self.data.api.bootstrap.nvr.mac)) on a path also used by API-key-only clients.",
+    "rationale": "An API-key-only client has no private bootstrap, so the attribute access raises while constructing the entity instead of degrading gracefully.",
+    "evidence": [
+      {
+        "pr": 176267,
+        "url": "https://github.com/home-assistant/core/pull/176267#discussion_r3563980469",
+        "excerpt": "Build the parent-device reference without accessing the private bootstrap"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/unifiprotect/"]
+  },
+  {
+    "rule": "Device-added dispatch must have a public-only equivalent when the integration supports API-key-only clients, covered by a test that starts with an empty bootstrap and then receives an add frame.",
+    "category": "correctness",
+    "trigger": "A websocket add/adopt handler that only dispatches objects tracked from the private bootstrap (e.g. _pending_camera_ids) while a public bootstrap can also produce add frames.",
+    "rationale": "Without the public path, a client that starts with no devices ignores later add frames and the entity stays undiscovered until the entry is reloaded.",
+    "evidence": [
+      {
+        "pr": 176267,
+        "url": "https://github.com/home-assistant/core/pull/176267#discussion_r3567034615",
+        "excerpt": "Dispatch newly added public cameras when running public-only"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/unifiprotect/"]
+  },
+  {
+    "rule": "A select entity's current_option must always be one of its advertised options; fall back to a valid option and log when the device reports an unknown value.",
+    "category": "correctness",
+    "trigger": "self._attr_current_option assigned from a dict .get() lookup keyed on a device-supplied value, with no handling of the None result.",
+    "rationale": "Home Assistant expects current_option to be a member of options; a silent None leaves the select in a state the frontend cannot represent.",
+    "evidence": [
+      {
+        "pr": 161353,
+        "url": "https://github.com/home-assistant/core/pull/161353#discussion_r2838159425",
+        "excerpt": "Home Assistant expects `current_option` to always be one of the valid options"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/unifiprotect/"]
+  },
+  {
+    "rule": "Collections surfaced to the frontend (select options, websocket payloads) must be ordered deterministically, e.g. sorted, rather than inheriting dict or matcher load order.",
+    "category": "api-design",
+    "trigger": "_attr_options or a websocket command response built by iterating a library dict, registry, or matcher list without an explicit sort.",
+    "rationale": "Load order varies across environments (custom components change matcher order, library dicts are not guaranteed stable), so the user-visible ordering flaps between installs.",
+    "evidence": [
+      {
+        "pr": 169403,
+        "url": "https://github.com/home-assistant/core/pull/169403#discussion_r3157733020",
+        "excerpt": "Is `_name_to_id` (coming from `pb.arm_profiles`) sorted or stable already?"
+      },
+      {
+        "pr": 169387,
+        "url": "https://github.com/home-assistant/core/pull/169387#discussion_r3156185584",
+        "excerpt": "Make `matching_integrations` ordering deterministic (for example by sorting the unique domains)"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/unifiprotect/select.py",
+      "homeassistant/components/usb/"
+    ]
+  },
+  {
+    "rule": "Entity availability must follow both the coordinator's last_update_success and the continued presence of the backing object in the current bootstrap, not just incoming websocket messages.",
+    "category": "correctness",
+    "trigger": "An entity that subscribes to per-object websocket updates and sets _attr_available = data.last_update_success inside that callback, without a subscription to coordinator status or a presence check for the object.",
+    "rationale": "Otherwise the entity stays 'available' through disconnects and after the device disappears from the bootstrap, while every command raises not-available.",
+    "evidence": [
+      {
+        "pr": 169201,
+        "url": "https://github.com/home-assistant/core/pull/169201#discussion_r3143917661",
+        "excerpt": "updates its availability when ProtectData.last_update_success changes (not only on relay websocket messages)"
+      },
+      {
+        "pr": 169201,
+        "url": "https://github.com/home-assistant/core/pull/169201#discussion_r3144129713",
+        "excerpt": "leaves the entity looking available while `_relay` is `None` and commands will always raise"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/unifiprotect/"]
+  },
+  {
+    "rule": "A translated UpdateFailed must use a translation key written for the update path and pass the underlying error text as the placeholder, never a hardcoded generic string.",
+    "category": "correctness",
+    "trigger": "_async_update_data raising UpdateFailed with a translation_key borrowed from a service/action error and translation_placeholders set to a literal message.",
+    "rationale": "Reusing an action-specific key produces a message about the wrong operation, and a constant placeholder discards the actionable detail the previous UpdateFailed(exception) surfaced.",
+    "evidence": [
+      {
+        "pr": 171744,
+        "url": "https://github.com/home-assistant/core/pull/171744#discussion_r3282521106",
+        "excerpt": "Use an update-specific translated error and avoid hardcoding a generic placeholder"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/uptimerobot/"]
+  },
+  {
+    "rule": "entity_registry_enabled_default must be decided from the entity's identity, not from whether the device currently reports a value for it.",
+    "category": "api-design",
+    "trigger": "dataclasses.replace(description, entity_registry_enabled_default=...) combining a key check with description.value_fn(data) is not None.",
+    "rationale": "Registry defaults are a one-time decision about which entities users want; gating them on a transient None disables entities the integration intends to ship enabled.",
+    "evidence": [
+      {
+        "pr": 169778,
+        "url": "https://github.com/home-assistant/core/pull/169778#discussion_r3184930298",
+        "excerpt": "Remove the data-presence check when setting `entity_registry_enabled_default`"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/v2c/"]
+  },
+  {
+    "rule": "async_turn_on must never write a device value that switches the device off; clamp a brightness of 0 to the minimum non-zero value or reject it.",
+    "category": "correctness",
+    "trigger": "A light async_turn_on that converts ATTR_BRIGHTNESS with brightness_to_value and guards the minimum with a truthiness check such as `if brightness:`.",
+    "rationale": "brightness=0 is a legal service payload; letting it through means light.turn_on silently turns the LED off, contradicting the service contract.",
+    "evidence": [
+      {
+        "pr": 169778,
+        "url": "https://github.com/home-assistant/core/pull/169778#discussion_r3185052892",
+        "excerpt": "the current `if brightness:` guard allows `brightness=0` to send `value=0`"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/v2c/"]
+  },
+  {
+    "rule": "Integration entity description subclasses must only add new fields; do not re-declare attributes the base EntityDescription already provides, such as SelectEntityDescription.options.",
+    "category": "api-design",
+    "trigger": "A frozen dataclass extending a platform EntityDescription that declares a field with the same name as one defined on the base class.",
+    "rationale": "The inherited field already works when passed to the description, and redeclaring it drops the base default and diverges from how other integrations declare the same platform.",
+    "evidence": [
+      {
+        "pr": 169777,
+        "url": "https://github.com/home-assistant/core/pull/169777#discussion_r3516537853",
+        "excerpt": "The `options` field re-declares an attribute the parent already defines"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/v2c/"]
+  },
+  {
+    "rule": "Intent handlers must catch HomeAssistantError/ServiceValidationError specifically and re-raise IntentHandleError chained with `from err`, never a broad except with `from None`.",
+    "category": "correctness",
+    "trigger": "An intent handler wrapping a service call in `except Exception` and raising IntentHandleError with a formatted message and `from None`.",
+    "rationale": "Discarding the cause hides the real failure from debugging and masks programming errors that should surface during development rather than becoming a generic intent message.",
+    "evidence": [
+      {
+        "pr": 165182,
+        "url": "https://github.com/home-assistant/core/pull/165182#discussion_r2904037138",
+        "excerpt": "Prefer catching `HomeAssistantError`/`ServiceValidationError` and re-raising `IntentHandleError` with `from err`"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/vacuum/"]
+  },
+  {
+    "rule": "Directional transitional states must map to distinct icons in icons.json, matching how cover distinguishes opening from closing.",
+    "category": "api-design",
+    "trigger": "An icons.json state block that adds both `opening` and `closing` (or equivalent paired transitional states) pointing at the same mdi icon.",
+    "rationale": "Identical icons leave the UI unable to show which direction the device is moving, which is the whole point of adding transitional-state icons.",
+    "evidence": [
+      {
+        "pr": 169644,
+        "url": "https://github.com/home-assistant/core/pull/169644#discussion_r3176614956",
+        "excerpt": "Use distinct icons for the two transitional states here"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/valve/"]
+  },
+  {
+    "rule": "Do not feature-detect attributes on the integration's own pinned library with hasattr/getattr/callable; the manifest requirement pins the version, so call the API directly.",
+    "category": "providers",
+    "trigger": "A setup or platform filter such as `if callable(getattr(node, \"method\", None))` applied to objects from the integration's requirement package.",
+    "rationale": "The pinned library version always provides the method, so the guard is dead code that hides which library release the integration actually depends on.",
+    "evidence": [
+      {
+        "pr": 163893,
+        "url": "https://github.com/home-assistant/core/pull/163893#discussion_r2848627055",
+        "excerpt": "`callable(getattr(node, \"wink\", None))` will always be true, right?"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/velux/"]
+  },
+  {
+    "rule": "Diagnostics output should expose internal library and connection data that is not otherwise reachable, not a dump of device and entity registry information.",
+    "category": "api-design",
+    "trigger": "async_get_config_entry_diagnostics building lists of device names with their entities from the device/entity registry.",
+    "rationale": "Registry contents are already visible to the user and the state machine; the diagnostics download is only useful for the internals a maintainer cannot otherwise see.",
+    "evidence": [
+      {
+        "pr": 163896,
+        "url": "https://github.com/home-assistant/core/pull/163896#discussion_r2843129445",
+        "excerpt": "this tool is likely way more valuable to contain internal data you can't get"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/velux/"]
+  },
+  {
+    "rule": "Set only the _attr_* entity attributes; do not additionally assign the legacy private counterparts such as _name alongside _attr_name.",
+    "category": "api-design",
+    "trigger": "An entity __init__ assigning both self._attr_name and self._name (or another duplicated legacy attribute) to the same value.",
+    "rationale": "The _attr_ attributes are the supported entity API; keeping the old private field in sync is redundant and the two can silently drift.",
+    "evidence": [
+      {
+        "pr": 161028,
+        "url": "https://github.com/home-assistant/core/pull/161028#discussion_r2696104072",
+        "excerpt": "setting both `_attr_name` and `_name` is redundant. Only `_attr_name` should be set."
+      }
+    ],
+    "scope_paths": ["homeassistant/components/vera/"]
+  },
+  {
+    "rule": "Every translation_key referenced by an entity must have a matching entity name entry in strings.json; do not remove a name while the key is still used.",
+    "category": "docs",
+    "trigger": "A strings.json diff deleting the `name` under an entity translation key whose description still sets translation_key.",
+    "rationale": "The entity is then created with an undefined name, so the user sees a blank or raw key instead of a translated entity name.",
+    "evidence": [
+      {
+        "pr": 167565,
+        "url": "https://github.com/home-assistant/core/pull/167565#discussion_r3043080242",
+        "excerpt": "so this enum sensor is not created with an undefined name when `translation_key` is set"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/victron_gx/"]
+  },
+  {
+    "rule": "When a tri-state device value (True/False/None) selects an entity's identity or translation key, handle None explicitly instead of letting it fall into the false branch.",
+    "category": "correctness",
+    "trigger": "A conditional expression choosing between two translation keys or entity variants from a helper that can return None, written as `\"a\" if flag else \"b\"`.",
+    "rationale": "Unknown mode is not the same as the second mode; collapsing them mislabels the entity even though the integration does not know which mode the device is in.",
+    "evidence": [
+      {
+        "pr": 172234,
+        "url": "https://github.com/home-assistant/core/pull/172234#discussion_r3304021741",
+        "excerpt": "That can mislabel the entity (hydrolysis vs electrolysis) even though the integration doesn't actually know"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/vistapool/"]
+  },
+  {
+    "rule": "Entities whose state is bool | None need tests that separate missing data (unknown) from an explicit zero/false reading.",
+    "category": "testing",
+    "trigger": "A new is_on/native_value property returning None for absent data and a boolean otherwise, with fixtures covering only the populated case.",
+    "rationale": "The distinction between 'no data' and 'explicitly not low' is the behaviour being added; without a zero-valued fixture a regression back to unknown goes unnoticed.",
+    "evidence": [
+      {
+        "pr": 172234,
+        "url": "https://github.com/home-assistant/core/pull/172234#discussion_r3303897984",
+        "excerpt": "needs a test case where tank values are present but all are `0`"
+      }
+    ],
+    "scope_paths": [
+      "homeassistant/components/vistapool/",
+      "tests/components/vistapool/"
+    ]
+  },
+  {
+    "rule": "Normalize loosely typed device API values explicitly: compare feature flags and on/off states against the full set of representations the API uses (True, 1, \"1\") instead of relying on truthiness or a partial literal set.",
+    "category": "correctness",
+    "trigger": "Entity gating written as `if not all(coordinator.get_value(path) ...)` or a state check written as `value in (True, \"1\")` against a JSON API that also returns ints and numeric strings.",
+    "rationale": "The API mixes bool, int and str for the same field, so truthiness makes the string \"0\" enable a missing module and a partial literal set reports numeric 1 as off.",
+    "evidence": [
+      {
+        "pr": 172234,
+        "url": "https://github.com/home-assistant/core/pull/172234#discussion_r3341735280",
+        "excerpt": "which will behave incorrectly if the API returns `\"0\"` as a string (truthy)"
+      },
+      {
+        "pr": 172234,
+        "url": "https://github.com/home-assistant/core/pull/172234#discussion_r3341735204",
+        "excerpt": "This will incorrectly report `1` as `off` for sensors like `filtration.status`"
+      }
+    ],
+    "scope_paths": ["homeassistant/components/vistapool/"]
+  }
+]
