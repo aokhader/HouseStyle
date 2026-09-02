@@ -1,12 +1,12 @@
 {
   "repo": "apache/airflow",
-  "generated_at": "2026-09-01T21:51:59.402888+00:00",
+  "generated_at": "2026-09-02T04:09:09.482453+00:00",
   "held_out_prs": 30,
   "line_window": 5,
   "match_rule": "MATCH or PARTIAL",
   "judge": {
     "backend": "cache",
-    "cache_hit": 43,
+    "cache_hit": 41,
     "judged": 0,
     "queued": 0,
     "unresolved_pairs": 0
@@ -90,29 +90,34 @@
       "prs_with_at_least_one_finding": 8,
       "by_category": {
         "api-design": {
+          "findings": 2,
+          "matched": 1,
+          "precision": 0.5
+        },
+        "commit-hygiene": {
           "findings": 3,
           "matched": 0,
           "precision": 0.0
         },
-        "commit-hygiene": {
+        "correctness": {
           "findings": 1,
           "matched": 0,
           "precision": 0.0
         },
         "docs": {
           "findings": 3,
-          "matched": 1,
-          "precision": 0.3333
+          "matched": 0,
+          "precision": 0.0
         },
         "testing": {
-          "findings": 5,
+          "findings": 3,
           "matched": 0,
           "precision": 0.0
         }
       },
       "top_rules_by_matches": [
         [
-          "airflow-r011",
+          "airflow-r419",
           1
         ]
       ]
@@ -392,7 +397,7 @@
     {
       "condition": "B_housestyle",
       "pr": 52330,
-      "findings": 2,
+      "findings": 3,
       "ground_truth": 19,
       "matched": 0,
       "unresolved_pairs": 0
@@ -416,15 +421,15 @@
     {
       "condition": "B_housestyle",
       "pr": 66929,
-      "findings": 1,
+      "findings": 0,
       "ground_truth": 9,
-      "matched": 1,
+      "matched": 0,
       "unresolved_pairs": 0
     },
     {
       "condition": "B_housestyle",
       "pr": 66930,
-      "findings": 1,
+      "findings": 0,
       "ground_truth": 6,
       "matched": 0,
       "unresolved_pairs": 0
@@ -432,7 +437,7 @@
     {
       "condition": "B_housestyle",
       "pr": 67532,
-      "findings": 1,
+      "findings": 2,
       "ground_truth": 14,
       "matched": 0,
       "unresolved_pairs": 0
@@ -520,7 +525,7 @@
     {
       "condition": "B_housestyle",
       "pr": 71067,
-      "findings": 0,
+      "findings": 1,
       "ground_truth": 8,
       "matched": 0,
       "unresolved_pairs": 0
@@ -530,7 +535,7 @@
       "pr": 71073,
       "findings": 2,
       "ground_truth": 4,
-      "matched": 0,
+      "matched": 1,
       "unresolved_pairs": 0
     },
     {
@@ -544,7 +549,7 @@
     {
       "condition": "B_housestyle",
       "pr": 71346,
-      "findings": 2,
+      "findings": 1,
       "ground_truth": 1,
       "matched": 0,
       "unresolved_pairs": 0
@@ -552,7 +557,7 @@
     {
       "condition": "B_housestyle",
       "pr": 71387,
-      "findings": 2,
+      "findings": 0,
       "ground_truth": 2,
       "matched": 0,
       "unresolved_pairs": 0
@@ -600,7 +605,7 @@
     {
       "condition": "B_housestyle",
       "pr": 71842,
-      "findings": 0,
+      "findings": 1,
       "ground_truth": 6,
       "matched": 0,
       "unresolved_pairs": 0
@@ -624,7 +629,7 @@
     {
       "condition": "B_housestyle",
       "pr": 71946,
-      "findings": 0,
+      "findings": 1,
       "ground_truth": 1,
       "matched": 0,
       "unresolved_pairs": 0

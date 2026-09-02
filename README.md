@@ -118,24 +118,40 @@ Apache Airflow ships a hand-written `AGENTS.md`. We compared it against a year o
 history in both directions. Full detail in
 [`.bob/rules/airflow-agents-md-crosscheck.md`](.bob/rules/airflow-agents-md-crosscheck.md).
 
-**Are the mined rules documented anywhere?**
+**Are the mined rules documented anywhere?** Of the 26 mined rules:
 
 | | Rules | |
 |---|---|---|
-| CONFIRMED | 6 (43%) | stated in `AGENTS.md` or contributing-docs |
-| IMPLIED | 3 (21%) | the docs gesture at it without requiring it |
-| **TRIBAL** | **5 (36%)** | **documented nowhere; lives only in review history** |
+| CONFIRMED | 7 (27%) | stated in `AGENTS.md` or contributing-docs |
+| IMPLIED | 7 (27%) | the docs gesture at it without requiring it |
+| **TRIBAL** | **12 (46%)** | **documented nowhere; lives only in review history** |
 
 CONFIRMED is the correctness check — mining found these independently, from review
-comments alone. TRIBAL is the product.
+comments alone. TRIBAL is the product, and **its share grew** when a second tranche
+doubled the corpus (36% → 46%): the more review history you read, the more undocumented
+convention surfaces.
 
-**Does review history support their hand-written rules?** Of the 40 concrete,
+A sample of what "tribal" means here — none of these is a generic lint:
+
+> `airflow-r423` — In `execute_complete`, branch explicitly on `event["status"]` and
+> handle every status the paired trigger can emit — success, error, timeout and
+> cancelled — before reading any payload field. *(support: 4 PRs)*
+
+> `airflow-r418` — Keep FastAPI route modules to route handlers only: Pydantic models
+> belong in datamodels, authorization helpers in services, query construction in the
+> `Query*` filter's `to_orm`. *(support: 4 PRs)*
+
+> `airflow-r426` — Post-submit cleanup belongs in a `try/finally` covering the whole
+> method including its early-exit guards, so it runs on success, failure and kill alike.
+> *(support: 3 PRs)*
+
+**Does review history support their hand-written rules?** Of the 43 concrete,
 checkable requirements stated in Airflow's `AGENTS.md`:
 
 | | Rules |
 |---|---|
-| SUPPORTED | 14 (35%) |
-| **UNSUPPORTED** | **24 (60%)** |
+| SUPPORTED | 17 (40%) |
+| **UNSUPPORTED** | **24 (56%)** |
 | CONTRADICTED | 2 (5%) |
 
 **UNSUPPORTED does not mean wrong**, and the report says so for each one. A rule can go
@@ -145,15 +161,36 @@ source cannot see it at all (commit-message rules — we mine line-level review 
 Separating those is the point; without this comparison nobody could tell you which of
 their own entries is which.
 
-The two CONTRADICTED are the sharp ones:
+### The sharpest finding: a rule that is right and wrong at once
 
-- `AGENTS.md` says never add newsfragments for `providers/` — a reviewer on
-  [#63614](https://github.com/apache/airflow/pull/63614) asked a provider PR for exactly
-  that file.
-- `AGENTS.md` says resolve a `uv.lock` conflict by deleting and regenerating it — which is
-  what produced the churn a reviewer rejected on
-  [#61550](https://github.com/apache/airflow/pull/61550): *"362 lines of churn here looks
-  unrelated to this feature. Please revert or split."*
+`AGENTS.md` states flatly: **"Never add new direct `raise AirflowException(...)`."**
+
+Review history says the repository enforces *both directions*, split by surface:
+
+- `airflow-r436` (support 3) confirms it for **provider** validation and third-party
+  errors — reviewers ask for built-in `ValueError`/`TypeError` there.
+- `airflow-r425` (support 3, PRs
+  [#64119](https://github.com/apache/airflow/pull/64119),
+  [#64051](https://github.com/apache/airflow/pull/64051),
+  [#56936](https://github.com/apache/airflow/pull/56936)) contradicts it for **operator,
+  sensor and trigger error paths**, where reviewers explicitly demanded
+  `AirflowException` / `AirflowFailException` / `AirflowTaskTimeout` and rejected
+  `RuntimeError`.
+
+`AGENTS.md` admits no such carve-out. A contributor following it to the letter on a
+trigger's timeout branch will be asked to change it in review. This is precisely the class
+of thing a hand-written rules file cannot tell you about itself — the exception only
+exists in the history.
+
+A second, quieter version of the same problem: `airflow-r435` (guard optional provider
+imports behind `try/except ImportError`) is TRIBAL, and the nearest documentation
+*assumes the anti-pattern* — `12_provider_distributions.rst` tells providers to make an
+unguarded top-level import work by injecting `sys.modules[...] = MagicMock()` in conftest.
+
+The other CONTRADICTED entry: `AGENTS.md` says never add newsfragments for `providers/`,
+but a reviewer on [#63614](https://github.com/apache/airflow/pull/63614) asked a provider
+PR for exactly that file. That one rests on a single below-threshold observation and is
+flagged as such in the report rather than overstated.
 
 ## Results
 
@@ -185,15 +222,31 @@ of A's judged pairs are the *same finding* matched against four different commen
 `airflow_health.py` thread. On a per-finding basis one baseline finding landed well and
 most did not. Neither condition demonstrates much here.
 
-Two readings fit the data, and this run cannot separate them:
+The obvious explanation was that the rulebook was too small. **We tested that and it was
+wrong.** A second tranche was distilled, taking the rulebook from 14 rules to 26 and the
+median applicable rules per PR from 7 to 14, and condition B was re-run from scratch:
 
-1. **The rulebook is too small.** One tranche promoted 14 rules; only 4 ever fired.
-   [`airflow-candidates.md`](.bob/rules/airflow-candidates.md) holds ~30 more patterns at
-   support 2, one tranche short of promotion. A rulebook that rarely fires cannot beat a
-   reviewer that always speaks.
-2. **The method has a ceiling.** Rules mined from what reviewers *did* flag may not
-   predict what they *will* flag next. Much of review is a specific maintainer noticing a
-   specific thing, not convention at all.
+| | 14-rule book | 26-rule book |
+|---|---|---|
+| median applicable rules per PR | 7 | 14 |
+| findings | 12 | 12 |
+| strict matches | 0 | 0 |
+| lenient matches | 1 | 1 |
+
+Twice the rules, twice the rules in scope, identical outcome. A broader set fired (6
+distinct rules rather than 4), so the rulebook genuinely changed — the result did not.
+
+That points at the harder conclusion: **rules mined from what reviewers *did* flag do not
+predict what they *will* flag next.** Much of code review is a specific maintainer
+noticing a specific thing, and it is not convention at all.
+
+This does not make the rulebook worthless, and the distinction matters. Phase 3 shows it
+contains real, evidenced, undocumented conventions — and the reviewer agents repeatedly
+noted diffs that *complied* with a rule (correctly guarded optional imports, every trigger
+status handled, the explanatory comment a rule asks for already present). **The mined
+rulebook is a documentation artifact and a review checklist, not a predictor of the next
+review comment.** That is a narrower claim than the project set out to make, and it is the
+one the evidence supports.
 
 What the evaluation *does* support: **the rules are genuinely repo-specific.** Condition C
 matched nothing, and only 4 of 27 Home Assistant rules fired on Airflow at all — the four

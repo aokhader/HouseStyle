@@ -1,0 +1,125 @@
+{
+  "merges": [
+    {
+      "rule": "In provider code, raise the most appropriate built-in Python exception (ValueError, TypeError, RuntimeError) for argument validation, internal invariant violations and third-party service failures, rather than AirflowException.",
+      "category": "providers",
+      "trigger": "A new `raise AirflowException(...)` inside a provider hook, operator or trigger for parameter validation, an internal/programming error, or an error originating in an external service.",
+      "rationale": "AirflowException is Airflow's own signalling channel. Using it for ordinary programming errors or third-party failures makes provider errors indistinguishable from Airflow control flow and hides the real cause from users; the built-in exception types already say what went wrong.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:110", "t1/C:35", "t2/C:66"]
+    },
+    {
+      "rule": "A provider must not unconditionally import, call or attribute-access an airflow-core symbol that does not exist in its minimum supported core version: gate it behind an AIRFLOW_V_X_Y_PLUS check (or `getattr(obj, \"attr\", default)`) and keep the older fallback path.",
+      "category": "providers",
+      "trigger": "Provider code imports, calls or reads an airflow-core symbol, method or attribute introduced after that provider's minimum supported Airflow version with no version guard or fallback, or a diff deletes the Airflow 2 branch from a provider that still supports Airflow 2.",
+      "rationale": "Providers are released independently of core and are installed against a range of Airflow versions, so any core API newer than the declared floor has to be optional at runtime — otherwise the provider fails at import for every user on an older core.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:106", "t1/C:13", "t2/B:120", "t2/C:35"]
+    },
+    {
+      "rule": "Express cross-version Airflow compatibility through the shared compat layer — the `AIRFLOW_V_X_Y_PLUS` sentinels in `version_compat` and the helpers in `providers/common/compat` — instead of inline `packaging.version.parse` comparisons or per-provider copies of the same check.",
+      "category": "providers",
+      "trigger": "Provider code compares `packaging.version.parse(airflow_version)` against a literal version string, or repeats an inline `if AIRFLOW_V_3_X_PLUS` shim that already exists in (or belongs in) `providers/common/compat`.",
+      "rationale": "Version gates are scattered across dozens of providers; when they live in one compat module they can be audited and retired in a single change, whereas hand-rolled comparisons drift and are missed when a minimum version is finally raised.",
+      "kind": "convention",
+      "cluster_ids": ["t2/B:121", "t2/C:15"]
+    },
+    {
+      "rule": "Every version-compatibility shim in a provider must carry a comment naming the exact release involved — the minimum `>=X.Y.Z` that exports the symbol, or a `# TODO: Remove once minimum supported Airflow version is X.Y`.",
+      "category": "providers",
+      "trigger": "A `try: from airflow.sdk... except ImportError:` fallback, or another version-compat workaround block, is added to a provider with no comment naming the version that introduces or retires it.",
+      "kind": "convention",
+      "rationale": "Shims are the hardest thing to clean up later: without the version written down, nobody can tell when raising the minimum supported version makes the block dead code, so it survives long past its purpose.",
+      "cluster_ids": ["t1/B:133", "t1/C:15"]
+    },
+    {
+      "rule": "A dependency pin or upper bound added to a provider's `pyproject.toml` as a workaround must carry a comment naming the upstream issue and the condition under which the cap can be lifted.",
+      "category": "providers",
+      "trigger": "diff adds a `<X.Y` upper bound or a pinned/transitive dependency to a provider's `pyproject.toml` with no accompanying note or linked issue explaining when it may be relaxed.",
+      "rationale": "Caps added for a transient upstream breakage become permanent because no later reader can tell whether the reason still holds; recording the trigger for removal is what makes the pin reviewable a release later.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:94", "t2/C:43"]
+    },
+    {
+      "rule": "Every package a provider imports directly must be declared as a dependency in that provider's `pyproject.toml` in the same PR; do not rely on it arriving transitively.",
+      "category": "providers",
+      "trigger": "diff adds `import <package>` under `providers/<name>/src/` where `<package>` is absent from `dependencies` (or the relevant extra) in `providers/<name>/pyproject.toml`.",
+      "rationale": "Providers are installed standalone, so a package that happens to be present in the CI image via another provider's dependency tree simply is not there for the user; the import breaks at runtime for exactly the people who install only this provider.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:119", "t1/C:33"]
+    },
+    {
+      "rule": "Import anything a provider does not require unconditionally — a package behind an optional extra, or another provider's package — inside `try`/`except ImportError`, and either raise `AirflowOptionalProviderFeatureException` naming the extra to install or degrade the feature; never import it unconditionally at module top level.",
+      "category": "providers",
+      "trigger": "A provider module imports a package declared only as an optional extra, or a symbol from another `airflow.providers.*` package, at module top level with no `try`/`except ImportError` guard.",
+      "rationale": "A top-level import of something optional turns a missing extra into an import failure for the whole provider; guarding it keeps the rest of the provider usable and turns the error into an actionable message naming what to install.",
+      "kind": "convention",
+      "cluster_ids": ["t2/B:78", "t2/C:50"]
+    },
+    {
+      "rule": "Reuse Airflow's established name for a concept instead of inventing a synonym: `run_after` for the DAG run scheduling timestamp, `wait_for_completion` for the wait-for-finish flag, and an `a`-prefixed method name (`aget_connection`) for the async variant of an existing method.",
+      "category": "naming",
+      "trigger": "A new or renamed parameter/method uses `logical_date` or `date` for scheduling time, `wait_for_termination` for a completion flag, or an `async_`-prefixed name where a sync counterpart already exists.",
+      "rationale": "Users move between providers constantly; a synonym for a parameter that is already named consistently across the AWS and core operators forces them to re-learn the same flag per package and shows up in every DAG they write.",
+      "kind": "convention",
+      "cluster_ids": ["t1/C:42", "t2/C:75"]
+    },
+    {
+      "rule": "In executor methods that also reference `airflow.executors.workloads`, name the sequence parameter `workload_items`; do not keep the colliding name `workloads` or alias the module import to work around the collision.",
+      "category": "naming",
+      "trigger": "An executor method (`_process_workloads` or an override) declares a parameter named `workloads` in a module that does `from airflow.executors import workloads`, or imports that module under an alias to dodge the shadowing.",
+      "rationale": "The parameter shadows the module the same function needs, and aliasing the import hides the collision instead of removing it; renaming the local is the fix that keeps every executor override reading the same way.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:107", "t2/B:81"]
+    },
+    {
+      "rule": "FastAPI apps and routers exposed by a provider plugin must declare their own auth dependencies at route or router level — `Depends(requires_access_*)` for authentication, plus `GetUserDep` alongside `SessionDep` on state-mutating handlers — rather than relying on the parent app's middleware.",
+      "category": "security",
+      "trigger": "A route or router defined under `providers/**/plugins/*.py` or a provider's `worker_api/routes/` declares no `requires_access_*` dependency, or a POST/PATCH/DELETE handler takes `SessionDep` without `GetUserDep`.",
+      "rationale": "A provider's sub-app is mounted into the API server, and the mount point's middleware is not a guarantee the plugin controls; declaring the dependency on the route is what makes the auth requirement visible and survives remounting.",
+      "kind": "convention",
+      "cluster_ids": ["t1/C:16", "t2/C:3"]
+    },
+    {
+      "rule": "Serializers and deserializers for user-extensible types must go through the registration registry: `encode_*` must validate the class with a `find_registered_custom_*` lookup before trusting `qualname(var)`, and `decode_*` must guard `import_string` with an `is_core_*_import_path` check plus a registered-custom fallback.",
+      "category": "security",
+      "trigger": "A new `encode_*` function serializes a custom subclass using only `qualname(var)` with no registry guard, or a new `decode_*` function calls `import_string(var[Encoding.TYPE])` without a preceding core-import-path check and registry-based fallback.",
+      "rationale": "Serialized DAG data is attacker-reachable input to the scheduler; an unvalidated type path on either side of the round trip turns deserialization into arbitrary import, so both halves have to be anchored to the registry.",
+      "kind": "convention",
+      "cluster_ids": ["t2/A:138", "t2/A:142"]
+    },
+    {
+      "rule": "Never log or print a Connection, a ConnectionResult, `Connection.get_uri()` output, or any credential-bearing string — including temporary debug output; redact it, or apply the security code-scanning suppression, before logging.",
+      "category": "security",
+      "trigger": "diff adds a `print(...)` or `log.*` call whose argument derives from a Connection object, a connection URI, a password or a secret — notably under `task-sdk/src/airflow/sdk/execution_time/`.",
+      "rationale": "Task and scheduler logs are retained and widely readable, so a single interpolated connection URI leaks the credential to everyone with log access at every level, debug included.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:23", "t1/C:130"]
+    },
+    {
+      "rule": "Operators, triggers, notifiers and listeners must reach a third-party service through the provider's Hook class (sync or async) rather than constructing the underlying client or session inline.",
+      "category": "providers",
+      "trigger": "diff constructs a provider's underlying client or HTTP session directly — `confluent_kafka.Producer(...)`, `aiohttp.ClientSession()` — inside an operator, trigger, notifier or listener where the provider already exposes a Hook wrapping it.",
+      "rationale": "The Hook is where connection resolution, extras handling, auth and retry live; building the client inline bypasses all of it, so the operator quietly stops honouring the Airflow connection users configured.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:117", "t2/C:62"]
+    },
+    {
+      "rule": "Take a service's scheme, host and port from the Airflow connection (and its extras) named by the operator's `*_conn_id`; do not hardcode them or re-parse them out of another string such as a queue URI.",
+      "category": "providers",
+      "trigger": "A provider hook, operator or trigger builds a request URL from a hardcoded scheme or port (e.g. `requests.get(f\"http://{host}:8080/...\")`), or parses `host:port` out of a URI string instead of reading the connection identified by its conn_id.",
+      "rationale": "The connection is the one place a deployment configures where a service lives and how it is reached; hardcoding a scheme or port makes the operator unusable on TLS or non-default deployments, and re-parsing a URI silently diverges from the connection the user actually set.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:145", "t1/C:73"]
+    },
+    {
+      "rule": "When a provider change raises the minimum Airflow core or Task SDK version it actually requires — swapping a core import for the `common.compat.sdk` equivalent, or dropping SDK-specific parameters from a system test — update that provider's declared minimum version in the same PR.",
+      "category": "providers",
+      "trigger": "A diff replaces a core import with its `airflow.providers.common.compat.sdk` equivalent, or removes SDK-specific env vars or parameters, with no matching change to the provider's declared minimum core/SDK version.",
+      "rationale": "The declared minimum is what the release manager and the resolver act on; when the code starts requiring a newer core or SDK and the metadata does not say so, the provider installs cleanly and then fails at runtime for users on the older version.",
+      "kind": "convention",
+      "cluster_ids": ["t1/C:76", "t2/B:101"]
+    }
+  ],
+  "demote": ["t1/B:30", "t2/B:105"]
+}

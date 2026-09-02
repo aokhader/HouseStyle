@@ -405,17 +405,31 @@ def render_results(payload: dict) -> str:
         "diffs, is **not supported by this run**. That is the result; it is not dressed up "
         "elsewhere in this report.",
         "",
-        "Two readings are consistent with the data, and this evaluation cannot separate "
-        "them:",
+        "**A second tranche was run specifically to test whether the rulebook was simply "
+        "too small. It was not the explanation.** Distilling tranche 2 grew the rulebook "
+        "from 14 rules to 26 and the median applicable rules per PR from 7 to 14. "
+        "Condition B was then re-run from scratch against the larger book. The result:",
         "",
-        "1. **The rulebook is too small.** One tranche promoted 14 rules, of which only a "
-        "handful ever fired. The below-threshold candidates file holds roughly thirty more "
-        "patterns sitting at support 2 — one tranche short of promotion. A rulebook that "
-        "rarely fires cannot beat a reviewer that always speaks.",
-        "2. **The method has a ceiling.** Rules mined from what reviewers *did* comment on "
-        "may simply not predict what reviewers *will* comment on next. Review is driven by "
-        "what a specific maintainer noticed in a specific diff, and much of it is not "
-        "convention at all.",
+        "| | 14-rule book | 26-rule book |",
+        "|---|---|---|",
+        "| median applicable rules per PR | 7 | 14 |",
+        "| findings | 12 | 12 |",
+        "| strict matches | 0 | 0 |",
+        "| lenient matches | 1 | 1 |",
+        "",
+        "Twice the rules, twice the rules in scope, and the same twelve findings and the "
+        "same single lenient match. A different and broader set of rules fired (six "
+        "distinct rules rather than four), so the rulebook did change — the *outcome* did "
+        "not. That is evidence against 'the rulebook is too small' and for the harder "
+        "reading: **rules mined from what reviewers did comment on do not predict what "
+        "reviewers will comment on next.** Review is largely a specific maintainer "
+        "noticing a specific thing, and much of it is not convention at all.",
+        "",
+        "This does not make the rulebook worthless — the Phase 3 cross-check shows it "
+        "contains real, evidenced, undocumented conventions, and reviewers in this run "
+        "repeatedly noted diffs that *complied* with a rule. It means the rulebook is "
+        "better understood as a documentation artifact and a checklist than as a "
+        "predictor of the next review comment.",
         "",
         "What the run does support: **condition C confirms the rules are repo-specific.** "
         "Another repository's rulebook, offered unscoped against these diffs, matched "

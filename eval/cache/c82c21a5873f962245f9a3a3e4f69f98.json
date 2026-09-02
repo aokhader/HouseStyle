@@ -1,0 +1,5 @@
+{
+  "verdict": "PARTIAL",
+  "why": "Both are about the same newly added `fail_on_reject` flag and the divergence it creates in reject semantics, but the finding asks for the default to be flipped/deprecated for backwards compatibility while the human asks for the flag to be hoisted onto the shared LLMApprovalMixin for cross-operator consistency.",
+  "judge": "agent"
+}

@@ -1,13 +1,18 @@
 {"pr": 52330,
  "findings": [
-   {"rule_id": "airflow-r014",
-    "path": "providers/apache/arrow/tests/unit/apache/arrow/hooks/test_adbc.py",
-    "line": 120,
-    "category": "testing",
-    "message": "`conn = mock.MagicMock()` stands in for an ADBC `dbapi.Connection` and the test then invents the nested `conn.adbc_connection.set_autocommit` chain that `AdbcHook.set_autocommit` reads. `setup_method` already uses `mock.MagicMock(spec=dbapi.Connection)` - do the same here (and in the other bare `mock.MagicMock()` connections at lines 149, 166 and 186), so the test fails if `adbc_driver_manager` renames or drops `adbc_connection`, rather than silently passing against an interface that no longer exists."},
-   {"rule_id": "airflow-r005",
+   {"rule_id": "airflow-r429",
+    "path": "providers/apache/arrow/src/airflow/providers/apache/arrow/hooks/adbc.py",
+    "line": 252,
+    "category": "docs",
+    "message": "`_resolve_execute_batch` takes `executemany` and never reads it - only `fast_executemany` is acted on, and the method unconditionally returns `self._execute_executemany`. So `insert_rows` always goes through the Arrow-native executemany path, including on its documented default `executemany=False`, while the `:param executemany:` docstring below promises \"If True, all rows are inserted at once in chunks defined by the commit_every parameter\". Make the two sides agree: either branch on `executemany` here and keep a non-executemany path, or drop the parameter from the signature and reword the docstring to state that ADBC always binds a RecordBatch."},
+   {"rule_id": "airflow-r420",
     "path": "uv.lock",
     "line": 718,
     "category": "commit-hygiene",
-    "message": "This `aiohttp-cors` marker change - and the same `python_full_version < '3.15'` marker churn on `colorful` (11494), `opencensus` (18360-18362), `ray` (21886-21893, 21918-21931), `smart-open` (23253) plus the rewritten `secretstorage` markers (23053-23054) and the reordered `apache-airflow-providers-teradata` entry (77) - has nothing to do with adding the Arrow provider. Regenerate the lock from a clean main so the uv.lock diff contains only the `apache-airflow-providers-apache-arrow` workspace member and the `adbc-driver-*` / `pyarrow` entries this PR actually introduces; the unrelated resolver churn cannot be reverted separately if one of those marker changes regresses."}
+    "message": "The lock file carries resolver churn that nothing in this PR accounts for: markers rewritten on packages unrelated to Arrow (`aiohttp-cors` here, and further down `colorful`, `opencensus`, `ray`, `secretstorage`, `smart-open`), plus `python_full_version < '3.13'` markers dropped from the pre-existing `adbc-driver-manager`, `adbc-driver-postgresql` and `adbc-driver-sqlite` entries. Rebase on fresh main and regenerate `uv.lock` so the diff contains only the new `apache-airflow-providers-apache-arrow` workspace member, its `apache-arrow` extra and the newly added `adbc-driver-bigquery`/`-flightsql`/`-snowflake` packages."},
+   {"rule_id": "airflow-r441",
+    "path": "providers/apache/arrow/tests/unit/apache/arrow/hooks/test_adbc.py",
+    "line": 149,
+    "category": "testing",
+    "message": "`conn = mock.MagicMock()` stands in for an ADBC `dbapi.Connection` and is then given `cursor`, `adbc_get_table_schema` and `extra_dejson`, yet `setup_method` already specs exactly that type as `mock.MagicMock(spec=dbapi.Connection)`. Unspecced, the later `conn.commit.call_count` and `conn.adbc_get_table_schema` assertions keep passing even if those members are renamed or change signature. Use `mock.MagicMock(spec=dbapi.Connection)` here, and in `test_insert_rows_fast_executemany_supported` and `test_insert_rows_target_fields_order_preserved`, which repeat the same bare mock."}
  ]}

@@ -1,0 +1,85 @@
+{
+  "merges": [
+    {
+      "rule": "Do not perform per-row database work inside a loop over DAGs, task instances, or event rows: hoist the query out of the loop, batch it, or pass the already-fetched data in, and eager-load any relationship the loop dereferences (joinedload/selectinload) rather than letting it lazy-load per row.",
+      "category": "performance",
+      "trigger": "A session.scalar()/scalars()/execute() call, or a dotted lazy relationship access (event.dataset.uri, record.dag.<attr>, ti.<rel>), appears inside a for-loop over dags_needing_dagruns, dataset_triggered_dag_info, mapped task instances or other scheduler-loop rows, on a query carrying no joinedload/selectinload option.",
+      "rationale": "The scheduler loop runs continuously against the metadata DB, so a query or lazy attribute touched once per row turns a single statement into N; reviewers insist the data be fetched once, eagerly, before the loop starts.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:0", "t2/A:2"]
+    },
+    {
+      "rule": "Express \"no referencing row\" in ORM queries as a correlated ~exists(select(Child.fk).where(Child.fk == Parent.id)) anti-join rather than <col>.not_in(select(...)), and do not carry a redundant is_not(None) inside the EXISTS.",
+      "category": "database",
+      "trigger": "The diff contains .not_in(select(...)) or NOT IN (SELECT ...) in a SQLAlchemy query, typically a scheduler/triggerer cleanup filter over a nullable FK column.",
+      "rationale": "NOT IN over a nullable column has surprising three-valued-logic semantics and plans badly on the large cleanup tables; the correlated EXISTS form is what the repo's other cleanup queries already use.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:105", "t2/A:117"]
+    },
+    {
+      "rule": "Write SQLAlchemy queries in the 2.0 style - session.scalar()/session.scalars() over select(Model).where(...) - not the legacy session.query(Model).filter(...) API or Select.filter().",
+      "category": "database",
+      "trigger": "diff adds session.query(...).filter(...) in source or test code, or calls .filter() on a Select object.",
+      "rationale": "Airflow has migrated to the SQLAlchemy 2.0 select API; leaving legacy Query/filter forms in new code re-introduces the style the migration removed and blocks the eventual removal of the legacy layer.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:31", "t2/B:23"]
+    },
+    {
+      "rule": "A FastAPI route decorator must declare every status code its handler can produce: each status raised via HTTPException belongs in the responses= mapping, and the decorator's status_code must agree with the success codes the handler actually returns.",
+      "category": "api-design",
+      "trigger": "raise HTTPException(status.HTTP_4xx_...) in a handler body whose decorator does not list that status in responses=, or a route declaring status_code=HTTP_204_NO_CONTENT whose handler also returns a different 2xx code.",
+      "rationale": "The decorator is what generates the OpenAPI spec and the generated UI client, so an undeclared status code is invisible to every consumer of the API.",
+      "kind": "convention",
+      "cluster_ids": ["t1/C:17", "t2/A:58"]
+    },
+    {
+      "rule": "Every DB-backed list endpoint in the FastAPI APIs must paginate its query - use the paginated_select convention in the core API, or an explicit limit/offset (or documented hard cap) in the execution API - never return the whole collection.",
+      "category": "api-design",
+      "trigger": "A GET list route in api_fastapi/core_api/routes/ or the execution API calls session.scalars(select(...)).all() with no paginated_select, limit or offset.",
+      "rationale": "Collection endpoints run against unbounded metadata tables, so an unpaginated route is a latency and memory hazard the first time a deployment grows; pagination is the established shape for every other list route.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:80", "t2/A:41"]
+    },
+    {
+      "rule": "Express sizing and spacing in Airflow UI components with Chakra UI token values (e.g. height={5}, p={2}), not raw CSS pixel strings passed through props or inline style/sx objects.",
+      "category": "api-design",
+      "trigger": "A Chakra UI component receives a size, padding, margin or font-size value as a quoted pixel string (height=\"20px\", style={{ padding: '8px' }}) rather than a numeric token.",
+      "rationale": "Chakra tokens are what keep the UI's spacing scale and theming coherent; hardcoded pixels opt individual components out of the design system.",
+      "kind": "convention",
+      "cluster_ids": ["t2/A:157", "t2/B:13"]
+    },
+    {
+      "rule": "Keep FastAPI route modules to route handlers only: Pydantic request/response models belong in the package's datamodels module, authorization and business helpers in its services module, query/filter construction in the corresponding Query* filter class's to_orm, and callback or domain-object definitions in the module that owns the domain model.",
+      "category": "api-design",
+      "trigger": "A Pydantic BaseModel, an authorization dependency, a callback-definition object (e.g. _ImportPathCallbackDef), or resolution/query-building logic (e.g. resolve_task_group_pattern_to_task_ids) is defined or constructed inline inside a routes/*.py handler in the core API or a provider package.",
+      "rationale": "The Core API's datamodels/services/filter-parameter layering is what makes routes reviewable and reusable, and provider APIs are expected to mirror it; logic inlined into a handler is unreachable for other callers and untestable on its own.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:55", "t2/A:69", "t2/C:32"]
+    },
+    {
+      "rule": "Implement behaviour common to all implementations of a pluggable hierarchy in its base class or a shared mixin (BaseExecutor, BaseCoordinator) rather than duplicating it in each concrete subclass.",
+      "category": "api-design",
+      "trigger": "A new workload-handling method, or language-agnostic plumbing such as socket server startup / accept helpers, is added to multiple concrete executors or per-language coordinators with no base-class implementation.",
+      "rationale": "Executors and coordinators are extension points implemented in-tree and out-of-tree; anything the base class does not provide has to be re-implemented by every existing and future subclass, and third-party ones simply never get it.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:98", "t1/C:105"]
+    },
+    {
+      "rule": "Do not add public API to a widely shared base class when its only consumer lives in another package or layer; keep the member with the layer that uses it, and require at least one in-scope consumer before it joins the shared surface.",
+      "category": "api-design",
+      "trigger": "A property, class attribute or method is added to a core or shared base class (CronMixin and other timetable bases, DbApiHook and other shared hooks) whose only reference site is a downstream package such as the task SDK or providers/common/ai.",
+      "rationale": "Every member on a shared base class becomes public API that all subclasses and downstream implementers inherit and maintain; reviewers want the concern kept in the layer that actually needs it rather than pushed into the shared contract.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:141", "t2/C:23"]
+    },
+    {
+      "rule": "Fetch exactly the columns the consuming code reads: enumerate columns instead of select(SomeModel) in grid/UI and other hot-path queries, restrict with_row_locks selects to the key actually used, and do not add a column to load_only() that no caller consumes.",
+      "category": "performance",
+      "trigger": "A grid/UI or hot-path query uses select(SomeModel) instead of listing columns, a with_row_locks(select(Model)) retrieves the full entity when only .id is consumed, or a column is added to a load_only(...) call that no downstream code path reads.",
+      "rationale": "These queries run per page load or per scheduler pass over wide tables, so every extra column is bytes off the wire and rows the ORM has to hydrate for nothing; the column list is expected to match what the code actually reads.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:1", "t2/A:76"]
+    }
+  ],
+  "demote": ["t1/A:44", "t1/C:86"]
+}

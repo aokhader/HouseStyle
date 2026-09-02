@@ -1,0 +1,160 @@
+{
+  "merges": [
+    {
+      "rule": "In user-facing prose - documentation, newsfragments, release notes, changelog entries, config.yml descriptions and UI strings - spell Airflow's core nouns the Airflow 3 way (Dag, Dags, Dag run, Dag files, Dag bundles, Dag Processor, API Server); never all-caps DAG/DAGs, \"DAG processor\" or \"webserver\", and reserve all-caps DAG for code identifiers and quoted strings.",
+      "category": "docs",
+      "trigger": "A docs page, newsfragment, RELEASE_NOTES.rst bullet, changelog entry, config.yml description or translated UI string adds prose containing \"DAG\"/\"DAGs\" outside backticks or a code identifier, or uses \"webserver\"/\"DAG processor\".",
+      "rationale": "Airflow 3 deliberately re-spelled these concepts; the all-caps forms leak pre-3.0 vocabulary into text users read, while the code identifiers keep their old casing, so reviewers correct the prose on sight.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:2", "t2/A:15"]
+    },
+    {
+      "rule": "Keep a PR's diff scoped to what its title and description claim: regenerate uv.lock against fresh main so it carries only the dependency changes this PR actually makes, and split an independent schema-fix migration or a second unrelated feature into its own PR or call it out in the description with its own rationale.",
+      "category": "commit-hygiene",
+      "trigger": "The diff contains uv.lock changes no source change in the PR accounts for (extras added or dependencies dropped by a rebase), an independent schema-fix migration alongside a feature migration, or a second unrelated feature.",
+      "rationale": "Reviewers read the description as the contract for the diff; unexplained lockfile churn and piggy-backed migrations or features cannot be reviewed or reverted independently of the feature the PR is named for.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:6", "t2/A:17"]
+    },
+    {
+      "rule": "Pick the newsfragment from the change's actual user-visible impact: none at all for a documentation-only or purely internal change, and bugfix.rst rather than significant.rst for an internal fix that changes no observable behaviour.",
+      "category": "commit-hygiene",
+      "trigger": "A PR whose diff touches only docs also adds a file under newsfragments/, or a significant.rst fragment is added for an internal race-condition fix or scheduler-internal improvement with no API or behaviour change.",
+      "rationale": "Newsfragments become the release notes users read; a fragment for a change nobody outside the repo can observe, or a significant fragment for an internal fix, inflates the upgrade reading users must do.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:33", "t2/A:23"]
+    },
+    {
+      "rule": "Keep a locale's do-not-translate / keep-in-English list to the bare CamelCase code identifiers quoted verbatim as code (Asset, TaskInstance, DagRun); compound phrases and the same concepts appearing as UI labels must follow the wording that locale's i18n JSON files already use.",
+      "category": "docs",
+      "trigger": "A locale file under .github/skills/airflow-translations/locales/ lists a multi-word phrase built around an Airflow term, or blanket-lists CamelCase identifiers, without distinguishing code identifiers from UI labels the locale's JSON already translates.",
+      "rationale": "The guideline file has to agree with the translations already shipped in that locale's JSON; a list that blocks whole phrases or UI labels contradicts existing strings and freezes wording the translators deliberately localised.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:20", "t2/A:14"]
+    },
+    {
+      "rule": "A bug fix to an example DAG that is motivated by a specific configuration (e.g. a non-UTC [core] default_timezone) must extend tests/unit/always/test_example_dags.py so that DAG is imported under the triggering config.",
+      "category": "testing",
+      "trigger": "An example_dags/ file is modified to fix a datetime/timezone or other config-dependent issue with no added or modified case in test_example_dags.py exercising that configuration.",
+      "rationale": "Example DAGs are only parsed under the default config in CI, so the exact scenario that produced the bug stays untested unless the example-DAG test is extended to cover it.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:96", "t2/A:105"]
+    },
+    {
+      "rule": "Mocks standing in for a real Airflow, provider or SDK type must be specced - MagicMock(spec=...), spec_set= or create_autospec, including nested attributes - so signature drift against the real class fails the test; MagicMock(autospec=True) is a no-op keyword and specs nothing.",
+      "category": "testing",
+      "trigger": "A bare Mock()/MagicMock() (or MagicMock(autospec=True)) substituted for a known type - the Task SDK execution API Client, RunContext, ToolsetTool, a credentials object, a SerializedDAG cache entry, an AWS hook or its async connection, a SQLAlchemy session, an ORM instance, a DAG or an operator method - and then given attributes.",
+      "rationale": "An unspecced mock accepts any attribute or signature, so the test keeps passing after the real class changes; specced mocks are what makes these tests catch drift instead of hiding it.",
+      "kind": "convention",
+      "cluster_ids": ["t1/C:6", "t2/B:47", "t2/C:49"]
+    },
+    {
+      "rule": "Do not use pytest's caplog fixture to assert on log output; assert on observable behaviour or return values, or capture the logger directly with a mock.",
+      "category": "testing",
+      "trigger": "caplog appears as a fixture argument, or caplog.text/caplog.records is asserted on, in a test under providers/**/tests/, kubernetes-tests/ or the core test suites.",
+      "rationale": "Log text is not the contract under test; caplog assertions break on unrelated logging changes and depend on handler and propagation setup that differs between the unit, provider and integration suites.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:96", "t1/C:96", "t2/C:0"]
+    },
+    {
+      "rule": "Pin the query count with assert_queries_count when adding or changing a database access path whose cost matters: a new test for a FastAPI route returning a collection, and any performance-motivated ORM change such as replacing session.merge() with session.add().",
+      "category": "testing",
+      "trigger": "A new test exercises a FastAPI route returning a collection (assets, DAGs, task instances) with no assert_queries_count context manager, or a diff swaps session.merge( for session.add( on a task_instance/dag_run path with no accompanying assert_queries_count.",
+      "rationale": "Query-count regressions - a lost eager load, a re-introduced merge - are invisible in a passing functional test; assert_queries_count is the only thing that makes the performance intent of the change fail CI when it is undone.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:47", "t2/B:30"]
+    },
+    {
+      "rule": "In Playwright e2e tests, wait on an explicit UI condition - a key element becoming visible before a navigation helper returns, expect.poll() for post-click assertions - never read state immediately after an action and never page.waitForLoadState('networkidle').",
+      "category": "testing",
+      "trigger": "A goto/navigateTo* helper is added with no subsequent waitFor/toBeVisible, page content is compared immediately after a navigation click without expect.poll, or waitForLoadState('networkidle') is called.",
+      "rationale": "The UI keeps fetching after navigation, so an immediate read or a networkidle wait is a race that flakes in CI; waiting on the element the test actually depends on is both deterministic and self-documenting.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:17", "t2/B:20"]
+    },
+    {
+      "rule": "E2e tests and page objects must fail when the feature is broken: no if-guards around the assertions and no try/catch or .catch(() => false) around visibility/state checks - use web-first assertions such as expect(el).toBeVisible()/toBeHidden() and let failures propagate.",
+      "category": "testing",
+      "trigger": "A tests/e2e/specs/*.ts diff adds an if (count > 0) { ... } guard or similar short-circuit around the assertions, or a Playwright page-object method wraps isVisible()/isEnabled() in try/catch returning false.",
+      "rationale": "A conditional or swallowed check turns the spec into a test that passes whether or not the feature works, which is worse than no coverage because it looks like coverage.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:20", "t2/B:19"]
+    },
+    {
+      "rule": "When a Helm value moves to a new path, or the executor or CRD that exercised it is removed, migrate the existing chart tests to the still-supported path instead of deleting them, so deprecated-but-supported overrides keep coverage.",
+      "category": "testing",
+      "trigger": "A helm test or parametrize case using the old broad value path is deleted when a component-scoped or per-executor path is introduced, while the old path is still listed in the NOTES.txt deprecation notice.",
+      "rationale": "The old value paths remain supported for chart users mid-upgrade; deleting the test that covered them removes the only proof the deprecated path still renders correctly.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:80", "t2/B:63"]
+    },
+    {
+      "rule": "Every chart/values.yaml parameter must be declared in chart/values.schema.json, and where a value's behaviour depends on another value that dependency must be documented in both files.",
+      "category": "docs",
+      "trigger": "A key is added to chart/values.yaml with no corresponding entry in chart/values.schema.json, or a conditional expression in the config: block references two or more .Values fields while only one carries an explanatory comment.",
+      "rationale": "The schema is what validates users' values files and what the chart docs are generated from, so a key or a gating dependency that lives in only one of the two files is invisible to half the people who need it.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:64", "t2/B:59"]
+    },
+    {
+      "rule": "Provider changelog.rst entries must read as sentence-case, user-facing prose: strip conventional-commit prefixes such as fix: or feat(...), do not open with a lowercase word, name no internal tooling such as Dependabot, and state the concrete change.",
+      "category": "docs",
+      "trigger": "A line added to providers/*/docs/changelog.rst starts with a lowercase word or a fix:/feat: prefix, or mentions dependabot instead of describing the user-visible change.",
+      "rationale": "The changelog is published documentation, not a commit log; raw commit titles and tooling names read as repo internals to the provider's users.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:93", "t2/B:107"]
+    },
+    {
+      "rule": "A changelog or release-note entry is a single concise line stating the user-visible change; PR narration, methodology notes, test-coverage clauses and the detailed explanation belong in the PR.",
+      "category": "docs",
+      "trigger": "A multi-sentence bugfix entry is added to chart/RELEASE_NOTES.rst, or a provider changelog line carries parenthetical test-coverage, refactor-rationale or methodology text.",
+      "rationale": "Release notes are scanned, not read; the reasoning behind a fix is already preserved in the PR the entry links to.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:48", "t2/C:14"]
+    },
+    {
+      "rule": "Add a bullet to a provider's changelog.rst only when that provider's own source files change; a PR limited to test files, to another provider's tests, or to non-functional pyproject.toml marker comments gets no entry.",
+      "category": "docs",
+      "trigger": "A new bullet or version section in providers/<name>/docs/changelog.rst for a diff whose changed files are all under tests/, belong to a different provider, or are only '# use next version' comments.",
+      "rationale": "A changelog entry announces a release of that provider to its users; test-only or cross-provider churn changes nothing they can observe and forces an otherwise unnecessary release.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:147", "t1/C:38"]
+    },
+    {
+      "rule": "Example DAGs must be plain, self-contained and copy-pasteable against current main: no try/except ImportError compatibility shims for older Airflow versions or optional dependencies, and no imports of helpers shared across example DAG files.",
+      "category": "docs",
+      "trigger": "A file under example_dags/ adds a try: from ... except ImportError: fallback import block, or imports a helper defined in another example or support module.",
+      "rationale": "Example DAGs are read as the copy-paste starting point and are rendered into the docs; a version shim or a shared helper import gives readers a snippet that does not stand on its own and documents versions main no longer targets.",
+      "kind": "convention",
+      "cluster_ids": ["t2/A:104", "t2/C:7"]
+    },
+    {
+      "rule": "Build test fixtures from the real library type the production code inspects - a V1PodStatus for a pod's status, a real sqlite3.OperationalError as an exception's orig - rather than a plain dict or string stand-in.",
+      "category": "testing",
+      "trigger": "Test code assigns pod.status = {\"key\": value} instead of a V1PodStatus instance, or mocks sqlalchemy.exc.OperationalError with a plain string as orig where the implementation reads e.orig.args[0].",
+      "rationale": "The code under test reaches into the object's real shape - attributes, args tuples - so a dict or string stand-in exercises a shape that never occurs in production and passes where the real type would fail.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:150", "t2/B:29"]
+    }
+  ],
+  "demote": [
+    "t1/A:10",
+    "t1/A:69",
+    "t1/B:37",
+    "t1/B:40",
+    "t1/B:101",
+    "t1/B:115",
+    "t1/C:27",
+    "t1/C:53",
+    "t1/C:54",
+    "t1/C:81",
+    "t2/A:32",
+    "t2/A:66",
+    "t2/B:41",
+    "t2/B:54",
+    "t2/C:56",
+    "t2/C:57",
+    "t2/C:116",
+    "t2/C:126"
+  ]
+}

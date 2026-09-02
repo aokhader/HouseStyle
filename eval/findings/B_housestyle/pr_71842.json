@@ -1,1 +1,8 @@
-{"pr": 71842, "findings": []}
+{"pr": 71842,
+ "findings": [
+   {"rule_id": "airflow-r429",
+    "path": "providers/microsoft/azure/src/airflow/providers/microsoft/azure/triggers/msgraph.py",
+    "line": 99,
+    "category": "docs",
+    "message": "This says the host is verified against \"the configured Microsoft Graph endpoint\", but `assert_allowed_host` checks it against `get_allowed_netlocs()`, which is the endpoint's netloc *plus* every host in the connection's `allowed_hosts` (that widening is what the new `test_assert_allowed_host_accepts_a_host_listed_in_the_connection` covers). Reword to say the host must be the configured endpoint or one of the connection's `allowed_hosts`, so a user who sets `allowed_hosts` knows those links are accepted too."}
+ ]}

@@ -1,1 +1,8 @@
-{"pr": 71067, "findings": []}
+{"pr": 71067,
+ "findings": [
+   {"rule_id": "airflow-r424",
+    "path": "providers/redis/src/airflow/providers/redis/hooks/redis.py",
+    "line": 89,
+    "category": "correctness",
+    "message": "`get_conn()` assigns `self.cluster` and `self.startup_nodes` from `conn.extra_dejson`, overwriting the values `__init__` already stored from its `**kwargs`. So `RedisHook(cluster=True, startup_nodes=\"node-2:6379\")` is silently discarded as soon as the connection is fetched, and the constructor values are only ever visible to a direct `_build_startup_nodes()` call like the one the new unit tests make. Resolve the extras into local variables here and pass them to `RedisCluster(...)` / `_build_startup_nodes(...)`, keeping the `__init__` values as the fallback."}
+ ]}

@@ -1,0 +1,1437 @@
+{
+  "n_clusters": 179,
+  "clusters": [
+    {
+      "cluster_id": "t1/A:3",
+      "rule": "Import symbols that have been migrated to the Task SDK from their airflow.sdk.* public path, not from the legacy airflow-core module (e.g. XCOM_RETURN_KEY from the Task SDK BaseXCom rather than airflow.models.xcom; exceptions from airflow.sdk.exceptions rather than airflow.exceptions).",
+      "category": "providers",
+      "trigger": "A file, docs example or provider imports a symbol from airflow.models.xcom / airflow.exceptions (often with a `# type: ignore[no-redef]`) when the same symbol is already exported by airflow.sdk.*.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/A:4",
+      "rule": "Do not grant the token:workload scope on state-changing execution-API routes; restrict token:workload to read-only endpoints (GET variable/keys, GET/HEAD xcom, GET connection, GET dag_run) and keep PUT/POST/DELETE routes token:execution only.",
+      "category": "security",
+      "trigger": "A router.put/post/delete endpoint in the execution API declares Security(require_auth, scopes=[..., \"token:workload\"]), or a has_variable_access / has_xcom_access dependency on a write route is replaced by a workload-inclusive scope list.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/A:16",
+      "rule": "A reusable workflow whose workflow_dispatch trigger is gated by a committer allowlist must apply the same allowlist check to its workflow_call trigger.",
+      "category": "security",
+      "trigger": "A workflow defines a committer-restricted workflow_dispatch block but exposes workflow_call without an equivalent contains(fromJSON([...]), github.event.sender.login) guard.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:17",
+      "rule": "Provider governance documentation must not state that a sponsoring committer is absolved of technical responsibility for the PRs they merge; committers remain responsible for CI health and security review regardless of steward approval.",
+      "category": "providers",
+      "trigger": "PROVIDERS.rst or an equivalent governance document says the sponsor is NOT responsible for the codebase or for merged PRs.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:18",
+      "rule": "Illustrate provider policy concepts in governance documentation with vendor-neutral examples (e.g. the http provider) rather than a named commercial vendor.",
+      "category": "providers",
+      "trigger": "PROVIDERS.rst or a provider governance document uses a specific vendor name (Slack, AWS, GCP) as the sole illustrative example of a policy.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:35",
+      "rule": "Do not enable asyncio debug logging in production code paths or default configuration.",
+      "category": "security",
+      "trigger": "PYTHONASYNCIODEBUG, loop.set_debug(True), or asyncio debug logging is enabled in non-test code.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:41",
+      "rule": "Name JWT duration parameters valid_for (a relative duration); do not call them expiry or expires_at, which imply an absolute timestamp.",
+      "category": "naming",
+      "trigger": "A JWT-generation method takes a parameter named expiry or expires_at whose value is actually a TTL integer or timedelta.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:54",
+      "rule": "Do not name a variable task_instance when it may hold either a TaskInstance or a TaskInstanceHistory; use a neutral name such as row, entity, or model.",
+      "category": "naming",
+      "trigger": "A variable named task_instance is assigned from a query that can return either TI or TIH ORM objects.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:74",
+      "rule": "On the /run endpoint, mint a new execution token only when the incoming token is workload-scoped; do not regenerate a token on every call.",
+      "category": "security",
+      "trigger": "Unconditional generator.generate(extras={\"scope\": \"execution\"}) plus a response.headers[\"Refreshed-API-Token\"] assignment inside the ti_run handler with no scope guard.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:78",
+      "rule": "Every new router in the execution API must set route_class=ExecutionAPIRoute.",
+      "category": "security",
+      "trigger": "A new VersionedAPIRouter(...) is added under execution_api/routes/ without route_class=ExecutionAPIRoute.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:79",
+      "rule": "An execution-API parameter that widens a state mutation beyond the single task instance identified by the JWT subject (e.g. ?all_map_indices=true) must use a broader scope such as ti:fleet, require a leader check (map_index in (-1, 0)), or document the intentional fleet-wide authority in the docstring.",
+      "category": "security",
+      "trigger": "An endpoint gains a parameter (e.g. all_map_indices: bool) that lets one task instance's token mutate sibling mapped task instances.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:86",
+      "rule": "Do not add email- or SMTP-related configuration options to airflow-core; route email settings through the SMTP provider.",
+      "category": "providers",
+      "trigger": "A new config key referencing email, SMTP, or a notifier default is added to airflow-core/src/airflow/config_templates/config.yml.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:109",
+      "rule": "In triggerer cleanup paths, replace bare `with suppress(Exception)` with a try/except that logs via self.log.exception(...).",
+      "category": "async",
+      "trigger": "`with suppress(Exception):` is introduced around an await call in triggerer_job_runner.py.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:131",
+      "rule": "Compatibility shims for deprecated settings.* attributes (e.g. SQL_ALCHEMY_CONN_ASYNC) must be guarded by block_orm_access exactly as SQL_ALCHEMY_CONN is.",
+      "category": "security",
+      "trigger": "A __getattr__ branch in settings.py for a *_ASYNC or secondary connection attribute is added or modified without a block_orm_access guard.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:136",
+      "rule": "Name state-set constants in ti_deps/dependencies_states.py after their semantic role - ACTIVE_STATES for anything still in flight, EXECUTION_STATES for actively executing tasks - not after the implementation detail that defines them.",
+      "category": "naming",
+      "trigger": "A new frozenset of TaskInstanceState values is added in ti_deps/dependencies_states.py whose name ends in _EXECUTION_STATES while the set includes DEFERRED or another non-executing in-flight state.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:140",
+      "rule": "A new SharedStreamManager stream type whose upstream requires an ack or commit side-effect (e.g. a Kafka offset commit) must not be routed through the unidirectional filter_shared_stream API; scope the change to read-only or idempotent upstreams, or extend the API with an ack path first.",
+      "category": "providers",
+      "trigger": "An open_shared_stream implementation commits, acks, or advances a cursor after a filter accepts, through the one-way filter_shared_stream channel.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:142",
+      "rule": "Use a bounded asyncio.Queue (non-zero maxsize) for per-subscriber queues in shared-stream triggers; never put_nowait into an unbounded queue from a broadcast producer.",
+      "category": "async",
+      "trigger": "asyncio.Queue() with no maxsize inside a trigger subscribe/poll method, combined with put_nowait from a producer loop.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:144",
+      "rule": "Place new i18n keys under the namespace object matching their UI section (taskGroup.documentation), not as a flat concatenated top-level key (taskGroupDocumentation).",
+      "category": "naming",
+      "trigger": "A top-level key is added to a locale JSON file whose name concatenates an existing namespace with a sub-concept.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:151",
+      "rule": "When a component calls the same callback both debounced and immediately, cancel any pending debounced invocation before making the immediate call.",
+      "category": "async",
+      "trigger": "Both a debouncedX and a direct X call reach the same onChange within one event-handler chain (e.g. onPaste calling onChange while an earlier onInput scheduled debouncedOnChange).",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:15",
+      "rule": "Use `airflow/utils/hashlib_wrapper.py` instead of calling `hashlib.md5()` directly, so hashing still works in FIPS-enabled environments.",
+      "category": "security",
+      "trigger": "diff adds `import hashlib` or a `hashlib.md5(` call in airflow-core Python source.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:23",
+      "rule": "Do not log connection URIs or credential strings at any log level; redact them, or use the security code-scanning suppression, before logging.",
+      "category": "security",
+      "trigger": "diff adds a `log.` call whose argument derives from a connection URI, password or secret.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:26",
+      "rule": "Do not prefix a TypeAlias or class with `Legacy` for a shape that will keep existing indefinitely; use a domain-meaningful contrast such as `LogResponse` vs `StreamingLogResponse`.",
+      "category": "naming",
+      "trigger": "diff introduces a `Legacy`-prefixed TypeAlias or class name.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:28",
+      "rule": "Custom SQLAlchemy `@compiles` functions must emit bound parameters, never string-interpolated values.",
+      "category": "security",
+      "trigger": "diff adds a `@compiles` function building SQL with an f-string, `%` or `.format()` containing column or value expressions.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:30",
+      "rule": "Test names that reference a multi-word SQLAlchemy/DB exception must separate the words with underscores (`data_error`, not `dataerror`).",
+      "category": "naming",
+      "trigger": "diff adds a test function whose name concatenates a known multi-word exception name without underscores.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:35",
+      "rule": "In prose — docstrings and test names — spell the Python class as `Dag`, not `DAG`.",
+      "category": "naming",
+      "trigger": "diff adds or edits a docstring or test name using all-caps `DAG` for the Python class in a sentence.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:41",
+      "rule": "Tests for async-generator middleware in the execution API (e.g. `_extract_w3c_trace_context`) must cover the `athrow` path and assert whether `detach` is called on it.",
+      "category": "async",
+      "trigger": "diff adds or modifies tests for such a generator without a case that throws into the generator.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:51",
+      "rule": "Kustomize-overlay CI must not pull arbitrary third-party DockerHub images without an image-allowlist validation step.",
+      "category": "security",
+      "trigger": "diff adds an `image:` referencing a third-party DockerHub image under `chart/kustomize-overlays/` with no allowlist or validation check.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:72",
+      "rule": "Images used only by kustomize-overlay smoke tests must not be added to the static Breeze k8s image preload list; they are discovered from the overlay manifest by `_discover_overlay_images()`.",
+      "category": "providers",
+      "trigger": "A new image entry is added to the static k8s preload list in `kubernetes_commands.py` for an image that appears only under `chart/kustomize-overlays/`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:78",
+      "rule": "Use `time.monotonic()` rather than `time.time()` for deadline and elapsed-duration checks in triggers and operators.",
+      "category": "async",
+      "trigger": "diff adds `time.time()` to compute or compare a deadline or elapsed duration inside a Trigger or Operator.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:79",
+      "rule": "In a Trigger's polling loop, evaluate the execution deadline before checking job state, so a terminal status observed after the deadline still yields `timeout` rather than `success`/`error`.",
+      "category": "async",
+      "trigger": "diff adds or modifies a `while` loop in a Trigger `run()` that checks `is_still_running()` before comparing against `end_time`/`execution_deadline`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:81",
+      "rule": "Name Helm test helper variables after the Kubernetes workload they actually read; do not call a value read from the worker StatefulSet `broker_url_secret_in_scheduler`.",
+      "category": "naming",
+      "trigger": "diff adds a helm test variable whose name references one workload while the value is fetched from another.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:83",
+      "rule": "Version strings that must track an external release (e.g. the provider version pinned in the Edge Worker) must be declared as named constants at the top of the file or in a constants file, not embedded as literals inside functions.",
+      "category": "providers",
+      "trigger": "diff changes a hard-coded version string literal inside a function or constructor in go-sdk or edge worker code.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:91",
+      "rule": "A provider's `tags` in `provider.yaml` must match the tags declared in its `get_provider_info.py`.",
+      "category": "providers",
+      "trigger": "diff changes `tags:` in `provider.yaml` or the tags list in `get_provider_info.py` so the two disagree.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:94",
+      "rule": "When tightening a provider dependency with a `<X.Y` upper bound, record — in a comment or a linked issue — the condition under which the cap can be lifted.",
+      "category": "providers",
+      "trigger": "diff adds an upper-bound pin to a provider dependency without an accompanying note explaining when it may be relaxed.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:97",
+      "rule": "Public provider API must stay backward compatible: renaming an executor attribute or method requires a deprecated property/forwarding wrapper under the old name, and removing an operator parameter requires deprecating it and mapping its values onto the replacement rather than dropping it.",
+      "category": "providers",
+      "trigger": "diff renames a public attribute or method on a `BaseExecutor` subclass with no shim, or removes a parameter (e.g. `wait_policy`) from an operator and hard-codes one of its former values.",
+      "kind": "convention",
+      "n_candidates": 3
+    },
+    {
+      "cluster_id": "t1/B:98",
+      "rule": "When an operator's behaviour depends on a boolean that the trigger consumes (e.g. `cancel_on_kill`), the operator must expose it as a parameter and pass it through instead of hard-coding a value at trigger construction.",
+      "category": "providers",
+      "trigger": "diff instantiates a trigger with a boolean argument that is not exposed as a parameter on the enclosing operator.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:99",
+      "rule": "When refactoring an operator's execution paths, a documented parameter (e.g. `awslogs_enabled`) must keep its documented effect in both the deferrable and non-deferrable paths.",
+      "category": "providers",
+      "trigger": "diff refactors deferrable execution and leaves a previously-honoured parameter with no effect in `execute_complete`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:100",
+      "rule": "Operator links whose data only exists after the job completes (e.g. a CloudWatch log stream ARN) must be persisted after the wait, not before it, in the non-deferrable path.",
+      "category": "providers",
+      "trigger": "diff calls `_persist_links()` or equivalent before `hook.wait_for_job()` where the link data is only available post-completion.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:106",
+      "rule": "When a provider imports a symbol from airflow-core that does not exist in its minimum supported core version, gate the import behind a runtime version check instead of importing unconditionally.",
+      "category": "providers",
+      "trigger": "diff adds an unconditional import of a new airflow-core symbol in a provider whose `min_ver` predates it.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:107",
+      "rule": "In `BaseExecutor._process_workloads` and its overrides, name the sequence parameter `workload_items`, not `workloads`.",
+      "category": "providers",
+      "trigger": "diff adds or edits an executor method with a parameter named `workloads` in a module that also does `from airflow.executors import workloads`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:108",
+      "rule": "AWS executors must not log each individual task failure inline; aggregate failures and log them once at the summary point.",
+      "category": "providers",
+      "trigger": "diff adds a `self.log.info(...)`/`self.log.error(...)` inside a per-task failure branch of an AWS executor sync loop.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:109",
+      "rule": "AWS hooks that build a boto3 client must subclass the Boto-specific base (`AwsBaseHook`), not the generic `BaseHook`.",
+      "category": "providers",
+      "trigger": "diff adds an AWS hook importing `BaseHook` from `airflow.providers.common.compat.sdk` while creating a boto3 client itself.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:110",
+      "rule": "Do not raise `AirflowException` for failures that are not Airflow's own; raise the most appropriate built-in Python exception instead.",
+      "category": "providers",
+      "trigger": "diff raises `AirflowException` for an external-service error or bad user input.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:111",
+      "rule": "In deferrable operators, call `self.persist()` (or any link/XCom persistence) before `self.defer()`.",
+      "category": "providers",
+      "trigger": "diff places a persist or XCom push after a `self.defer(...)` call in the same code path.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:112",
+      "rule": "In `execute_complete`, read all required state from the trigger event dict; never fall back to an attribute set during `execute`.",
+      "category": "providers",
+      "trigger": "diff uses `self.job_id` or another `execute`-time attribute inside `execute_complete` as a fallback when the event lacks the value.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:114",
+      "rule": "An async trigger's `run()` must define and handle distinct SUCCESS and FAILURE terminal states; do not collapse every non-transitional status into a single success event.",
+      "category": "async",
+      "trigger": "diff adds an `async def run()` that yields a `TriggerEvent` without separate success/failure handling, or compares status against a single string rather than the provider's Enum.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:117",
+      "rule": "Use the provider's existing Hook class (e.g. `KafkaProducerHook`) rather than constructing the underlying client directly inside operator, trigger or listener code.",
+      "category": "providers",
+      "trigger": "diff constructs a provider client (e.g. `confluent_kafka.Producer(...)`) directly where a Hook already wraps it.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:119",
+      "rule": "A new third-party import in provider source must be declared as a dependency in that provider's `pyproject.toml` in the same PR.",
+      "category": "providers",
+      "trigger": "diff adds `import <package>` under `providers/<name>/src/` where `<package>` is not listed in `providers/<name>/pyproject.toml`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:125",
+      "rule": "Inside async trigger methods (including helpers such as `safe_to_cancel()`), wrap synchronous DB and hook calls in `sync_to_async()`.",
+      "category": "async",
+      "trigger": "diff adds a synchronous call (e.g. `self.get_task_instance()`, `hook.stop_query()`) inside an `async def` of a `BaseTrigger` subclass without `await sync_to_async(...)`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:133",
+      "rule": "`ImportError` compatibility shims for Task SDK symbols must carry a comment naming the minimum `>=X.Y.Z` release that exports the symbol.",
+      "category": "providers",
+      "trigger": "A `try: from airflow.sdk... except ImportError: Symbol = None` block is added with no minimum-version comment.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:145",
+      "rule": "Spark provider REST calls must derive scheme and port from the Airflow connection extras rather than hardcoding `http://` and a fixed port.",
+      "category": "providers",
+      "trigger": "diff adds a `requests.get(f\"http://{host}:<hardcoded_port>/...\")` call in a Spark provider operator or hook.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:146",
+      "rule": "Transient HTTP calls inside provider status-polling loops must be wrapped in a retry/backoff strategy (e.g. `tenacity`).",
+      "category": "providers",
+      "trigger": "A `requests.get(...)` or similar appears inside a polling loop (`get_job_status`, `poll_until_complete`, ...) with no retry wrapper.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:155",
+      "rule": "Provider example DAGs must set `schedule=None` explicitly.",
+      "category": "providers",
+      "trigger": "A new `example_dags/*.py` omits `schedule` on its `@dag` or `DAG()` definition.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:157",
+      "rule": "Do not set `trigger_rule=\"all_success\"` explicitly on a `@task` or Operator.",
+      "category": "providers",
+      "trigger": "A task or Operator definition passes `trigger_rule=\"all_success\"`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:158",
+      "rule": "Provider hooks mapping Airflow connection extras onto a third-party library's kwargs must filter on truthiness (`if extra.get(k)`), not on `is not None`, so empty-string values entered in the UI fall through to environment-based auth.",
+      "category": "providers",
+      "trigger": "A hook builds kwargs as `{k: extra[k] for k in keys if extra.get(k) is not None}`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:159",
+      "rule": "Connection-extra field names in a provider hook must match the exact parameter names the target library accepts; where they differ, document the mapping and convert or load the value before passing it.",
+      "category": "providers",
+      "trigger": "A hook passes a connection extra key straight into a third-party constructor whose parameter is named differently or expects a loaded object (e.g. `project_id` vs `project`, a service-account file vs a credentials object).",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:1",
+      "rule": "Provider code must import Task SDK symbols through `airflow.providers.common.compat.sdk`, never directly from `airflow.sdk.*`.",
+      "category": "providers",
+      "trigger": "A direct `from airflow.sdk.<module> import <Symbol>` inside any file under `providers/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:2",
+      "rule": "Import an optional provider feature dependency lazily inside the function that needs it, rather than at module level, when other code paths in the same module work without that dependency.",
+      "category": "providers",
+      "trigger": "A module-level `try: import <optional_dep> / except ImportError: raise AirflowOptionalProviderFeatureException` in a module where only one of several independent operator or toolset paths needs the dependency",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:3",
+      "rule": "In the common.ai LangChain bridge `_sync_call`/`_async_call`, catch `pydantic_core.ValidationError` alongside `ModelRetry` and route it through `_handle_retry`.",
+      "category": "providers",
+      "trigger": "An `except ModelRetry` clause in `langchain_bridge.py` that does not also catch `ValidationError`",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:4",
+      "rule": "A sqlglot-based denylist of data-modifying SQL statements must include `exp.Command`, sqlglot's fallback node for unrecognised syntax, so unparsed statements fail closed.",
+      "category": "security",
+      "trigger": "A tuple/set of `exp.*` node types used to reject mutating SQL that omits `exp.Command`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:7",
+      "rule": "Log messages in `airflow.providers.common.compat.connection` must interpolate the actual hook class name instead of hardcoding `BaseHook`.",
+      "category": "providers",
+      "trigger": "A `log.debug`/`log.info` call in `get_async_connection` containing the literal `BaseHook` after the hook became a parameter",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:12",
+      "rule": "Use `timezone.utcnow()` for timestamps in provider code rather than `datetime.now()`/`datetime.utcnow()`, and never initialise a mutable timestamp as a class-level attribute.",
+      "category": "providers",
+      "trigger": "A class attribute assigned `datetime.now()` or `datetime.utcnow()` outside `__init__` in a provider module",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:13",
+      "rule": "When a provider reads an attribute introduced in a newer Airflow minor than its minimum supported core, access it with `getattr(obj, 'attr', default)` instead of direct attribute access.",
+      "category": "providers",
+      "trigger": "Direct attribute access on a core object for an attribute added after the provider's minimum supported Airflow version",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:14",
+      "rule": "Name provider migration files after the next unreleased Airflow/provider version; rename the file before merge if a new minor has been cut since the branch was opened.",
+      "category": "providers",
+      "trigger": "A migration path under `providers/*/migrations/versions/` whose embedded version string is at or below the latest released version",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:15",
+      "rule": "A provider compatibility shim that works around an older Airflow core API must carry a `# TODO: Remove once minimum supported Airflow version is X.Y` comment naming the exact version.",
+      "category": "providers",
+      "trigger": "A version-compat override or workaround block in a provider with no `TODO: Remove` comment naming the version that retires it",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:16",
+      "rule": "Edge provider `worker_api/routes/ui.py` routes must declare the standard security dependencies: `Depends(requires_access_view(...))` for authentication, and `GetUserDep` alongside `SessionDep` on any state-mutating (POST/PATCH/DELETE) handler.",
+      "category": "security",
+      "trigger": "A new `@ui_router.*` route without `requires_access_view` in `dependencies=`, or a mutating route taking `SessionDep` but no `GetUserDep`",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/C:21",
+      "rule": "Edge provider frontend code must issue HTTP calls through React Query (`useQuery`/`useMutation`) layered over Axios, not by calling Axios directly from components.",
+      "category": "providers",
+      "trigger": "A direct `axios.get/post/...` call inside a `.tsx` component in the Edge plugin UI",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:22",
+      "rule": "Regenerate a provider's OpenAPI client whenever its source spec YAML changes, so spec and `openapi-gen/` output stay in sync under the `ts-compile-lint-ui` hook.",
+      "category": "providers",
+      "trigger": "A change to `openapi/*.yaml` in a provider UI package with no matching regeneration of the generated client, or the reverse",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:23",
+      "rule": "Provider `package.json` files must not list `npm` itself or single-letter packages such as `i` among their dependencies.",
+      "category": "providers",
+      "trigger": "`\"npm\"` or `\"i\"` appearing as a key in `dependencies` or `devDependencies` of a provider `package.json`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:24",
+      "rule": "A provider's prek/pre-commit hooks and their supporting scripts must live inside that provider's own directory, not in the repository root.",
+      "category": "providers",
+      "trigger": "A hook entry in a provider `hatch_build.py` (or provider hook config) pointing at scripts outside `providers/<name>/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:25",
+      "rule": "Provider log handlers must track airflow-core field renames on structured log records (e.g. `.message` becoming `.event`) and version-gate the access when both cores are supported.",
+      "category": "providers",
+      "trigger": "Access to `.message` on a structured log record inside a provider log handler",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:26",
+      "rule": "A provider log handler that receives the task-log location from task startup metadata must not re-query `TaskInstance` from the metadata database to work out where to write.",
+      "category": "providers",
+      "trigger": "A `TaskInstance.get_task_instance(...)` (or equivalent DB lookup) inside a provider log handler's write/emit path",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:28",
+      "rule": "When re-raising a missing optional provider dependency as an `ImportError`, suppress the chained original with `raise ImportError(...) from None`.",
+      "category": "providers",
+      "trigger": "`except ImportError: raise ImportError(...)` for an optional dependency without `from None`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:30",
+      "rule": "In `GitDagBundle._initialize()`, assign and properly close `self.repo` before any early return on the cached-version path when `prune_dotgit_folder=False`.",
+      "category": "providers",
+      "trigger": "A new early `return` in `_initialize()` after `_local_repo_has_version()` that leaves `self.repo` unset",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:31",
+      "rule": "Treat `GitDagBundle.version` as a commit-ish (tag, branch or short SHA) and resolve it with `repo.commit(self.version).hexsha` before comparing it against `repo.head.commit.hexsha`.",
+      "category": "providers",
+      "trigger": "A string equality comparison between `self.version` and `repo.head.commit.hexsha` in a git bundle method",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:32",
+      "rule": "Do not import underscore-prefixed internals of a third-party package (e.g. `google.genai._api_client`, `structlog._output.WRITE_LOCKS`); where such an import is unavoidable, wrap it in `try/except ImportError` with a `None` fallback, guard every use of it, and add tests that catch upstream removal.",
+      "category": "providers",
+      "trigger": "An import of a symbol whose module path contains a leading-underscore component from a third-party package under `providers/` or `task-sdk/src/`",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/C:33",
+      "rule": "Declare every package a provider imports directly as a direct dependency in that provider's `pyproject.toml`; do not rely on it arriving transitively.",
+      "category": "providers",
+      "trigger": "An import of a top-level package that is absent from `dependencies` or the relevant extra in the provider's `pyproject.toml`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:35",
+      "rule": "Raise native Python exceptions (`ValueError`, `TypeError`, `RuntimeError`) for argument validation and unexpected internal states in provider code and triggers, rather than `AirflowException`.",
+      "category": "providers",
+      "trigger": "A new `raise AirflowException(...)` for parameter validation inside a provider hook, or for an internal error condition inside a `BaseTrigger.run()` coroutine",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/C:36",
+      "rule": "When a trigger yields a `TriggerEvent` with `status: error` from a broad `except Exception`, prefix the message with the operation being performed rather than emitting the bare exception string.",
+      "category": "providers",
+      "trigger": "`yield TriggerEvent({\"status\": \"error\", \"message\": str(err)})` inside a bare `except Exception` block",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:41",
+      "rule": "Raise a dependency version floor — on a cross-provider `apache-airflow-providers-*` requirement or on an optional extra — only for a genuinely breaking change; an additive parameter with a `None` default or a new optional feature does not justify one.",
+      "category": "providers",
+      "trigger": "A new or raised `>=x.y.z` constraint in a provider `pyproject.toml` accompanying a purely additive change",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/C:42",
+      "rule": "Reuse Airflow's established name for a concept instead of inventing a synonym: `run_after` for the DAG run scheduling timestamp, `wait_for_completion` for the wait-for-finish flag, and an `a`-prefixed method name (`aget_connection`) for the async variant of an existing method.",
+      "category": "naming",
+      "trigger": "A new or renamed parameter/method using `logical_date` or `date` for scheduling time, `wait_for_termination` for a completion flag, or an `async_`-prefixed name where a sync counterpart exists",
+      "kind": "convention",
+      "n_candidates": 3
+    },
+    {
+      "cluster_id": "t1/C:50",
+      "rule": "Namespace a new provider by vendor, not by service: `package-name` in `provider.yaml` must be `apache-airflow-providers-<vendor>`, and a hook's `conn_type` must be vendor-qualified (e.g. `ibm_mq`) rather than a generic protocol category (`mq`).",
+      "category": "providers",
+      "trigger": "A `provider.yaml` declaring `apache-airflow-providers-<vendor>-<service>`, or a hook declaring a generic `conn_type` such as `mq`, `queue` or `stream`",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/C:55",
+      "rule": "A provider's docs requirements table must list exactly the packages declared in that provider's `pyproject.toml` dependencies — no extras, no omissions.",
+      "category": "providers",
+      "trigger": "A row in the Requirements table of `providers/*/docs/index.rst` naming a package absent from the provider's `pyproject.toml`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:56",
+      "rule": "Every provider hook that declares a custom `conn_type` must have a matching `hooks:` block and `connection-types:` entry in the provider's `provider.yaml`.",
+      "category": "providers",
+      "trigger": "A hook class with `conn_type = \"<custom>\"` and no corresponding `connection-types:` entry in `provider.yaml`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:57",
+      "rule": "Providers must not re-implement operators that already exist in airflow-core or the standard provider (e.g. `EmptyOperator`); point users at the core operator instead.",
+      "category": "providers",
+      "trigger": "A new provider operator whose behaviour duplicates a core/standard operator, such as a no-op or passthrough task",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:58",
+      "rule": "Provider code (hooks, listeners, plugins) must not call `settings.configure_orm()`; ORM setup belongs to the scheduler/executor process that hosts the provider code.",
+      "category": "providers",
+      "trigger": "A `settings.configure_orm()` call anywhere under `providers/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:60",
+      "rule": "Every `__init__.py` in an `airflow/providers/` namespace directory must contain the legacy pkgutil namespace line `__path__ = __import__(\"pkgutil\").extend_path(__path__, __name__)`; empty or implicit-namespace `__init__.py` files are not acceptable.",
+      "category": "providers",
+      "trigger": "A new `__init__.py` under `providers/` (or `airflow/providers/`) that is empty or omits the `extend_path` line",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:62",
+      "rule": "When a provider hook is fully async, the operator on top of it must wait exclusively through defer/trigger; do not add a synchronous polling path gated by `deferrable=False`.",
+      "category": "async",
+      "trigger": "A non-deferrable `while True` / `time.sleep` polling loop added to an operator whose hook is async",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:66",
+      "rule": "A trigger's timeout branch must always yield a `TriggerEvent` carrying the timeout status and a descriptive reason: do not `break`/`return` out of the polling loop, and wrap any cancellation side-effect in its own try/except so a failed cancel cannot replace the timeout event.",
+      "category": "async",
+      "trigger": "A polling loop in `providers/*/triggers/*.py` that reaches its timeout condition and breaks without yielding, or performs a cancel call in the timeout branch outside a dedicated try/except",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/C:69",
+      "rule": "Build trigger deadline values in tests with the same clock the trigger implementation uses; never mix `time.time()` in the test with `time.monotonic()` in the trigger.",
+      "category": "async",
+      "trigger": "A test constructing a deadline such as `END_TIME = time.time() + ...` for a trigger whose implementation reads `time.monotonic()`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:73",
+      "rule": "Redis provider triggers and queue providers must take host and port exclusively from `redis_conn_id`; do not parse `host:port` out of the queue URI.",
+      "category": "providers",
+      "trigger": "A Redis queue provider or `AwaitMessageTrigger` that parses host/port from the queue URI string",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:74",
+      "rule": "When refactoring the OpenLineage extractor manager's no-extractor branch, keep the `unknownSourceAttribute` facet and the inlets/outlets fallback intact under the default `hook_lineage=True` configuration.",
+      "category": "providers",
+      "trigger": "A change to the else/elif branching around `extract_metadata`'s no-extractor path in `openlineage/extractors/manager.py`",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:76",
+      "rule": "When a provider moves an import from an airflow-core module to `airflow.providers.common.compat.sdk`, bump the provider's minimum required airflow-core version indicator used by the release manager in the same change.",
+      "category": "providers",
+      "trigger": "A diff replacing `from airflow.listeners import ...` (or another core import) with the `common.compat.sdk` equivalent without touching the minimum core version",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:77",
+      "rule": "Do not call `logging.shutdown()` from a provider listener without proving the call cannot affect global Airflow logging.",
+      "category": "providers",
+      "trigger": "A `logging.shutdown()` added inside a provider's listener plugin",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:78",
+      "rule": "The install hint in an `AirflowOptionalProviderFeatureException` must read `pip install --upgrade <package>`, not a bare `pip install <package>`.",
+      "category": "providers",
+      "trigger": "An `AirflowOptionalProviderFeatureException` message containing an install hint without `--upgrade`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:79",
+      "rule": "In the Postgres hook, do not skip psycopg3 notice logging with an early return when `enable_log_db_messages=True`; implement the psycopg3 notice handling instead.",
+      "category": "providers",
+      "trigger": "`if USE_PSYCOPG3 or not self.enable_log_db_messages: return` before the notice-logging loop in `postgres.py`",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:82",
+      "rule": "Type-stub packages (`types-*`) belong in a provider's dev/type-check dependency group, never in its runtime `[project] dependencies`.",
+      "category": "providers",
+      "trigger": "A `types-*` package added to the runtime `dependencies` list of a provider `pyproject.toml`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:83",
+      "rule": "Initialise expensive provider clients and connections in a `@cached_property`, not eagerly in `Hook.__init__`.",
+      "category": "providers",
+      "trigger": "A provider client, session or sub-hook constructed directly in `Hook.__init__`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:84",
+      "rule": "Provider logo and image assets must live under the `providers/` tree, not in a parallel top-level `registry/` folder.",
+      "category": "providers",
+      "trigger": "Image or logo files added under `registry/` rather than `providers/<name>/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:88",
+      "rule": "A behaviour change to a public provider hook method — different return shape, different filtering — must be recorded in that provider's `docs/changelog.rst` under the next release.",
+      "category": "providers",
+      "trigger": "A diff altering the return value or filtering logic of an existing public hook method with no changelog entry",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:89",
+      "rule": "A process-wide singleton pool must not implement `__aenter__`/`__aexit__`; expose an explicit lifecycle hook instead of pretending to have a scoped lifetime.",
+      "category": "async",
+      "trigger": "`__aenter__`/`__aexit__` added to a class that registers itself in a module-level `_instances` dict",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:90",
+      "rule": "Put `AIRFLOW_V_x_y_PLUS` version gating for notifier behaviour in `BaseNotifier` rather than repeating the guard in each concrete notifier.",
+      "category": "providers",
+      "trigger": "An `if AIRFLOW_V_x_y_PLUS:` guard added inside a concrete `Notifier.__init__` or `notify()`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:91",
+      "rule": "Log the error response body before calling `response.raise_for_status()` against a provider API.",
+      "category": "providers",
+      "trigger": "A `response.raise_for_status()` with no preceding log of the response body on 4xx/5xx",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:92",
+      "rule": "Expose the timeout for a long-running provider API call as a constructor parameter on the operator/hook rather than fixing it in a module-level constant.",
+      "category": "providers",
+      "trigger": "A module-level `*_TIMEOUT` constant gating an HTTP request to an ML/agent/query workload with no matching constructor parameter",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:116",
+      "rule": "`supervise_callback` must call `_make_process_nondumpable()` before spawning its subprocess, exactly as `supervise_task` does.",
+      "category": "security",
+      "trigger": "A `supervise_callback` in `callback_supervisor.py` that spawns a subprocess without `_make_process_nondumpable()`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:128",
+      "rule": "A secrets backend cannot enforce a denial by raising alone: the backend-iteration loops (`_get_connection`, `_async_get_connection`, `_get_variable` in `execution_time/context.py` and the same pattern in `models/connection.py`) swallow every exception with `except Exception: continue`, so a new deny signal must be special-cased and re-raised there in the same change.",
+      "category": "security",
+      "trigger": "A secrets backend made to raise `PermissionError` or another auth-denied exception without changing the backend-fallthrough loops to re-raise it",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:130",
+      "rule": "Never print or log a `Connection`, a `ConnectionResult`, or `Connection.get_uri()` output in Task SDK execution paths, including temporary debug prints.",
+      "category": "security",
+      "trigger": "A `print(...)` or logging call interpolating a `Connection`, `conn_result` or `get_uri()` under `task-sdk/src/airflow/sdk/execution_time/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:9",
+      "rule": "Documentation of provider attic status must spell out the CI and maintenance consequences: not actively tested in `main`, dependencies not checked for conflicts with other providers, common refactorings not applied, and significant effort required to restore the provider",
+      "category": "providers",
+      "trigger": "A PR describes provider lifecycle or attic status listing only that modules stay readable and unmaintained, without the CI, dependency-conflict and refactoring consequences",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:10",
+      "rule": "Treat `providers/edge3/.../worker_api/` and `.../plugins/` as the server side and `.../cli/` as the client side: server-only imports such as FastAPI, and checks that assume server context, must not reach the `cli` subtree",
+      "category": "providers",
+      "trigger": "A path-scoped check, import rule, or FastAPI/server-side import applies to all of `providers/edge3/` rather than excluding `providers/edge3/src/airflow/providers/edge3/cli/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:11",
+      "rule": "Classify a change to the serialized structure of triggerer context data as a breaking provider change, alongside behaviour changes in `execute()`/`poke()`/`get_conn()` and xcom/connection/asset schema changes",
+      "category": "providers",
+      "trigger": "A provider PR alters the fields or shape of data a Trigger serializes into triggerer context, and the changelog or documentation classifies it as a feature or bugfix rather than breaking",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:16",
+      "rule": "Every provider extra added to the root `pyproject.toml` must pin a minimum provider version (`apache-airflow-providers-<name>>=X.Y.Z`), matching the surrounding extras",
+      "category": "providers",
+      "trigger": "A new entry is added to the extras tables in `pyproject.toml` as a bare `\"apache-airflow-providers-foo\"` with no version specifier while neighbouring extras carry `>=` bounds",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:19",
+      "rule": "Security-model guidance that narrows credential distribution must keep connection credentials available to the Dag processor and triggerer; only the JWT signing key is withheld from components that neither generate nor validate tokens (workers)",
+      "category": "security",
+      "trigger": "`security_model.rst` or deployment guidance adds advice that connection credentials should be available only to the API server, without carving out the Dag processor and triggerer",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:24",
+      "rule": "Partition mapper classes must be named `To<Granularity>Mapper` (`ToHourlyMapper`, `ToDailyMapper`, `ToWeeklyMapper`, `ToMonthlyMapper`, `ToQuarterlyMapper`), not the bare granularity name",
+      "category": "naming",
+      "trigger": "A new partition mapper class, or documentation of one, uses a bare granularity name such as `HourlyMapper` or `DailyMapper`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:26",
+      "rule": "Cross-team asset-event triggering must ship with the most restrictive default (a teamless API user may trigger only teamless consumers) and the restriction must be documented with the reasoning behind it",
+      "category": "security",
+      "trigger": "Multi-team documentation or code defines which producers may trigger which consumers across team boundaries, and either proposes a permissive default or states a rule with no explanation",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:33",
+      "rule": "`AsyncCallback` must wrap something that is actually awaitable; synchronous notifiers such as `SlackWebhookNotifier` expose no awaitables and must not appear inside `AsyncCallback` in deadline-alert examples or Dag code",
+      "category": "async",
+      "trigger": "`AsyncCallback(` is constructed with a notifier or callable that defines no async interface, in docs examples or in deadline configuration",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:35",
+      "rule": "The UI authentication JWT must be stored in a secure, HTTP-only `_token` cookie with `SameSite=Lax`, never in browser local storage or local settings",
+      "category": "security",
+      "trigger": "Auth-manager or UI code, or documentation of it, stores or describes storing the `access_token` anywhere other than the secure HTTP-only cookie",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:36",
+      "rule": "Execution API JWTs are minted by the scheduler via the executor's `jwt_generator` property while the workload is built; `executor.queue_workload()` must not generate tokens, it forwards whatever workload it is given",
+      "category": "security",
+      "trigger": "An executor implementation creates or refreshes a task JWT inside `queue_workload()` (or elsewhere in the executor) instead of consuming the token already present on the workload",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:45",
+      "rule": "Authorization checks must short-circuit the query path entirely; do not pass an empty list to XComModel.get_many (or equivalent) as a proxy for 'no results' when the user is unauthorized",
+      "category": "security",
+      "trigger": "result_task_ids = [] or equivalent empty-collection sentinel used to suppress results after a failed authorization check, instead of returning early before the query",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:53",
+      "rule": "When exposing SQL statement details via conf expose_stacktrace, retrieve sensitive fields (statement, orig) only after the guard check, not before; default them to None rather than a placeholder string",
+      "category": "security",
+      "trigger": "getattr(exc, 'statement', ...) or getattr(exc, 'orig', ...) assigned before the expose_stacktrace config check inside an exception handler",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:60",
+      "rule": "Regex-based query parameters in the execution API must use a _pattern suffix to match the public REST API naming convention",
+      "category": "naming",
+      "trigger": "Annotated[str | None, Query(description='... pattern ...')] parameter whose name does not end in _pattern",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:81",
+      "rule": "`VersionChange` subclass names must describe the schema migration performed (what field or model changes), not the behaviour of the old code being replaced",
+      "category": "naming",
+      "trigger": "A class that subclasses `VersionChange` is named after what the previous code did (e.g. `ValidateSomething`) rather than after the data-model delta (e.g. `ChangeFooToBar`)",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:92",
+      "rule": "Do not use the variable name `ts` in example DAG task functions, because `ts` is a reserved Airflow template variable (execution timestamp) and the abbreviation causes confusion",
+      "category": "naming",
+      "trigger": "An example DAG assigns `ts = context[\"task_state\"]` or uses `ts` as a local variable name inside a `@task` function",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:111",
+      "rule": "On scheduler bookkeeping models, a column the scheduler fills in after it acts must be named for that action (`created_dag_run_id`) rather than sharing the `target_*` prefix used for the requested inputs",
+      "category": "naming",
+      "trigger": "A new model such as `AssetPartitionDagRun` declares both an input column and an outcome column under the same prefix, e.g. `target_dag_id` alongside a nullable `target_dag_run_id`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:137",
+      "rule": "Use `AirflowProviderDeprecationWarning` (from `airflow.exceptions` or `airflow.sdk.exceptions`) instead of bare `DeprecationWarning` when deprecating provider-facing APIs, and record `deprecated_provider_since` on the warning",
+      "category": "providers",
+      "trigger": "Code adds `warnings.warn(..., DeprecationWarning, ...)` inside `providers_manager.py` or provider hook/operator discovery paths",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:138",
+      "rule": "Every `decode_*` deserializer that calls `import_string` on a serialized type field must first verify the path with an `is_core_*_import_path` guard and fall back to a registered-custom lookup; bare `import_string` on untrusted serialized data is forbidden",
+      "category": "security",
+      "trigger": "A new `decode_*` function calls `import_string(var[Encoding.TYPE])` without a preceding `is_core_*_import_path` check and a registry-based fallback",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:142",
+      "rule": "Every `encode_*` serializer for a user-extensible type must validate the class against a registration registry before accepting `qualname(var)`; mirroring the `encode_partition_mapper` pattern is required",
+      "category": "security",
+      "trigger": "A new `encode_*` function serializes a custom subclass using only `qualname(var)` without calling a `find_registered_custom_*` guard",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:150",
+      "rule": "When a shared-stream poll task dies, remove the group from SharedStreamManager._groups immediately (or mark it dead) so that late subscribers are not attached to a group whose _poll will never produce items",
+      "category": "async",
+      "trigger": "A _poll or equivalent coroutine fans out a failure sentinel to subscribers and returns without removing its group from the manager registry",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:155",
+      "rule": "i18n keys for input placeholders must carry a Placeholder suffix (e.g. runIdFilterPlaceholder) to match existing key conventions and enable key reuse across locales",
+      "category": "naming",
+      "trigger": "A locale JSON file adds filter or input-hint keys without a Placeholder suffix",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:28",
+      "rule": "Name the DAG-file AST checker module for what it checks (dag_stability), not the generic `static_checker`, until a third distinct check type justifies a framework",
+      "category": "naming",
+      "trigger": "A new AST-analysis module or class in airflow-core is named with a generic term like static_checker while it only performs DAG-stability checks",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:43",
+      "rule": "Assert exactly asyncio.CancelledError in triggerer cancellation tests; never a tuple that also accepts a broad Exception or TimeoutError",
+      "category": "async",
+      "trigger": "A cancellation test uses pytest.raises(Exception) or pytest.raises((asyncio.CancelledError, Exception)) around an asyncio.wait_for",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:70",
+      "rule": "Adding a provider base class to dev/registry/registry_tools/types.py requires the matching entry in the provider.yaml validator's base_class_resource_map and its resource-type tuple",
+      "category": "providers",
+      "trigger": "A new (resource_name, base_class_fqn) tuple is added to registry types.py with no corresponding validator entry",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:73",
+      "rule": "When Helm tests follow a chart migration from webserver to apiServer, rename the test methods and parametrize ids to the new component name",
+      "category": "naming",
+      "trigger": "A Helm test method name or parameter id still contains webserver_config after the chart migrated the config to the API server",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:74",
+      "rule": "In the Java/Kotlin SDK, the runtime-context parameter of a task's execute method must be named `context`, matching the Python SDK",
+      "category": "naming",
+      "trigger": "A Java or Kotlin Task.execute() signature declares the context parameter as `client`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:78",
+      "rule": "Import a provider's optional-extra dependency inside try/except ImportError and re-raise naming the extra to install (e.g. apache-airflow-providers-akeyless[cloud_id])",
+      "category": "providers",
+      "trigger": "A function imports a third-party package declared as an optional extra rather than a required provider dependency, with no surrounding try/except ImportError",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:81",
+      "rule": "Do not alias the airflow.executors.workloads import to dodge a name collision; rename the local parameter instead",
+      "category": "naming",
+      "trigger": "An executor method declares a parameter named workloads and its body imports airflow.executors.workloads under an alias",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:83",
+      "rule": "Name generator/paginating hook methods with an `iter_` prefix (iter_file_metadata), not `yield_`",
+      "category": "naming",
+      "trigger": "A new public hook method that yields items is named yield_* or lacks the iter_ prefix",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:84",
+      "rule": "Use `state`, not `status`, for lifecycle-value parameters and comparisons in a module whose surrounding code already speaks in terms of state",
+      "category": "naming",
+      "trigger": "A new helper takes a parameter named status while neighbouring constants and comparisons in the same module use state",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:88",
+      "rule": "Service state groupings (terminal, modifiable, stopped) belong on the hook and must be composed from the hook's existing state enum, not redeclared as literal frozensets on the operator or trigger",
+      "category": "providers",
+      "trigger": "A new operator or trigger declares module- or class-level groupings such as TERMINAL_STATES = frozenset({...}) with literal state strings while the hook already exposes a state enum",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:91",
+      "rule": "Wrap boto3 calls in except botocore.exceptions.ClientError / BotoCoreError, not except Exception, so programming errors propagate instead of falling through to the default path",
+      "category": "providers",
+      "trigger": "A try block around a boto client call is followed by except Exception with a log.warning and a fall-through to default behaviour",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:93",
+      "rule": "A method used as a deferral resume callback (method_name= on self.defer) must take `context` as its first positional parameter, with event and extra state as keyword arguments",
+      "category": "async",
+      "trigger": "A method passed as method_name= to self.defer() declares a domain parameter before context",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:95",
+      "rule": "Hooks must normalise vendor API responses into the snake_case keys their operators consume; an operator must not index a key the hook never produces",
+      "category": "providers",
+      "trigger": "An operator reads response['some_snake_case_id'] from a hook call whose implementation returns the raw boto response (e.g. {'notebookRunId': ...})",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:96",
+      "rule": "Do not introduce constructor-parameter coupling between separately distributed providers; a parameter whose type or default comes from another provider package makes one provider require a specific version of the other at runtime",
+      "category": "providers",
+      "trigger": "A trigger or operator __init__ in one provider package gains a parameter whose type or default is imported from a different provider package",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:98",
+      "rule": "Prefer a custom AWS waiter over a hand-rolled polling loop in amazon-provider triggers; consult the waiters README before writing a new trigger",
+      "category": "async",
+      "trigger": "A new BaseTrigger subclass in the amazon provider implements its own asyncio.sleep plus status-check loop instead of delegating to a custom waiter",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:101",
+      "rule": "Before removing SDK-specific parameters or env vars from a provider's system test, verify and update the minimum SDK version in that provider's pyproject.toml",
+      "category": "providers",
+      "trigger": "A system-test file drops SDK-specific env vars or parameters with no corresponding version bump or note in pyproject.toml",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:105",
+      "rule": "Advance an async generator in trigger tests with `await anext(generator)`, not by calling generator.__anext__() directly",
+      "category": "async",
+      "trigger": "A trigger test calls await generator.__anext__()",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:113",
+      "rule": "New long-running polling patterns in provider hooks must be evaluated for a deferrable/trigger implementation so the triggerer owns the wait and the executor slot is freed",
+      "category": "async",
+      "trigger": "A new while-loop polling pattern is added to a Hook that waits on a long-running remote job with no Trigger/deferrable path",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:120",
+      "rule": "Providers supporting Airflow below 3.2 must not call ExecutorConf methods added in 3.2 (has_option, getsection, ...) without an AIRFLOW_V_3_2_PLUS guard or the pre-existing conf fallback",
+      "category": "providers",
+      "trigger": "Provider code calls config.has_option(), config.getsection() or a similar ExecutorConf method with no AIRFLOW_V_3_2_PLUS version guard",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:121",
+      "rule": "Put cross-version Airflow compatibility shims in providers/common/compat rather than scattering inline version checks through provider code",
+      "category": "providers",
+      "trigger": "Provider code repeats inline `if AIRFLOW_V_3_2_PLUS` blocks instead of calling a single helper in providers/common/compat",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:124",
+      "rule": "In provider code, import Context from airflow.sdk with a TYPE_CHECKING fallback to airflow.utils.context rather than suppressing the single-source import with `# type: ignore`",
+      "category": "providers",
+      "trigger": "A provider file imports Context from airflow.utils.context under TYPE_CHECKING with a # type: ignore comment instead of a try/except fallback preferring airflow.sdk",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:125",
+      "rule": "Code under providers/cncf/kubernetes/ must raise a provider-specific exception class, not the generic AirflowException",
+      "category": "providers",
+      "trigger": "A raise AirflowException(...) appears in providers/cncf/kubernetes/",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:3",
+      "rule": "FastAPI apps and routers exposed by a provider plugin must attach `Depends(requires_access_*)` auth dependencies at route or router level; do not rely on the parent app's middleware for authentication",
+      "category": "security",
+      "trigger": "A FastAPI app or router defined under `providers/**/plugins/*.py` whose route handlers declare no auth dependency",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:11",
+      "rule": "Every hook subclass that introduces its own `conn_type` must declare a matching `default_conn_name` rather than inheriting the parent hook's generic one",
+      "category": "providers",
+      "trigger": "A hook subclass defines `conn_type` but no `default_conn_name`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:12",
+      "rule": "A deferrable operator's `get_job_status` must translate a not-found/expired remote job into a non-active, non-succeeded status so the resumable mixin resubmits, instead of letting the API error propagate as a task failure",
+      "category": "async",
+      "trigger": "A `get_job_status` implementation calls the remote API without handling the 404/expired-run error path",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:15",
+      "rule": "Express Airflow version gating through the shared compat layer - the `AIRFLOW_V_X_Y_PLUS` sentinels in `version_compat` and helpers in `providers/common` - rather than inline `packaging.version.parse` comparisons or per-provider copies of the same check",
+      "category": "providers",
+      "trigger": "`packaging.version.parse(airflow_version)` compared to a literal version string inside a provider, or an individual provider hook wrapping a call with its own inline Airflow-version check that belongs in `providers/common`",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/C:22",
+      "rule": "Values in `provider.yaml` that a user is meant to copy - config `example:` values and `ui-field-behaviour` `placeholders` - must be literal, runtime-valid values (the codec name the code accepts, valid JSON for a Connection `extra`), never file-extension aliases or Python expressions",
+      "category": "providers",
+      "trigger": "A `provider.yaml` config entry's `example:` is not a value the runtime accepts (e.g. `\"gz\"` where the code wants `\"gzip\"`), or a `placeholders.extra` block contains a non-JSON token such as `cls.default_open_options`",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/C:26",
+      "rule": "A dependency used by only one optional code path must not appear in a provider's mandatory `dependencies`; put it in a named extras group and guard the import, especially when it is experimental or a protocol upgrade",
+      "category": "providers",
+      "trigger": "A new package is added to the `dependencies` list in a provider's `pyproject.toml` while being used in a single optional feature, or the added dependency is described as experimental/optional",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/C:34",
+      "rule": "Declare `testcontainers` once as a shared `devel-common` dependency instead of adding it to an individual provider's dev-dependency group",
+      "category": "providers",
+      "trigger": "`testcontainers` added to a `[project.optional-dependencies]` dev block in any provider's `pyproject.toml`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:35",
+      "rule": "Keep Airflow 2 code paths in providers alive behind version guards rather than deleting them: gate Airflow-3-only imports and behaviour on `AIRFLOW_V_3_0_PLUS` and fall back to the Airflow 2 equivalent (e.g. `BaseTrigger` instead of `BaseEventTrigger`, the legacy log-upload path)",
+      "category": "providers",
+      "trigger": "A provider unconditionally imports an Airflow-3-only symbol, or a diff deletes an Airflow-2 code path from a provider that still supports Airflow 2, with no `AIRFLOW_V_3_0_PLUS` guard",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/C:37",
+      "rule": "Name FastAPI request and response datamodels `*Body` and `*Response`, matching the Airflow Core API convention - not `*In`/`*Out`",
+      "category": "naming",
+      "trigger": "A Pydantic model class name ending in `In` or `Out` in an Airflow FastAPI datamodels file",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:43",
+      "rule": "A dependency pin or constraint added to a provider's `pyproject.toml` as a workaround must carry a comment naming the upstream issue and the condition under which it can be removed",
+      "category": "providers",
+      "trigger": "A pinned or transitive dependency added to `pyproject.toml` with only a terse inline comment and no upstream reference or removal condition",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:45",
+      "rule": "A substring check on a URL used for security decisions must assert the trusted value's position (typically that it is the hostname), not merely that it appears somewhere in the string",
+      "category": "security",
+      "trigger": "`if \"<trusted-domain>\" in url` or a similar unanchored substring test used to authenticate or route a request",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:48",
+      "rule": "Derive the `secure` cookie flag from the request scheme as well as the `api.ssl_cert` configuration, not from `ssl_cert` alone",
+      "category": "security",
+      "trigger": "`secure = bool(conf.get(\"api\", \"ssl_cert\", fallback=\"\"))` with no check of the request's scheme",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:50",
+      "rule": "Guard imports of another provider's package - optional bases such as `BaseMessageQueueProvider`, or an API only present in a recent release - with `try`/`except ImportError` that either raises `AirflowOptionalProviderFeatureException` or degrades the feature, never an unconditional top-level import",
+      "category": "providers",
+      "trigger": "A provider module imports from another provider package (e.g. `airflow.providers.common.messaging`, `airflow.providers.openlineage.api.*`) at module top level with no guard",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/C:60",
+      "rule": "Resolve team-scoped secrets through the same `_get_team_or_global_secret` helper for connections, variables and config; do not gate the team-aware lookup behind the `core.multi_team` config flag",
+      "category": "security",
+      "trigger": "A secrets backend getter branches on `conf.getboolean(\"core\", \"multi_team\")` to choose between team-aware and plain lookup",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:62",
+      "rule": "Async notifier and async execution paths must go through the provider's async hook instead of opening a raw client session such as `aiohttp.ClientSession()` inline",
+      "category": "async",
+      "trigger": "An `async def async_notify` or async execute path constructs `aiohttp.ClientSession()` directly rather than awaiting the provider's hook method",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:65",
+      "rule": "Import an optional third-party SDK once - at module level behind `try`/`except ImportError`, or in a single shared helper that raises `AirflowOptionalProviderFeatureException` - rather than repeating a bare `import` inside each hook or operator method",
+      "category": "providers",
+      "trigger": "The same optional library (e.g. `import ibmmq`, an optional redis extra) is imported inside several method bodies of a provider hook/operator with no shared helper and no optional-feature exception",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/C:66",
+      "rule": "Raise built-in exceptions such as `RuntimeError` for internal/programming errors in provider code rather than `AirflowException`",
+      "category": "providers",
+      "trigger": "A new `raise AirflowException(...)` inside a provider trigger, hook or operator helper for a state or invariant violation",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:67",
+      "rule": "Log transient, retried API errors inside a trigger's async polling loop at info/debug level or rate-limit them; do not emit a warning on every retry",
+      "category": "async",
+      "trigger": "`except <TransientError>` inside a trigger `run()` loop calls `self.log.warning(...)` immediately before `await asyncio.sleep(self.polling_period_seconds)`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:69",
+      "rule": "A trigger's `run()` must poll in a loop until its condition holds (bounded by a timeout where one applies), never a single await/check that can return nothing and fall back to stale data or exit silently",
+      "category": "async",
+      "trigger": "A trigger's async `run()` performs one list/get call and then does `if not <resource>:` to fall back to a previously captured value, or contains a single await that can return `None` with no enclosing `while True` loop",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/C:72",
+      "rule": "The OpenLineage JDBC authority extractor must strip `user:pass@` userinfo from the URL and handle Oracle thin URLs that use `@//` instead of `://`",
+      "category": "providers",
+      "trigger": "`_get_openlineage_authority` or an equivalent JDBC URL parser splits on `://` only and does not strip userinfo",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:75",
+      "rule": "Name the boolean that makes an operator poll until a job finishes `wait_for_completion`, following the AWS provider convention - not `wait_for_termination`",
+      "category": "naming",
+      "trigger": "An operator `__init__` declares a parameter named `wait_for_termination`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:76",
+      "rule": "An async (deferrable) hook must accept the same connection extras as its synchronous counterpart; where an extra genuinely cannot be supported, raise `AirflowException` explicitly instead of ignoring it",
+      "category": "providers",
+      "trigger": "An async hook's credential-setup branch omits handling for connection extras (e.g. `key_path`, `key_json`) that the sync hook supports",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:78",
+      "rule": "In deferrable Azure container operators, do not treat `provisioning_state` alone as a terminal signal for stopping deferral; check the container's execution state via `instance_view.current_state`",
+      "category": "async",
+      "trigger": "A deferrable operator tests `cg_state.provisioning_state` (e.g. `\"Succeeded\"`) as the condition to stop deferring without also checking `instance_view.current_state`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:79",
+      "rule": "Compare cross-provider versions with `packaging.Version` directly rather than re-wrapping `Version(...).base_version` in another `Version()`",
+      "category": "providers",
+      "trigger": "`Version(Version(...).base_version)` in a cross-provider version comparison",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:80",
+      "rule": "Pass a new connection keyword from a hook only when the user actually supplied it, so existing connections keep their previous client behaviour",
+      "category": "providers",
+      "trigger": "A hook's `get_conn()` or connection-building method unconditionally passes a newly added keyword argument that previously had no default",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:81",
+      "rule": "Client-identification metadata sent to a third-party service must use the full provider package name (e.g. `apache-airflow-providers-redis`) so the reported version matches the component being identified",
+      "category": "providers",
+      "trigger": "Provider code sets a client library name or `driver_info` string to `apache-airflow` while reporting `provider_version`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:84",
+      "rule": "When an optional dependency is missing but the surrounding method can still return partial results, emit a warning and continue rather than raising `AirflowOptionalProviderFeatureException`",
+      "category": "providers",
+      "trigger": "An `except ImportError` block in a provider method raises `AirflowOptionalProviderFeatureException` for a dependency the method could work around",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:91",
+      "rule": "Sockets created by task-SDK coordinator/supervisor code must bind to `127.0.0.1`, never to all interfaces",
+      "category": "security",
+      "trigger": "`socket.bind((\"\", port))` or `socket.bind((\"0.0.0.0\", port))` in a module under `task-sdk/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:122",
+      "rule": "Re-snapshot contextvars after entering an OTel `detail_span` so operator child spans nest under it instead of becoming siblings",
+      "category": "async",
+      "trigger": "`contextvars.copy_context()` called before a `@detail_span`/`start_as_current_span` wrapper in task_runner.py, with `ctx.run()` used inside the span",
+      "kind": "incident",
+      "n_candidates": 1
+    }
+  ]
+}

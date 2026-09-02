@@ -340,15 +340,29 @@ def _cluster_id(chunk: str, i: int) -> str:
 
 
 def load_chunk_clusters(paths: list[str]) -> dict[str, dict]:
-    """cluster id -> cluster, across the per-chunk critic outputs."""
+    """cluster id -> cluster, across the per-chunk critic outputs.
+
+    The id carries the tranche directory as well as the chunk letter (``t1/A:0``, not
+    ``A:0``). A cross-tranche merge reads ``t1/clusters_A.json`` and
+    ``t2/clusters_A.json`` together, and keying by letter alone silently overwrote one
+    tranche with the other — 874 clusters collapsing to 457 with no error raised.
+    """
     out: dict[str, dict] = {}
+    collisions: list[str] = []
     for path in paths:
         blob = read_json(path)
         clusters = blob["clusters"] if isinstance(blob, dict) else blob
-        # chunk letter from clusters_A.json -> "A"
-        chunk = Path(path).stem.replace("clusters_", "")
+        p = Path(path)
+        # "t1" + "A" from t1/clusters_A.json -> "t1/A"
+        chunk = f"{p.parent.name}/{p.stem.replace('clusters_', '')}"
         for i, cl in enumerate(clusters):
-            out[_cluster_id(chunk, i)] = cl
+            cid = _cluster_id(chunk, i)
+            if cid in out:
+                collisions.append(cid)
+                continue
+            out[cid] = cl
+    if collisions:
+        raise SystemExit(f"cluster id collision ({len(collisions)}): {collisions[:5]}")
     return out
 
 
@@ -371,6 +385,14 @@ def cmd_merge_prep(args: argparse.Namespace) -> int:
         }
         for cid, cl in clusters.items()
     ]
+    if args.categories:
+        # A cross-tranche merge spans ~830 clusters, more than one agent can hold in
+        # mind at once. Merges essentially never cross a category boundary, so the merge
+        # partitions cleanly by category — each agent sees a coherent slice and the
+        # union of slices still covers every cluster. merge-expand accepts several
+        # merged files and derives singletons for anything nobody claimed.
+        wanted = set(args.categories)
+        rows = [r for r in rows if r["category"] in wanted]
     write_json(args.out, {"n_clusters": len(rows), "clusters": rows})
     kinds = Counter(r["kind"] for r in rows)
     print(f"{args.out}: {len(rows)} clusters from {len(args.clusters)} chunks "
@@ -750,6 +772,8 @@ def main(argv: list[str] | None = None) -> int:
     mp = sub.add_parser("merge-prep", help="compact cluster summaries for critic-MERGE")
     mp.add_argument("--clusters", nargs="+", required=True)
     mp.add_argument("--out", required=True)
+    mp.add_argument("--categories", nargs="*", default=None,
+                    help="restrict to these categories (partitions a large merge)")
     mp.set_defaults(func=cmd_merge_prep)
 
     me = sub.add_parser("merge-expand",

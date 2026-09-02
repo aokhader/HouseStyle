@@ -1,0 +1,1669 @@
+{
+  "n_clusters": 208,
+  "clusters": [
+    {
+      "cluster_id": "t1/A:0",
+      "rule": "Do not perform per-row database work inside a loop over DAGs, task instances or task-map entries: hoist the query outside the loop, batch it, or pass the already-fetched data in; if the data comes from a SQLAlchemy relationship, eager-load it instead of touching the attribute lazily inside the loop.",
+      "category": "performance",
+      "trigger": "A session.scalars()/session.execute()/session.scalar() call, or a dotted lazy relationship access (e.g. record.dataset.uri), appears inside a for-loop over dags_needing_dagruns, dataset_triggered_dag_info, or mapped task instances.",
+      "kind": "convention",
+      "n_candidates": 3
+    },
+    {
+      "cluster_id": "t1/A:1",
+      "rule": "In hot-path queries, select only the columns actually used rather than the whole ORM entity: grid and UI endpoints must enumerate their columns instead of select(TaskInstance)/select(DagRun), and with_row_locks selects must fetch only the primary key when only the id is used.",
+      "category": "performance",
+      "trigger": "A query on a grid/UI endpoint uses select(SomeModel) instead of listing columns, or a with_row_locks(select(AssetModel).where(...)) retrieves the full model when only .id is consumed.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/A:5",
+      "rule": "In SQLAlchemy 2.0 declarative models the Mapped[...] annotation is authoritative for nullability: it must agree with the column's nullable setting, and a redundant nullable=True kwarg must not be passed alongside Mapped[X | None].",
+      "category": "database",
+      "trigger": "A mapped_column(...) carries nullable=True while its annotation is Mapped[X | None], or a Mapped[X | None] annotation sits on a column declared nullable=False (or vice versa).",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/A:14",
+      "rule": "A database migration shipped in a patch release may only repair a bug in an existing migration; it must not change payload semantics such that users who already ran the original upgrade end up in a different state from a fresh install.",
+      "category": "database",
+      "trigger": "A patch-release PR modifies a file under migrations/versions/ and changes upgrade()/downgrade() logic beyond a no-op correction.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:28",
+      "rule": "Auth-manager documentation must reference get_url_refresh() for the token-refresh endpoint rather than hardcoding a literal path such as POST /auth/token/refresh.",
+      "category": "api-design",
+      "trigger": "Documentation hardcodes an auth token refresh URL path instead of pointing at the get_url_refresh method.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:37",
+      "rule": "is_authorized_* methods on BaseAuthManager and its subclasses must take the generic auth-user type-var (user: T) and express multiple user ids as set[str]; they must not accept concrete Airflow model types such as HITLUser.",
+      "category": "api-design",
+      "trigger": "An is_authorized_* method is added or modified on an auth manager taking a concrete Airflow model type instead of user: T or primitives.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:38",
+      "rule": "Extend an existing is_authorized_* method with an optional parameter rather than adding a parallel is_authorized_<action>_for_<entity> method to the BaseAuthManager interface.",
+      "category": "api-design",
+      "trigger": "A new method matching is_authorized_.*_for_ is added to BaseAuthManager.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:40",
+      "rule": "Resolve the authenticated user through resolve_user_from_token (core_api/security.py) rather than calling get_auth_manager().get_user_from_token directly from middleware or route code.",
+      "category": "api-design",
+      "trigger": "A direct get_auth_manager().get_user_from_token( call appears outside resolve_user_from_token.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:43",
+      "rule": "Keyset cursor pagination over a nullable sort column must use null-aware comparisons (an IS NULL tie-break or COALESCE) that match the ORDER BY null-ordering semantics.",
+      "category": "database",
+      "trigger": "Cursor code appends and_(*eq_conditions, col > value) for a column that can be NULL without an IS NULL guard.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:44",
+      "rule": "Use if/elif rather than consecutive if statements for the mutually exclusive lower_bound / lower_bound_excluded filter branches so the query does not emit redundant WHERE clauses.",
+      "category": "database",
+      "trigger": "Two consecutive `if self.value and self.value.lower_bound...` blocks appear for bound conditions that cannot both apply.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:45",
+      "rule": "Annotate DAG-bearing attributes in API parameter and datamodel classes as SerializedDAG (imported under TYPE_CHECKING from airflow.serialization.serialized_objects) rather than Any.",
+      "category": "api-design",
+      "trigger": "A property or attribute in a parameter/datamodel class is typed None | Any where the value is a serialized DAG.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:46",
+      "rule": "Queries built from _RegexParam must be wrapped with apply_regex_query_timeout, and the _RegexParam docstring must state that obligation.",
+      "category": "performance",
+      "trigger": "A route uses _RegexParam or regex_param_factory without a corresponding apply_regex_query_timeout call, or a _RegexParam class/factory has no docstring warning about it.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:49",
+      "rule": "Boolean timetable properties consumed by the API (e.g. is_backfillable) must be persisted as a DagModel column via a migration, not derived at runtime by matching timetable_summary strings.",
+      "category": "database",
+      "trigger": "A frozenset of timetable summary strings is used in a datamodel or route to derive a boolean DAG property instead of reading a DagModel column.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:50",
+      "rule": "When redacting a dict value in an API response serializer, keep it a JSON-serialisable dict rather than wrapping the result in str().",
+      "category": "api-design",
+      "trigger": "str(redact(value)) where value is a dict in a Pydantic response serializer or validator.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:55",
+      "rule": "Define callback-definition objects such as _ImportPathCallbackDef in the domain model module (e.g. models/test_connection.py) rather than constructing them inline in a route handler.",
+      "category": "api-design",
+      "trigger": "An _ImportPathCallbackDef or ExecutorCallback construction is inlined inside a route handler body.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:57",
+      "rule": "Cursor-paginated endpoints must fetch limit+1 rows to detect whether another page exists, and return next_cursor as null when it does not.",
+      "category": "api-design",
+      "trigger": "A paginated endpoint computes next_cursor/previous_cursor from the current page slice without fetching a probe row.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:59",
+      "rule": "PATCH routes that honour update_mask must return HTTP 422 when a field named in update_mask has a null value in the request body.",
+      "category": "api-design",
+      "trigger": "A PATCH handler iterates fields_to_update/update_mask without validating that each included field carries a non-null value.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:60",
+      "rule": "Do not add CASE expressions to a query's ORDER BY to force NULL ordering; rely on the database's default NULL ordering so the sort can use an index.",
+      "category": "performance",
+      "trigger": "A SQLAlchemy query adds a CASE expression in ORDER BY to place NULLs first or last.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:62",
+      "rule": "Every new router included in the execution API's authenticated_router must have a matching endpoint(...).didnt_exist entry in the unreleased Cadwyn version file.",
+      "category": "api-design",
+      "trigger": "A new router is added to authenticated_router.include_router() in execution_api/routes/__init__.py with no corresponding didnt_exist entry in versions/v*.py.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:64",
+      "rule": "A new state table keyed on an asset must come with a decided lifecycle for its rows when the corresponding AssetActive row is removed - a cascade delete or an explicit GC policy - not unbounded accumulation.",
+      "category": "database",
+      "trigger": "A new asset_state table/model is introduced with no cascade-delete from AssetActive removal and no GC policy.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:65",
+      "rule": "Do not add a field to a Pydantic response model whose name is the singular or plural variant of an existing field unless the two have clearly distinct, documented semantics.",
+      "category": "api-design",
+      "trigger": "A Pydantic model gains a field whose name is the plural (or singular) form of an existing field, e.g. partition_key alongside partition_keys.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:67",
+      "rule": "Do not drive a single-item state operation through the bulk service interface; use the single-item service code path.",
+      "category": "api-design",
+      "trigger": "A non-bulk route instantiates a BulkService with a dummy empty BulkBody to perform a single-item update.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:71",
+      "rule": "Use session.flush() rather than session.commit() inside a method that participates in a larger task-completion transaction, such as register_asset_change.",
+      "category": "database",
+      "trigger": "session.commit() is added or kept inside register_asset_change or another method invoked as part of a multi-model task-completion transaction.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:72",
+      "rule": "When an AssetEvent must be visible before the caller's transaction commits, open an independent session with create_session(scoped=False) rather than committing the shared session.",
+      "category": "database",
+      "trigger": "A create_session call appears near AssetEvent insertion, or session.commit() is swapped for a separate session block in assets/manager.py.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:73",
+      "rule": "Do not call session.flush() from a finally or except block reached on an error path.",
+      "category": "database",
+      "trigger": "session.flush() is added inside a finally: or except: clause in an asset or scheduler code path.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:80",
+      "rule": "Execution-API list endpoints that query the metadata database must apply pagination (limit/offset) or a documented hard cap.",
+      "category": "performance",
+      "trigger": "A GET list route in the execution API calls session.scalars(stmt).all() with no limit or offset.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:87",
+      "rule": "Do not define domain-model enums (e.g. WeightRule) in configuration.py; put them in the module that owns the concept.",
+      "category": "api-design",
+      "trigger": "A class definition for an Enum or domain type is added to airflow-core/src/airflow/configuration.py.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:88",
+      "rule": "Expose internal collections from AirflowConfigParser through methods returning immutable sequences (tuple), not as mutable list properties.",
+      "category": "api-design",
+      "trigger": "A @property in AirflowConfigParser or a subclass is annotated as returning list[...].",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:89",
+      "rule": "Type warning_types-style parameters as an open-ended homogeneous tuple (tuple[DagWarningType, ...]) rather than a fixed-length tuple.",
+      "category": "api-design",
+      "trigger": "A parameter typed tuple[DagWarningType, DagWarningType] is added or modified in dag_processing/collection.py.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:90",
+      "rule": "When a parameter of DagBag or DagBag.collect_dags stops being used, either remove it from the signature and docstring entirely or emit a UserWarning when it is supplied; do not silently ignore it.",
+      "category": "api-design",
+      "trigger": "A DagBag.__init__ or DagBag.collect_dags parameter is dropped from the implementation body but kept in the signature or docstring.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:92",
+      "rule": "Do not rely on a SQLAlchemy UPDATE returning rowcount == 0 to detect a missing row; use an explicit SELECT or EXISTS check.",
+      "category": "database",
+      "trigger": "`if result.rowcount == 0: raise` follows a single-row update() call.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:98",
+      "rule": "Implement new executor workload features in BaseExecutor or a shared mixin so each concrete executor does not have to be updated individually.",
+      "category": "api-design",
+      "trigger": "A new workload-handling method or branch is added to multiple concrete executor files (local_executor.py, celery_executor.py, ...) with no base-class implementation.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:100",
+      "rule": "In prepare_file_queue, look file stats up through the pre-built presence_key index dict in O(1) rather than scanning _file_stats linearly per file.",
+      "category": "performance",
+      "trigger": "dag_processing/manager.py builds a dict keyed by file.presence_key but then calls a helper (e.g. processed_recently) that iterates over _file_stats.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:102",
+      "rule": "Do not add a separate query for an individual task state inside the scheduler critical section; fold the new state condition into the existing query.",
+      "category": "performance",
+      "trigger": "A new session.execute(select(...).where(TI.state == ...)) is added inside _critical_section_* or an adjacent scheduler method.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:105",
+      "rule": "Prefer a ~exists(select(...).where(...)) anti-join over <col>.not_in(select(...)) in ORM queries.",
+      "category": "database",
+      "trigger": "The diff contains .not_in(select(...)) or NOT IN (SELECT ...) in a SQLAlchemy query.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:106",
+      "rule": "A foreign-key column used as a subquery filter predicate in scheduler queries must have an explicit Index(...) declaration unless an existing index is confirmed to cover it.",
+      "category": "database",
+      "trigger": "A subquery filter on an FK column (e.g. .where(<Model>.trigger_id == ...)) is added with no Index(\"idx_<table>_<column>\", ...) in the model definition.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:107",
+      "rule": "To call get_template_context from the triggerer, construct a RuntimeTaskInstance via RuntimeTaskInstance.model_construct(...); do not call it on a plain TaskInstance.",
+      "category": "api-design",
+      "trigger": ".get_template_context() is called on an airflow.executors.workloads TaskInstance inside the triggerer job runner.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:110",
+      "rule": "An Alembic upgrade() must not DELETE or truncate existing rows in place of a data-preserving migration; a bare DELETE FROM with a TODO is not acceptable.",
+      "category": "database",
+      "trigger": "op.execute(\"DELETE FROM ...\") is added in an upgrade() function alongside a \"# TODO: Implement data-preserving migration\" comment.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:111",
+      "rule": "An expires_at column in an Airflow state or retention table must mean \"never expires\" when NULL, and its GC query must be a single `WHERE expires_at < now()` predicate rather than a two-path check mixing updated_at with a default retention config.",
+      "category": "database",
+      "trigger": "An expires_at column is added whose NULL is documented as \"use default retention\", with a GC query combining expires_at and updated_at + config conditions.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:112",
+      "rule": "Route SQLAlchemy 1.4/2.0 compatibility shims through airflow.utils.sqlalchemy rather than inline try/except ImportError blocks in individual model files.",
+      "category": "database",
+      "trigger": "A model file adds a try/except ImportError block to shim mapped_column or Mapped from sqlalchemy.orm instead of importing from airflow.utils.sqlalchemy.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:113",
+      "rule": "Validate user-supplied DAG run configuration with dag.params.deep_merge(dag_run_conf).validate() before starting a backfill.",
+      "category": "api-design",
+      "trigger": "A backfill code path passes dag_run_conf to create_dagrun (or similar) without first calling dag.params.deep_merge(...).validate().",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:116",
+      "rule": "Write SQLAlchemy type constructors as instantiated calls in mapped_column and in Alembic migrations - sa.JSON() rather than sa.JSON.",
+      "category": "database",
+      "trigger": "mapped_column(sa.JSON, ...) or Column(sa.JSON, ...) appears without parentheses on the type.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:117",
+      "rule": "Prefix module-internal helper functions with an underscore so they do not become part of the public API surface.",
+      "category": "api-design",
+      "trigger": "A new module-level function is added in airflow-core without a leading underscore but referenced only within the same file or package.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:118",
+      "rule": "Every cache hit path - including the double-checked-locking fast path - must increment Stats.incr(\"api_server.dag_bag.cache_hit\").",
+      "category": "performance",
+      "trigger": "A double-checked locking block or secondary fast path returns a cached DAG without calling Stats.incr(\"api_server.dag_bag.cache_hit\").",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:119",
+      "rule": "Bound DAG cache TTLs to min_serialized_dag_update_interval rather than an arbitrary shorter value.",
+      "category": "performance",
+      "trigger": "A DAG bag or serialized-DAG cache introduces a TTL constant or parameter that neither references nor defaults to min_serialized_dag_update_interval.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:120",
+      "rule": "Do not call session.flush() midway through a write_dag unit of work; add every related object to the session first and flush once at the end.",
+      "category": "database",
+      "trigger": "A session.flush() call appears mid-function inside write_dag or a similar multi-object DB write, before all related objects have been added.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:129",
+      "rule": "TaskGroup.topological_sort() must not rebuild the DAG-level group mapping on each recursive call; build it once and pass it into nested calls.",
+      "category": "performance",
+      "trigger": "topological_sort() in taskgroup.py constructs a group-lookup dict in its body instead of accepting one as a parameter.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:130",
+      "rule": "Do not open a new create_session block inside a method that already has a session or can delegate to an existing model query method (e.g. XComModel.get_many) that accepts one.",
+      "category": "database",
+      "trigger": "A `with create_session()` block is added inside a method that already has access to a session parameter.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:132",
+      "rule": "Detect in-memory SQLite in engine-configuration code by parsing the SQLAlchemy URL (dialect plus database target), not by string comparison against \"sqlite://\" or \"sqlite:///:memory:\".",
+      "category": "database",
+      "trigger": "In-memory SQLite is tested with == or in against the string literals \"sqlite://\" or \"sqlite:///:memory:\".",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:134",
+      "rule": "State-store write methods must use a single database-level UPSERT (INSERT ... ON CONFLICT DO UPDATE) rather than a SELECT followed by an INSERT.",
+      "category": "database",
+      "trigger": "A state-write method does session.get(...) or a SELECT and then session.add(row) for the same primary or unique key.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:137",
+      "rule": "Public method overrides on Timetable subclasses must carry an explicit return-type annotation.",
+      "category": "api-design",
+      "trigger": "A public method is added or overridden on a Timetable subclass with no -> ReturnType annotation.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:138",
+      "rule": "Do not add __all__ when the module already re-exports symbols with the `import X as X` pattern; that form is the single authoritative re-export mechanism in airflow-core.",
+      "category": "api-design",
+      "trigger": "A file adds both `from module import Foo as Foo` and lists Foo in __all__.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:141",
+      "rule": "Do not add a public property to CronMixin or another core timetable base class solely to serve SDK-side consumers; core public API must have at least one in-core consumer.",
+      "category": "api-design",
+      "trigger": "A @property is added to CronMixin or another core timetable base class with no reference site in airflow-core.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:146",
+      "rule": "Prefer icons from react-icons over custom inline SVG in the Airflow UI; add a custom icon only when react-icons has no suitable option.",
+      "category": "api-design",
+      "trigger": "A new custom icon component (createIcon({...}) or a raw <svg>) is added under ui/src/assets/ or ui/src/components/.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:147",
+      "rule": "Pass only the i18n namespaces a file actually uses to useTranslation.",
+      "category": "performance",
+      "trigger": "A useTranslation([...]) call lists namespaces that the file's translate calls never reference.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:148",
+      "rule": "Normalise response shapes and map fields in the backend API so it returns one consistent response type; do not re-shape API responses in frontend components.",
+      "category": "api-design",
+      "trigger": "A frontend component destructures and rebuilds an API response object to normalise its shape.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:149",
+      "rule": "Sync async-loaded data into react-hook-form fields with the useForm({ values: ... }) option rather than a useEffect that calls reset() or setValue().",
+      "category": "api-design",
+      "trigger": "A useEffect calls form.reset() or form.setValue() to populate fields after an async fetch resolves.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:152",
+      "rule": "DagVersion and BundleVersion must be represented by visually distinct icons in the UI.",
+      "category": "api-design",
+      "trigger": "DagVersionIndicator and BundleVersionIndicator (or equivalent components) render the same icon.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:154",
+      "rule": "Do not wrap a single stable function delegation in useCallback with an empty dependency array in the Airflow UI; pass the stable reference directly.",
+      "category": "performance",
+      "trigger": "useCallback(() => stableFn(arg), []) is added where stableFn is already stable and the wrapper adds no logic.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:0",
+      "rule": "Shared literal constants in the Airflow UI (localStorage keys, gradients, pixel offsets, colours) must live in a `constants.ts` module — the global `src/constants/` one for cross-cutting keys, the feature folder's own for feature-local values — not inline in components.",
+      "category": "api-design",
+      "trigger": "A `.tsx` component defines or inlines a string/number literal (localStorage key, gradient string, pixel offset) that is also used by another component instead of importing it from a constants module.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/B:5",
+      "rule": "Use the OpenAPI-generated react-query hooks for all API calls in the UI; do not write raw `fetch` calls with manually encoded query strings.",
+      "category": "api-design",
+      "trigger": "diff adds `fetch(`${OpenAPI.BASE}...`)` or manual `encodeURIComponent`/`join(\"&\")` query construction in `airflow-core/src/airflow/ui/src/queries/`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:6",
+      "rule": "Do not prop-drill URL search-param values (e.g. `tryNumber`) through multiple component levels; read them directly from `useSearchParams` in the consuming component.",
+      "category": "api-design",
+      "trigger": "diff threads a value that originates from the URL through one or more intermediate component props.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:9",
+      "rule": "When a component queries with a hard `limit`, compare `total_entries` against the limit and give the user a way to see the remainder (e.g. a '+ N more' modal) rather than silently truncating.",
+      "category": "api-design",
+      "trigger": "diff adds a component that renders a limited list without any affordance for the case `total_entries > limit`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:12",
+      "rule": "Filter inputs that are redundant in a context-specific view (e.g. a DAG ID filter on a page where `dagId` is already in the URL path) must be hidden by conditional rendering.",
+      "category": "api-design",
+      "trigger": "diff reuses a shared filters component on a scoped page without conditionally hiding the filter that the route already fixes.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:13",
+      "rule": "Group a feature's sub-components in a named folder (e.g. `TaskFilters/`) with a single barrel export, and import only the folder's root component from outside.",
+      "category": "api-design",
+      "trigger": "diff adds an import that reaches into a feature folder for a non-root sub-component.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:16",
+      "rule": "A new Alembic migration must add its `_REVISION_HEADS_MAP` entry for the next unreleased Airflow version, and the map must stay monotonic: each version's head must chain back through the previous version's head, never to a later revision.",
+      "category": "database",
+      "trigger": "diff adds a migration under `airflow/migrations/` without a `_REVISION_HEADS_MAP` entry, or adds/edits an entry under an already-released version key or one whose `down_revision` does not follow the previous head.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/B:21",
+      "rule": "Mermaid initialisation in the Airflow UI must be owned by a React context provider under `src/context`, not by a module-level mutable variable.",
+      "category": "api-design",
+      "trigger": "diff adds or modifies mermaid initialisation outside `airflow-core/src/airflow/ui/src/context/`.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:27",
+      "rule": "Enums that DAG authors in other languages must understand (WeightRule, TriggerRule, and similar) must be defined in the ExecAPI OpenAPI spec, not shared through Python code or `airflow-shared`.",
+      "category": "api-design",
+      "trigger": "diff moves or adds an Airflow enum to `airflow-shared/`, or imports one from there in task-SDK or provider code.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:31",
+      "rule": "Use `session.scalar(select(Model).where(...))` / `session.scalars(...)` instead of the legacy `session.query(Model).filter(...)` ORM style.",
+      "category": "database",
+      "trigger": "diff adds `session.query(...).filter(...)` in source or test code.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:42",
+      "rule": "When an execution-API feature claims multi-backend support through SQLAlchemy constructs such as `regexp_match`, its tests must run against every claimed backend, not just Postgres.",
+      "category": "database",
+      "trigger": "diff adds tests marked only `@pytest.mark.backend(\"postgres\")` for a backend-portable construct.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:52",
+      "rule": "The Helm OTel collector ConfigMap must expose a values key that lets users supply their own complete collector `config.yml` instead of only the Airflow-generated body.",
+      "category": "api-design",
+      "trigger": "diff adds an OTel collector ConfigMap template with no `.Values` override for the whole config body.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:54",
+      "rule": "In Helm Service templates, name the user-supplied annotations key `.Values.<component>.service.annotations` (not `extraAnnotations`) when the resource has no Airflow-generated annotations of its own.",
+      "category": "api-design",
+      "trigger": "diff introduces `.Values.<component>.service.extraAnnotations` on a Service where no Airflow-generated annotations are applied.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:60",
+      "rule": "In `topological_sort` and other task-group ordering paths, index positions with a `dict[task_id, index]` rather than repeated `list.index()` lookups.",
+      "category": "performance",
+      "trigger": "diff introduces or retains a `.index(` call on a list inside a topological-sort or task-group ordering function.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:68",
+      "rule": "Breeze utility functions must not mix human-readable error sentinel strings into a `list[str]` of job names; signal lookup failure with `None`, a result object, or an exception.",
+      "category": "api-design",
+      "trigger": "A function returning `list[str]` (or a similar job-name collection) returns a string constant such as `FAILED_JOBS_LOOKUP_ERROR` on failure.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:77",
+      "rule": "Breeze `CacheStore` entries must nest the stored payload under a dedicated key (e.g. `{\"profile\": ...}`) so cache metadata such as `cached_at` never leaks into the runtime object returned to callers.",
+      "category": "api-design",
+      "trigger": "A `CacheStore.save()` stores a plain dict and the matching `get()` result is used directly as the runtime object.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:85",
+      "rule": "Go IPC message structs that use `-1` as a sentinel for `map_index` must document the convention in a comment, and should prefer a nullable `*int` to match the Python side's `int | None`.",
+      "category": "api-design",
+      "trigger": "diff adds a Go IPC struct with an `int` `MapIndex` field using -1 as a sentinel while the Python counterpart in `comms.py` uses `int | None`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:103",
+      "rule": "An AWS operator's `execute()` should return a minimal meaningful identifier (ARN, URI, name) rather than the raw boto3 response dict.",
+      "category": "api-design",
+      "trigger": "diff ends an AWS operator's `execute()` with `return response` where `response` is the raw boto3 response.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:140",
+      "rule": "When replacing a deprecated parameter with a version-gated successor, translate the deprecated parameter's value automatically for runtimes below the required version instead of forcing users to switch names.",
+      "category": "api-design",
+      "trigger": "diff deprecates parameter A and adds replacement B that only works on Airflow >= X.Y, with no fallback making B behave like A below X.Y.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:143",
+      "rule": "Do not change the default value of an existing operator or hook parameter used by pre-existing code paths; a new path may enforce its own floor (e.g. with `max()`), but the legacy default must stay as it was.",
+      "category": "api-design",
+      "trigger": "diff changes the default of an `__init__` parameter (e.g. `status_poll_interval`) that pre-existing execution paths already use.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:149",
+      "rule": "Provider secrets-backend classes must implement only the methods declared on `BaseSecretsBackend`; do not add extra public methods (e.g. `get_config`) absent from the base interface.",
+      "category": "api-design",
+      "trigger": "A class extending `BaseSecretsBackend` defines a public method not present in `airflow/secrets/base_secrets.py`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:156",
+      "rule": "Provider factory mappings keyed by enum members must be annotated `dict[EnumType, ...]`, and public entry points must accept both the enum and a string, normalising strings with an informative `ValueError`.",
+      "category": "api-design",
+      "trigger": "A `_providers` dict annotated `dict[str, type]` is keyed with enum instances, or a factory accepts only the enum where callers pass strings from connection config or YAML.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:160",
+      "rule": "Reuse the shared exception types from `providers/standard/exceptions.py` (e.g. `HITLRejectException`) instead of defining a per-provider duplicate for the same semantic error.",
+      "category": "api-design",
+      "trigger": "A provider defines a new exception class duplicating the purpose of one already in `providers/standard/exceptions.py`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:164",
+      "rule": "Provider operator methods that iterate over connection IDs must use the class's cached hook mapping (e.g. `self._db_hooks[conn_id]`) rather than constructing a hook on each iteration.",
+      "category": "performance",
+      "trigger": "A loop over connection IDs calls a factory such as `self._get_db_hook(conn_id)` inside the loop while a cached property already exists on the class.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:0",
+      "rule": "Use `Literal[...]` for Pydantic model fields whose valid values are an enumerable set of strings; do not encode the constraint only in the field description.",
+      "category": "api-design",
+      "trigger": "A Pydantic `Field(description='One of: ...')` or plain `str` field whose accepted values are a fixed, enumerable set",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:9",
+      "rule": "Do not collapse `None` to an empty container with `param or []` in an operator `__init__` when the empty value has distinct meaning in the downstream API call; keep `None` and the empty list distinguishable.",
+      "category": "api-design",
+      "trigger": "`self.param = param or []` in an operator `__init__` where `param` is forwarded to an external API and an explicit empty list means something (e.g. clearing permissions)",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:17",
+      "rule": "When a FastAPI route can raise a new HTTP status code, add that code to the route decorator's `responses=` mapping.",
+      "category": "api-design",
+      "trigger": "A `raise HTTPException(status.HTTP_4xx_...)` in a handler body whose decorator does not list that status in `responses=`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:18",
+      "rule": "FastAPI `Query`/parameter descriptions in provider routes must describe what the implementation actually accepts (e.g. do not advertise comma-separated multi-field ordering when only a single field is supported).",
+      "category": "api-design",
+      "trigger": "A `Query(..., description=...)` string in a provider route that promises behaviour the handler does not implement",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:19",
+      "rule": "FastAPI route handlers in provider packages must carry an explicit return type annotation matching the decorator's `response_model`.",
+      "category": "api-design",
+      "trigger": "A handler declared with `response_model=Foo` but no `-> Foo` return annotation",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:20",
+      "rule": "A SQLAlchemy `before_create` DDL event listener must not permanently mutate shared metadata such as `table.indexes`; express dialect differences with dialect-scoped DDL that adds or skips instead of discarding.",
+      "category": "database",
+      "trigger": "`table.indexes.discard(...)` / `.remove(...)` inside an `@event.listens_for(Table, 'before_create')` listener",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:34",
+      "rule": "Keep the public surface of provider operators, hooks and extractors backward compatible: a changed return value, changed traversal, or new constructor keyword must be opt-in via a new parameter defaulting to the legacy behaviour, and existing public signatures (e.g. `BaseExtractor.__init__(self, operator)`) must keep working.",
+      "category": "api-design",
+      "trigger": "A diff that changes an existing operator's `execute()` return shape, alters what an existing hook method traverses or returns, or passes a new required keyword to a subclass constructor unconditionally",
+      "kind": "convention",
+      "n_candidates": 3
+    },
+    {
+      "cluster_id": "t1/C:43",
+      "rule": "Pass camelCase REST API field names (e.g. `definitionBody`, `routineType`) — not Python SDK attribute names (`body`, `type_`) — in the `fields`/update-mask argument of Google client update methods.",
+      "category": "api-design",
+      "trigger": "A writable-properties constant built from Python attribute names and passed as `fields` to a Google client update call",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:71",
+      "rule": "A `ClassVar` dict used as an in-process cache in a provider utility is acceptable because provider worker processes are short-lived.",
+      "category": "performance",
+      "trigger": "A reviewer questioning whether a `ClassVar[dict]` cache in a provider utility can grow unboundedly",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:80",
+      "rule": "A retryable-error tuple in the Postgres hook must list the narrowest psycopg exception subclasses (e.g. `UndefinedColumn`, `UndefinedTable`) from the matching package — `psycopg` for v3, `psycopg2` for v2 — never a broad class such as `OperationalError`.",
+      "category": "database",
+      "trigger": "A `_POSTGRES_RETRYABLE_ERRORS` tuple containing `OperationalError` or another broad psycopg exception class",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:86",
+      "rule": "Extract repeated `str | datetime | None` type-dispatch into a shared utility rather than duplicating the `isinstance` block per method.",
+      "category": "api-design",
+      "trigger": "The same `isinstance(value, (str, datetime.datetime))` dispatch block repeated in more than one method",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:103",
+      "rule": "Insert new entries into `airflow/sdk/__init__.py`'s `__all__` and lazy-import dict in alphabetical position, not appended at the end.",
+      "category": "api-design",
+      "trigger": "A symbol added to `__all__` or the lazy-import dict in `task-sdk/src/airflow/sdk/__init__.py` out of alphabetical order",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:105",
+      "rule": "Language-agnostic coordinator plumbing — `_start_server`, `_accept_connections`, socketpair setup — belongs in `BaseCoordinator`, not duplicated in each per-language coordinator.",
+      "category": "api-design",
+      "trigger": "A new coordinator under `task-sdk/src/airflow/sdk/coordinators/` re-implementing socket server startup or accept helpers that are not runtime-specific",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:106",
+      "rule": "A language coordinator's constructor arguments need only make sense for its own runtime; do not copy another coordinator's argument names or types for the sake of symmetry.",
+      "category": "api-design",
+      "trigger": "A coordinator given argument names or types mirroring a different language's coordinator rather than idiomatic ones for its runtime",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:108",
+      "rule": "Do not define a `__version__` attribute inside `airflow.sdk.coordinators.*` sub-packages; the distribution version is exposed only as `airflow.sdk.__version__`.",
+      "category": "api-design",
+      "trigger": "A `__version__ = \"...\"` assignment or `\"__version__\"` in `__all__` under `task-sdk/src/airflow/sdk/coordinators/*/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:113",
+      "rule": "A concrete Task SDK class exported from the public API must implement every abstract method of its base (including `to_upstream()` on partition mappers); leave it abstract or unexported until it does.",
+      "category": "api-design",
+      "trigger": "A concrete mapper under `task-sdk/src/airflow/sdk/definitions/partition_mappers/` inheriting `RollupMapper` without overriding `to_upstream()`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:125",
+      "rule": "New language-SDK task registration APIs should follow the two-step registration the Java and Go SDKs use — define the callable, then register the task against a Dag — so Dag-level arguments remain expressible; an inline `registerTask({dagId, taskId}, fn)` must be justified against that path.",
+      "category": "api-design",
+      "trigger": "A task registration entrypoint added or documented under `ts-sdk/` that binds dagId and taskId inline in one call",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:2",
+      "rule": "Any query whose rows are dereferenced through an ORM relationship inside the scheduler loop must eagerly load that relationship (e.g. `joinedload(DatasetEvent.dataset)`); default lazy loading is not acceptable there",
+      "category": "performance",
+      "trigger": "Scheduler-loop code builds a set or log line by accessing `event.dataset.uri`, `record.dag.<attr>` or similar on rows from a query carrying no `joinedload`/`selectinload` option",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:4",
+      "rule": "When dropping a `needs:` gate to parallelise a release workflow, split the publish/sync steps into a job that still `needs:` the gating job instead of discarding the ordering guarantee outright",
+      "category": "performance",
+      "trigger": "A job in a release workflow has its `needs:` replaced (e.g. `needs: [publish-docs-to-s3, build-info]` becomes `needs: [build-info, build-ci-image]`) while it still contains sync or publish steps that must not land before the gating job",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:25",
+      "rule": "Profiling and other developer-only libraries (e.g. `memray`) must be declared as an optional extra in `airflow-core/pyproject.toml`, never appended to the mandatory `dependencies` list",
+      "category": "api-design",
+      "trigger": "A diff adds an entry to the top-level `dependencies = [...]` array in `airflow-core/pyproject.toml` for a tool that only some users need",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:38",
+      "rule": "Any new public method added to BaseAuthManager that introduces user-facing behaviour must be accompanied by a newsfragment and a defined default behaviour for auth managers that do not override it",
+      "category": "api-design",
+      "trigger": "New method added to BaseAuthManager (or subclass) without a newsfragment file and without a documented/implemented default fallback",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:40",
+      "rule": "The API representation of infinite pool slots must use -1, not None; JSON cannot represent float('inf') and None conflicts with the existing API spec for open slots",
+      "category": "api-design",
+      "trigger": "Serialiser or Pydantic validator converts float('inf') pool slots to None before returning an API response",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:41",
+      "rule": "List routes in the FastAPI core API must use the paginated_select convention for all DB-backed collections; omitting pagination on a collection endpoint is not acceptable",
+      "category": "api-design",
+      "trigger": "New GET list route in api_fastapi/core_api/routes/public/ returns all rows via session.scalars(select(...)).all() without calling paginated_select",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:44",
+      "rule": "Broad AirflowException catches at route boundaries must not forward arbitrary internal error messages as 4xx detail strings; narrow the catch to user-facing exceptions or validate the message before re-raising",
+      "category": "api-design",
+      "trigger": "except AirflowException as e: raise HTTPException(4xx, str(e)) without narrowing the caught exception type or filtering the message",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:46",
+      "rule": "Aggregate statistics over DagRun history (durations, averages) must not be computed by fetching unbounded result sets; pre-compute them incrementally or use windowed queries, and confirm migration safety before adding new computed columns",
+      "category": "performance",
+      "trigger": "select() over DagRun with no row limit used to compute aggregate statistics (avg duration, p90, etc.) in a route handler",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:47",
+      "rule": "Bulk DAG updates must use a single subquery-based UPDATE (DagModel.dag_id.in_(subquery)) rather than paginated SELECT loops that issue one DB query per page",
+      "category": "performance",
+      "trigger": "paginated_select or offset/limit loop used to fetch DAG IDs before issuing individual UPDATE statements in a bulk-patch route",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:48",
+      "rule": "Response models must not include fields already available through a separately fetched resource on the same page; check existing endpoint payloads before adding redundant fields to a datamodel",
+      "category": "api-design",
+      "trigger": "Field added to a Grid/collection response datamodel (e.g. GridRunsResponse) that duplicates data already returned by a companion detail endpoint called by the same UI view",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:49",
+      "rule": "Do not use runtime `inspect` introspection to discover whether a callable accepts a parameter and pass arguments conditionally; make the parameter-presence decision on the caller side, or fix the caller/test to pass the expected arguments directly",
+      "category": "api-design",
+      "trigger": "inspect.signature() / inspect.Parameter / `'param' in params` used inside BaseAuthManager or a test to decide whether to pass a keyword argument to an override such as an auth-manager method or clear_task_instances",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/A:50",
+      "rule": "Config values read inside hot paths (called once per task during scheduling) must be cached at construction time, not re-read on every call",
+      "category": "performance",
+      "trigger": "conf.get* called inside a method that is invoked per-task or per-DAG-run in the scheduler loop rather than once at object construction",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:52",
+      "rule": "DataError exception messages surfaced to API clients must be generic enough to cover all possible DataError sub-cases, not worded as if only one specific cause (e.g. text-size overflow) can trigger them",
+      "category": "api-design",
+      "trigger": "HTTPException detail string inside a DataError handler mentions a specific column type (MEDIUMTEXT, LONGTEXT) or a single error cause",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:54",
+      "rule": "SQLAlchemy JSON column type checks must use isinstance(col.type, JSON) for cross-dialect compatibility; do not add a string-comparison fallback (str(col.type).upper() in ('JSON','JSONB')) unless you can confirm isinstance fails for a specific dialect",
+      "category": "database",
+      "trigger": "str(self.attribute.type).upper() in ('JSON', 'JSONB') used alongside isinstance(self.attribute.type, JSON) in a filter parameter",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:56",
+      "rule": "Single-value filter parameters on list endpoints should accept multiple values (list[str] with FilterOptionEnum.ANY_EQUAL) so callers can request several items in one request instead of needing a dedicated GET /{id} endpoint",
+      "category": "api-design",
+      "trigger": "filter_param_factory used with a scalar type (str | None) for a unique-key field (e.g. uri, conn_id) on a list endpoint that could naturally accept multiple values",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:58",
+      "rule": "A FastAPI route's declared status codes must match what the handler actually produces: every status code it can raise or return must appear in the decorator's `responses` dict, and the decorator's default `status_code` must agree with the handler's success codes",
+      "category": "api-design",
+      "trigger": "raise HTTPException(status.HTTP_4xx_...) inside a route whose @router decorator lacks that status in responses={}, or a route declaring status_code=HTTP_204_NO_CONTENT whose handler also returns a different 2xx code",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/A:59",
+      "rule": "Execution-API JWT data models should expose only the scope field needed at the application layer; JWT validation fields (exp, aud, iss, nbf, iat) belong in the upstream JWTValidator, not in the application-level token model",
+      "category": "api-design",
+      "trigger": "Pydantic model for an execution-API token including JWT standard claims (exp, aud, iss, nbf, iat) alongside application-level fields like scope",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:67",
+      "rule": "Multi-team validation error messages shared across connections, pools, and variables routes must be extracted into a single shared constant to avoid drift",
+      "category": "api-design",
+      "trigger": "identical multi_team error message string literal duplicated across two or more of connections.py / pools.py / variables.py",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:69",
+      "rule": "Task-group pattern resolution logic invoked from a public API endpoint must reside inside the corresponding QueryTI filter class's to_orm method, not be inlined in the route handler",
+      "category": "api-design",
+      "trigger": "resolve_task_group_pattern_to_task_ids or equivalent task-group expansion code placed directly in a route function rather than in a QueryTI* subclass",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:70",
+      "rule": "Removing an existing public REST API query parameter is a breaking change; keep the old parameter and add the new one alongside it",
+      "category": "api-design",
+      "trigger": "diff removing a Query parameter (e.g. xcom_key) from a public route that previously exposed it",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:71",
+      "rule": "Logic used exclusively by a public API endpoint must not be placed under the ui/ service layer; move it to a common or public service module",
+      "category": "api-design",
+      "trigger": "service function inside api_fastapi/.../services/ui/ being imported or called from a public/ route",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:73",
+      "rule": "Skip calling _serialize_xcoms() entirely when result_task_ids is an empty list; only call it when result_task_ids is None (DAG-authored default) or a non-empty list",
+      "category": "performance",
+      "trigger": "await self._serialize_xcoms() called unconditionally or without checking result_task_ids == []",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:74",
+      "rule": "OpenTelemetry span names in the task execution path must embed the executing component (worker or triggerer) as a segment, e.g. `task_run.worker.{task_id}` or `worker.{task_id}`",
+      "category": "api-design",
+      "trigger": "New `tracer.start_span(name=...)` call in task execution routes uses a flat name like `task_run.{task_id}` without a component segment",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:75",
+      "rule": "Bundle names persisted in `DagBundleModel` rows and emitted in REST API responses must be finalised before the first release that ships them; renaming afterwards requires a DB migration",
+      "category": "database",
+      "trigger": "A new auto-generated bundle name string (e.g. via an f-string concatenating package names) is introduced in bundle-discovery code that writes to `DagBundleModel`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:76",
+      "rule": "Columns added to SQLAlchemy `load_only()` clauses must be actually accessed by the downstream code that consumes the query result",
+      "category": "performance",
+      "trigger": "A column is added to a `load_only(...)` call in a query-builder function but no code path that calls that function reads the newly added column attribute",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:80",
+      "rule": "A new single-entry config section must not be created as a top-level section in `config.yml`; place the entry in the `core` section following the precedent of `xcom_backend` and similar singleton settings",
+      "category": "api-design",
+      "trigger": "A new top-level YAML section is added to `config.yml` containing only one config key, when no further keys are planned",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:82",
+      "rule": "Do not add application-level mutex lock tables to guard writes that SQLite already serialises; skip the lock for SQLite backends",
+      "category": "database",
+      "trigger": "A new ORM model used as a mutex lock (e.g. `MutexLock`, `LockTable`) is added and `session.add`/`session.delete` are used around a critical section without a SQLite exemption",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:84",
+      "rule": "Prefer `session.scalar()` or `session.scalars().one()` over `session.get()` with a composite primary-key dict when querying ORM models",
+      "category": "database",
+      "trigger": "`session.get(ModelClass, {\"key1\": val1, \"key2\": val2})` is used to look up a model with a composite primary key",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:97",
+      "rule": "The abstract `key` property on workload base classes in `executors/workloads/` must be typed as `Hashable` (not `Any`) to enforce the constraint that workload keys must be usable as dict keys",
+      "category": "api-design",
+      "trigger": "An `@abstractmethod` property named `key` in `executors/workloads/base.py` is declared with return type `Any` instead of `Hashable`",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:98",
+      "rule": "Database queries inside metric-emission helpers in DagProcessor must be guarded by a metrics-enabled check (`statsd_on`, `statsd_datadog_enabled`, or `otel_on`) and skipped when all metrics backends are disabled",
+      "category": "performance",
+      "trigger": "A method in `dag_processing/manager.py` issues a `session.scalar()` or similar DB query solely to feed a `Stats.gauge/timing` call, without first checking `_is_metrics_enabled()` or equivalent",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:100",
+      "rule": "Do not widen `DagModel` bundle-name queries with `OR bundle_name IS NULL` to paper over missing bundle assignments; instead add an Alembic migration that sets NULL bundle_name to `'dags-folder'` for 2.x-upgraded DAGs",
+      "category": "database",
+      "trigger": "A SQLAlchemy query in `dag_processing/manager.py` adds `.or_(DagModel.bundle_name.is_(None))` or equivalent to handle bundle-less DAGs from a 2.x upgrade",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:102",
+      "rule": "Public methods on `DagProcessorManager` that accept `Iterable[str]` bundle names must guard against a plain `str` argument (iterating characters) by either accepting `str | Iterable[str]` and special-casing strings, or raising `TypeError` when a `str` is received",
+      "category": "api-design",
+      "trigger": "A new public method accepts `bundle_names: Iterable[str]` and calls `.update(bundle_names)` or iterates it without checking `isinstance(bundle_names, str)`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:103",
+      "rule": "Only acquire `BundleVersionLock` in the DAG-processing callback path when `request.bundle_version is not None`; skip the lock entirely for non-versioned bundles",
+      "category": "performance",
+      "trigger": "A `with BundleVersionLock(bundle_name=..., bundle_version=request.bundle_version):` block in `processor.py` wraps callback execution unconditionally, regardless of whether `bundle_version` is None",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:109",
+      "rule": "Alembic data migrations must not do per-row work over a whole table: batch UPDATEs into one `conn.execute(update().where(bindparam(...)), [rows])` and stage join keys into a temporary column instead of running a correlated join per row",
+      "category": "database",
+      "trigger": "A migration's `upgrade()`/`downgrade()` loops over rows calling `conn.execute(sa.update(...))` inside the loop, or issues a multi-table JOIN/CASE query across an unbounded core table such as `deadline` joined to `dag_run`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:110",
+      "rule": "Migration `revision` identifiers must be the random hex produced by `alembic revision`, never hand-typed",
+      "category": "database",
+      "trigger": "A new file under `migrations/versions/` sets `revision = \"...\"` to a human-looking value (sequential nibbles, words, or a pattern unlike the random hex used by neighbouring migrations)",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:112",
+      "rule": "A uniqueness invariant that a new ORM model's docstring asserts must be enforced by a database constraint, not by a comment plus a \"work on the latest row\" fallback",
+      "category": "database",
+      "trigger": "A new model in `airflow/models/` documents that duplicates should not exist (e.g. one row per `target_dag_id` + `partition_key`) but declares no `UniqueConstraint`/unique index for those columns",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:113",
+      "rule": "Invalid user input for backfills must be rejected by the API/UI layer; model-layer helpers must not raise bare `RuntimeError` for request shapes the API should have refused",
+      "category": "api-design",
+      "trigger": "Code in `airflow/models/backfill.py` adds a `raise RuntimeError(...)` for a user-supplied condition such as a date range that yields no `dagrun_info_list`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:114",
+      "rule": "Build DagRun lookup statements by conditionally chaining `.where()` for the optional keys (`partition_key`, `logical_date`) and order NULLs with an explicit `col.is_(None)` term instead of the session-taking `nulls_first(..., session=session)` helper",
+      "category": "database",
+      "trigger": "A query helper hard-codes every filter, or calls `nulls_first(<col>.desc(), session=session)` to order a DagRun lookup",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:115",
+      "rule": "Methods on the airflow-core ORM `Connection` model must not branch on task-SDK execution state such as `SUPERVISOR_COMMS` on `airflow.sdk.execution_time.task_runner`; SDK-side code holds the SDK's own Connection type, not this ORM object",
+      "category": "api-design",
+      "trigger": "A method in `airflow/models/connection.py` inspects `sys.modules.get(\"airflow.sdk.execution_time.task_runner\")` or otherwise detects whether it is running inside a task supervisor",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:117",
+      "rule": "Trigger/orphan cleanup queries must express \"no referencing row\" with a correlated `~exists(select(Child.trigger_id).where(Child.trigger_id == Trigger.id))` rather than `Trigger.id.not_in(select(...))`, and must not carry a redundant `is_not(None)` inside the EXISTS",
+      "category": "database",
+      "trigger": "A scheduler/triggerer cleanup query filters unreferenced `Trigger` rows with `not_in(select(...))` over a nullable FK column, or a new referencing table is added to that filter",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:119",
+      "rule": "A new scheduler Stats counter that records the same information as an existing one must reuse that metric's tag keys (e.g. the tag naming the exception) instead of inventing a second spelling",
+      "category": "api-design",
+      "trigger": "`stats.incr(\"scheduler.<new>\", tags={...})` is added next to an existing metric such as `scheduler.loop_exceptions` using a different tag key for the same value",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:124",
+      "rule": "Emit Stats.gauge() calls after releasing any cache lock, not while holding it, to minimise lock contention",
+      "category": "performance",
+      "trigger": "Stats.gauge(...) or Stats.incr(...) call appears inside a `with self._lock:` block in dagbag or similar cache classes",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:125",
+      "rule": "Use a callable (e.g. `timezone.utcnow`) for SQLAlchemy column `default=` and `onupdate=`, never an evaluated expression like `pendulum.now(tz='UTC')`",
+      "category": "database",
+      "trigger": "mapped_column(..., default=<evaluated-call>, ...) where the default is not a callable reference",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:126",
+      "rule": "In `__repr__` for models that embed a `Callback` object, delegate to `self.callback` directly rather than manually formatting `callback.path` and `callback.kwargs`",
+      "category": "api-design",
+      "trigger": "f-string in __repr__ that expands self.callback.path and self.callback.kwargs manually instead of using str(self.callback) or {self.callback}",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:130",
+      "rule": "Use `StringID()` from `airflow.models.base` for `task_id`, `dag_id`, and `run_id` ORM columns instead of the raw `String(ID_LEN, **COLLATION_ARGS)` form",
+      "category": "database",
+      "trigger": "mapped_column(String(ID_LEN, **COLLATION_ARGS), ...) for a column named task_id, dag_id, or run_id in any model file",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:131",
+      "rule": "Internal helper functions in `airflow.models.taskinstance` must be prefixed with `_` to avoid unintentionally expanding the module's public import surface",
+      "category": "api-design",
+      "trigger": "New top-level function added to airflow/models/taskinstance.py without a leading underscore, called only from within the same module",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:151",
+      "rule": "Never manually edit auto-generated OpenAPI client files (openapi-gen/); all changes must be produced by regenerating via the configured @hey-api/openapi-ts command",
+      "category": "api-design",
+      "trigger": "A diff modifies files under airflow-core/src/airflow/ui/openapi-gen/ without an accompanying update to the OpenAPI spec or generation script",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:153",
+      "rule": "Guard plugin-specific React Query hooks with an enabled check that verifies the relevant plugin tab is present before firing any network request",
+      "category": "performance",
+      "trigger": "A useQuery hook for an optional plugin feature (e.g. HITL review) sets enabled only from an outer boolean, without also checking whether the plugin's tab exists in the tabs array",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:157",
+      "rule": "Use Chakra UI numeric token values (e.g. height={5}) instead of CSS pixel strings (e.g. height=\"20px\") for sizing props in Airflow UI components",
+      "category": "api-design",
+      "trigger": "A Chakra UI component in the Airflow UI receives a size prop expressed as a quoted pixel string rather than a numeric token",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:2",
+      "rule": "Put a UI component in the layout folder that is its only consumer; `src/components/` is reserved for components reused across features",
+      "category": "api-design",
+      "trigger": "A new component file is added under src/components/ but is imported from exactly one layout or page directory",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:3",
+      "rule": "Derive dirty/changed state in UI forms from the existing query result or `initialXxx` prop; do not add useState/useEffect pairs that mirror data already in hand",
+      "category": "api-design",
+      "trigger": "A new useState is added to hold a form field's initial value while an initialXxx prop or query result already carries it",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:7",
+      "rule": "Extract repeated calls to the same generated Airflow service hook into one shared custom hook so sibling components share a React Query cache entry",
+      "category": "performance",
+      "trigger": "The same generated service hook (e.g. useDeadlinesServiceGetDeadlines) is called with equivalent parameters from two or more sibling components with no shared custom hook",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:9",
+      "rule": "Dashboard stats cards showing a non-zero count must navigate to the matching detail/list page, like the other cards in the same dashboard",
+      "category": "api-design",
+      "trigger": "A StatsCard is rendered without href or onClick while sibling stats cards in the same dashboard provide navigation",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:11",
+      "rule": "Pass optional query parameters straight through to the generated OpenAPI client; it already strips null and undefined, so no `!== null && !== ''` guard is needed",
+      "category": "api-design",
+      "trigger": "A query parameter passed to a generated service hook is wrapped in a conditional checking for null or empty string before assignment",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:13",
+      "rule": "Use Chakra spacing and size tokens for padding, margin and font-size; do not pass raw pixel strings through inline style objects",
+      "category": "api-design",
+      "trigger": "A JSX element carries a style prop or sx object with literal pixel strings (padding: '8px', fontSize: '14px') instead of Chakra token values",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:15",
+      "rule": "Surface API failures in mutation hooks with `error.message` from the Airflow error object, as the existing mutation hooks do; do not hand-code per-status-code description strings",
+      "category": "api-design",
+      "trigger": "A mutation hook's onError callback maps HTTP status codes to hardcoded description strings instead of forwarding error.message",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:17",
+      "rule": "Load heavy UI libraries (e.g. Mermaid) through a dynamic import inside the code path that needs them, not as a top-level static import",
+      "category": "performance",
+      "trigger": "A module under airflow-core/src/airflow/ui/ statically imports a large library at module load rather than inside the render path that uses it",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:23",
+      "rule": "Build SQLAlchemy selects with Select.where(), not the legacy Select.filter()",
+      "category": "database",
+      "trigger": "A Select object in Airflow's db utilities calls .filter() instead of .where()",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:24",
+      "rule": "Keep session-commit responsibility in one place: a caller must not call session.commit() when the helper it delegates to already commits",
+      "category": "database",
+      "trigger": "A function calls session.commit() immediately after delegating to a helper that commits internally",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:26",
+      "rule": "Serialise an in-scope Pydantic model with model.model_dump_json() instead of hand-building an equivalent dict and calling json.dumps()",
+      "category": "api-design",
+      "trigger": "Code manually builds a dict with the same fields as an existing Pydantic model and json.dumps() it",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:27",
+      "rule": "A custom SQLAlchemy clause element that sets `inherit_cache = True` must also declare traversal metadata so its constructor state is part of the cache key",
+      "category": "database",
+      "trigger": "A ClauseElement subclass sets inherit_cache = True without _traverse_internals or equivalent cache-key fields for its instance attributes",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:31",
+      "rule": "Task-node payloads from dependency/graph API endpoints must carry `dag_id` alongside `task_id`",
+      "category": "api-design",
+      "trigger": "A new or modified API serialiser for task nodes includes task_id or a task node type but omits dag_id",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:39",
+      "rule": "Perform bulk deletes with session.execute(delete(Model).where(...).execution_options(synchronize_session=False)); a select() is not a substitute for delete() when porting off Query.delete()",
+      "category": "database",
+      "trigger": "A diff replaces Query.delete(synchronize_session=False) with session.execute(select(Model).where(...)) plus execution options",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:40",
+      "rule": "Scheduler asset-activation tests moved to CTE-based inputs must add an assertion that the large tuple (name, uri) IN (...) bind expansion is not reintroduced",
+      "category": "performance",
+      "trigger": "A test switches asset_models collection from session.scalars(select(AssetModel)).all() to a .cte() with no assertion guarding the old IN path",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:44",
+      "rule": "Migration tests must go through airflow.utils.db.upgradedb()/downgrade() rather than calling alembic.command.upgrade/downgrade directly",
+      "category": "database",
+      "trigger": "A test calls alembic.command.upgrade(config, ...) or alembic.command.downgrade(config, ...) instead of the Airflow wrappers",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:49",
+      "rule": "Use the AirflowConfigParser sentinel pattern to tell an explicitly-set Airflow config value from a default, rather than inspecting OTel env vars to infer intent",
+      "category": "api-design",
+      "trigger": "Code reads an Airflow OTEL/observability config key and then checks whether the corresponding OTel env var is set, with no sentinel fallback",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:57",
+      "rule": "Add a feature to the Helm chart only when the large majority of production users need it; optional or minority-use components belong outside the chart",
+      "category": "api-design",
+      "trigger": "A new Helm chart component or value is added that is optional or serves a minority use-case",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:61",
+      "rule": "Expose monitoring/telemetry parameters hardcoded in chart templates as values.yaml keys",
+      "category": "api-design",
+      "trigger": "A chart template or values.yaml hardcodes a monitoring interval or export period (e.g. OTEL_METRIC_EXPORT_INTERVAL) with no corresponding values.yaml key",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:80",
+      "rule": "Do not add per-task INFO logging inside an executor's scheduler-loop methods; submission acknowledgements belong at debug level, and exceptions already collected into failure_reasons must not be logged again individually",
+      "category": "performance",
+      "trigger": "A new self.log.info(...) is added inside attempt_task_runs() or another per-task executor loop, especially one echoing an exception also appended to failure_reasons",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:86",
+      "rule": "Operator-link persistence helpers must return early when self.do_xcom_push is False, before making any provider API call needed to build the link",
+      "category": "performance",
+      "trigger": "A _persist_*_link() helper calls a describe/hook API to assemble link data and then calls SomeLink.persist(...) without first checking do_xcom_push",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:89",
+      "rule": "A public operator __init__ parameter must not be reduced to a stored-but-unread attribute; either keep the behaviour it selects or remove it as an explicit breaking change",
+      "category": "api-design",
+      "trigger": "A refactor keeps self.<param> = <param> for a documented operator parameter while execute() stops consulting it and reads a derived flag instead",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:92",
+      "rule": "AWS operators must declare template_fields via the aws_template_fields(...) helper rather than unpacking *AwsBaseOperator.template_fields into a manual tuple",
+      "category": "api-design",
+      "trigger": "A class deriving from AwsBaseOperator declares template_fields as (*AwsBaseOperator.template_fields, 'foo', ...)",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:94",
+      "rule": "Expose new hook functionality as named optional parameters on the hook method rather than smuggling a dict of extras through **kwargs from the operator",
+      "category": "api-design",
+      "trigger": "An operator builds a dict of extra arguments and passes it as **extra_args into a hook method whose signature does not name those parameters",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:108",
+      "rule": "A new Hook __init__ parameter must be exposed and wired through by the corresponding Operator; hook-only parameters are unreachable for DAG authors",
+      "category": "api-design",
+      "trigger": "A new __init__ parameter is added to a *Hook class whose corresponding *Operator._get_hook() does not pass it",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:112",
+      "rule": "Name SparkSubmitHook polling parameters generically when the concept applies to more than one cluster manager; do not bake a single manager (e.g. 'yarn_') into the name",
+      "category": "api-design",
+      "trigger": "A new SparkSubmitHook parameter name includes a specific cluster manager while the behaviour also applies to other managers",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:114",
+      "rule": "Declare operator class-level attributes (e.g. external_id_key) at the top of the class body alongside template_fields, not between __init__ and execute",
+      "category": "api-design",
+      "trigger": "A class-level attribute is defined between __init__ and execute in an Operator class body",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:126",
+      "rule": "Do not change a public Hook method's return annotation to a private internal wrapper class; keep the public API type stable",
+      "category": "api-design",
+      "trigger": "A public Hook method's return annotation changes from a public SDK type (e.g. client.ApiClient) to an underscore-prefixed internal class",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:131",
+      "rule": "Do not rename or broaden a method signature to imply it handles more entity types (tasks and callbacks) until the body actually handles them",
+      "category": "api-design",
+      "trigger": "A method is renamed from a specific type (update_task_state) to a broader one (update_workload_state) while the body still handles only one of the implied types",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:9",
+      "rule": "When a hook deliberately ignores parameters it inherits from its parent signature (e.g. `api_key`, `base_url`) and reads the values from the connection `extra` instead, say so explicitly in the docstring",
+      "category": "api-design",
+      "trigger": "A method in `providers/**/hooks/*.py` accepts parameters whose names duplicate `extra` keys but reads the `extra` values and never uses the parameters, with no docstring note",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:13",
+      "rule": "In Databricks trigger constructors, pass `owner=caller` to validation helpers rather than `owner=self.__class__.__name__`, matching the existing `caller` attribution pattern",
+      "category": "api-design",
+      "trigger": "A validation helper invoked from a trigger `__init__` uses `owner=self.__class__.__name__` while the constructor already accepts a `caller: str`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:16",
+      "rule": "Import `Connection` from `airflow.models.connection` in provider code, not from `airflow.providers.common.compat.version_compat` or another compat shim",
+      "category": "api-design",
+      "trigger": "A provider file imports `Connection` from any module other than `airflow.models.connection`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:19",
+      "rule": "Edge executor SQL that filters on a recently added column must tolerate databases that predate the migration adding it",
+      "category": "database",
+      "trigger": "A SQLAlchemy query in the Edge executor adds a `.where(Model.new_column == ...)` on a newly introduced column with no schema-version guard",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:21",
+      "rule": "When a module referenced by `providers/common/compat/.../sdk.py` is renamed or moved, update the compat mapping tuple in the same change",
+      "category": "api-design",
+      "trigger": "A module path renamed while `common/compat/sdk.py` still maps to the old location",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:23",
+      "rule": "Do not add AI-toolset-specific API (retry exception mappings, AI retry hooks) to `DbApiHook` or other widely shared base hooks; keep those concerns inside the `common.ai` layer",
+      "category": "api-design",
+      "trigger": "A class attribute or method whose only consumer is `providers/common/ai` is added to `DbApiHook` or another base hook shared across many providers",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:25",
+      "rule": "Represent config-driven defaults consistently: keep the inline `conf.getboolean(\"operators\", \"default_deferrable\", fallback=False)` expression in the runtime `__init__` signature rather than defaulting to `None` and resolving in the body, and use `...` for that parameter in the corresponding `.pyi` stub instead of a hardcoded literal",
+      "category": "api-design",
+      "trigger": "An `__init__` changes `deferrable=conf.getboolean(...)` to `deferrable=None`, or a `.pyi` stub declares `deferrable: bool = False` for a parameter whose runtime default reads Airflow configuration",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/C:31",
+      "rule": "Pass `Model.__tablename__` rather than `Model.__table__` when programmatically dropping the Edge3 ORM tables",
+      "category": "database",
+      "trigger": "`EdgeWorkerModel.__table__`, `EdgeJobModel.__table__` or `EdgeLogsModel.__table__` used in a drop-table list",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:32",
+      "rule": "Keep provider FastAPI route modules to route handlers only: Pydantic request/response models belong in the package's `datamodels*` module and authorization/business helpers in the corresponding `services` module, mirroring the Airflow Core API layout",
+      "category": "api-design",
+      "trigger": "A Pydantic `BaseModel` or an authorization dependency function (e.g. `requires_fab_custom_view`) is defined inside a `routes/*.py` file in the FAB or edge3 provider",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/C:33",
+      "rule": "Use HTTP verbs rather than action suffixes for Edge3 worker UI routes - `PUT /worker/{name}/queues` to replace the queue list, not `POST /worker/{name}/queues/add`",
+      "category": "api-design",
+      "trigger": "An `@ui_router.post` decorator whose path ends in an action segment such as `/queues/add` or `/queues/remove`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:38",
+      "rule": "Import FastAPI utilities from `fastapi`, not directly from `starlette`, in provider route and dependency files",
+      "category": "api-design",
+      "trigger": "`from starlette.exceptions import HTTPException` or `from starlette import status` in a provider FastAPI module",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:44",
+      "rule": "When a new operator parameter's default is planned to change in a future release, default it to `None` as the unset sentinel and emit a `FutureWarning` when `None` is seen, instead of shipping the current default directly",
+      "category": "api-design",
+      "trigger": "A new `__init__` parameter is added with a concrete default that is documented or discussed as changing in a later release",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:51",
+      "rule": "Google provider hook methods must take the components of a GCP resource name (project, location, id) as separate parameters rather than a single full `projects/{p}/locations/{l}/...` string",
+      "category": "api-design",
+      "trigger": "A Google hook method accepts a `name: str` parameter holding a full GCP resource path",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:52",
+      "rule": "Type Google hook method parameters with the concrete Google Cloud client library types instead of widening them to `Any`",
+      "category": "api-design",
+      "trigger": "A Google hook method annotates a parameter `Any` where the client counterpart has a concrete type (e.g. `types.DeleteAgentEngineConfigOrDict`)",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:54",
+      "rule": "Apply an operator's passthrough config dict (e.g. `extra_config`) last - after every field derived from top-level parameters - so it genuinely wins for overlapping keys as documented",
+      "category": "api-design",
+      "trigger": "A passthrough dict is merged into the API-representation dict before top-level params (`schema_fields`, `max_bad_records`) are assigned onto the constructed object",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:63",
+      "rule": "Do not add a boolean opt-in flag whose only effect is the format of the value `execute()` returns when the previous value is still pushed to its own named XCom key",
+      "category": "api-design",
+      "trigger": "A new `__init__` boolean parameter (e.g. `return_gcs_uris`) that only switches the return-value format while the legacy value remains available under a separate XCom key",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:68",
+      "rule": "In a trigger, filter a bulk list result that is already in scope instead of issuing one API request per item",
+      "category": "performance",
+      "trigger": "A comprehension inside a trigger awaits `self.hook.get_<resource>(name=...)` once per name when a `list_<resources>()` result for the same namespace/selector has already been awaited",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:70",
+      "rule": "Add new optional parameters to an existing provider hook or operator `__init__` as keyword-only arguments, after a `*` separator",
+      "category": "api-design",
+      "trigger": "A new optional parameter is inserted positionally into an existing `__init__` signature with no preceding `*`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:90",
+      "rule": "Do not add module-level imports to `airflow.sdk.configuration` that defeat the lazy `conf` object; heavy or provider-touching imports belong inside `initialize_config()` or `__init__`",
+      "category": "performance",
+      "trigger": "A top-level import of `ProvidersManagerTaskRuntime` or another provider-manager/heavy module added to `airflow.sdk.configuration` module scope",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:93",
+      "rule": "`ResumableMixin.external_id_key` must be documented as the stable contract shared between an operator and its trigger, including the naming convention (`<provider>_<resource>_id`)",
+      "category": "api-design",
+      "trigger": "A `ResumableMixin`/`ResumableJobMixin` subclass overrides `external_id_key` with no docstring or comment explaining its cross-component role",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:97",
+      "rule": "Abstract `BaseStateBackend.serialize_*_to_ref` / `deserialize_*_from_ref` methods must document the JSON encoding contract the Execution API requires",
+      "category": "api-design",
+      "trigger": "One of those abstract methods is added or modified without a docstring stating the JSON round-trip requirement",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:99",
+      "rule": "Every `@lru_cache`d `@property` operations accessor on the task-SDK `Client` must carry a return-type annotation and a one-line docstring, matching the existing accessors",
+      "category": "api-design",
+      "trigger": "An `@lru_cache` + `@property` method on `Client` lacking a return annotation or docstring",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:100",
+      "rule": "`Client` operations `get` methods must convert an HTTP 404 `ServerResponseError` into a typed `ErrorResponse(error=ErrorType.*_NOT_FOUND)` rather than letting the raw exception escape",
+      "category": "api-design",
+      "trigger": "A new `*Operations.get` method on `Client` that does not translate a 404 into the typed error variant",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:101",
+      "rule": "In DAG-parsing and other hot paths, pass log arguments lazily with %-style placeholders instead of calling `repr()`/`str()` before `log.debug()`",
+      "category": "performance",
+      "trigger": "`log.debug(..., repr(x), ...)` or `log.debug(..., str(x), ...)` outside an `isEnabledFor` guard in a DAG-parsing code path",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:103",
+      "rule": "Task-SDK coordinator classes must not expose a separate `close()`; lifecycle cleanup belongs inside `execute_task` so the coordinator is self-contained",
+      "category": "api-design",
+      "trigger": "A `close()`/`cleanup()` method on a class that also implements `execute_task()` in `task-sdk/src/airflow/sdk/execution_time/coordinator.py` or a subclass",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:104",
+      "rule": "`get()` on task-SDK context accessors (`VariableAccessor`, `TaskStateAccessor`, `AssetStateAccessor`) must accept a `default` so callers can tell \"key not set\" from \"key set to None\"",
+      "category": "api-design",
+      "trigger": "A `get(key)` method on a task-SDK accessor in `execution_time/context.py` that returns None on missing and takes no default",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:109",
+      "rule": "Every method implemented on a concrete class that stands in for a Protocol must also be declared on the Protocol",
+      "category": "api-design",
+      "trigger": "A method on a concrete implementation (e.g. `_RealFernet`) absent from its Protocol (e.g. `FernetProtocol`) in task-sdk Protocol/impl pairs",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:111",
+      "rule": "Every data model consumed by `CommsDecoder` must be registered in the task-SDK schema-versions bundle, whether or not it originates from the Execution API spec",
+      "category": "api-design",
+      "trigger": "A new or modified Pydantic model used as a `CommsDecoder` message type that is absent from `task-sdk/src/airflow/sdk/execution_time/schema/versions/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:121",
+      "rule": "The TS-SDK public `TaskInstance` context must identify a task instance by the dag/run/task/map tuple, matching the Go and Java SDKs, rather than exposing a raw `taskInstanceId`",
+      "category": "api-design",
+      "trigger": "`readonly taskInstanceId: string` added to the public `TaskInstance` interface in `ts-sdk/src/task.ts`",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:124",
+      "rule": "Yield one outlet-event record per partition key rather than a single record carrying a `partition_keys` list",
+      "category": "api-design",
+      "trigger": "`yield {\"dest_asset_key\": ..., \"partition_keys\": list(...)}` in task_runner.py outlet-event iteration",
+      "kind": "incident",
+      "n_candidates": 1
+    }
+  ]
+}

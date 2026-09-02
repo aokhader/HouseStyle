@@ -9,5 +9,16 @@
     "rules_after": 14,
     "new_rules": 14,
     "new_rule_rate": 1.0
+  },
+  {
+    "tranche": 2,
+    "batches": 60,
+    "comments_seen": 1500,
+    "candidates_in": 954,
+    "clusters": 805,
+    "rules_before": 14,
+    "rules_after": 26,
+    "new_rules": 12,
+    "new_rule_rate": 0.4615
   }
 ]

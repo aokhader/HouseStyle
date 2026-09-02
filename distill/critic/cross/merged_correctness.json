@@ -1,0 +1,149 @@
+{
+  "merges": [
+    {
+      "rule": "In `execute_complete`, branch explicitly on `event[\"status\"]` and handle every status the paired trigger can emit — success, error, timeout and cancelled — before reading any payload field; never collapse all non-success statuses into one failure branch.",
+      "category": "correctness",
+      "trigger": "`execute_complete` reads payload fields without a prior status check, or returns on `status == \"success\"` and falls through to a single failure/cancel handler while the paired Trigger can emit timeout or cancelled statuses.",
+      "rationale": "A trigger and the operator method that resumes from it are one contract written in the same PR. If the operator does not decode each status the trigger can emit, a cancellation or a timeout is reported to the user as the wrong error, or a payload field is read off an event that never carried one.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:89", "t2/B:90", "t2/C:40"]
+    },
+    {
+      "rule": "When a broad `except Exception` wraps code that deliberately raises `AirflowException`, add an `except AirflowException: raise` clause before the generic handler so the specific exception is neither re-wrapped nor swallowed.",
+      "category": "correctness",
+      "trigger": "A `raise AirflowException(...)` inside a `try` whose only handler is `except Exception as e`, with no preceding `except AirflowException: raise`.",
+      "rationale": "The deliberate raise carries task-failure semantics that callers and the task runner branch on; letting the catch-all re-wrap it turns a precise, intended failure into an opaque generic one.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:134", "t2/B:122"]
+    },
+    {
+      "rule": "Operator, sensor and trigger error paths — including the failure and timeout branches of `execute_complete` — must raise Airflow exception types (`AirflowException`, `AirflowFailException`, `AirflowTaskTimeout`), never `RuntimeError` or another builtin.",
+      "category": "correctness",
+      "trigger": "diff adds `raise RuntimeError(...)` (or another builtin) on a trigger-event failure/timeout branch, or replaces an existing `raise AirflowException(` with `raise RuntimeError(` in an operator, sensor or trigger.",
+      "rationale": "Airflow's exception hierarchy is what the task runner and every caller catch on; swapping in a builtin silently changes retry and failure handling for code that was catching the Airflow type.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:113", "t2/B:77"]
+    },
+    {
+      "rule": "Post-submit commands and other cleanup that must run once a job finishes belong in a `try/finally` that covers the whole method including its early-exit guards, so they execute on success, failure and kill alike.",
+      "category": "correctness",
+      "trigger": "A `_run_post_submit_commands()` / sidecar-cleanup call sits outside a `finally`, or a `raise` appears before the `try/finally` that wraps it, in `SparkSubmitHook.submit()` or a K8s/YARN poll method.",
+      "rationale": "These hooks exist to tear down sidecars and driver-side state; if the job raises or is killed the cleanup is exactly what still has to happen, so placing it on the success path only leaks the resources it was written to reclaim.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:121", "t2/B:116"]
+    },
+    {
+      "rule": "Display counts for a paginated API result from the response's `total_entries`, never from the length of the returned array.",
+      "category": "correctness",
+      "trigger": "A badge, counter or summary renders `someList.length` / `data.items.length` where the list came from a paginated Airflow endpoint or a query that passes an explicit `limit`.",
+      "rationale": "The array is one page bounded by `limit`, so its length silently under-reports the true count as soon as the result exceeds the page size; the endpoint already returns the real total.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:8", "t2/B:5"]
+    },
+    {
+      "rule": "To clear an existing server-side field through an Airflow PATCH/PUT endpoint, send `null` rather than `undefined`, so the key is present in the JSON body and lands in `model_fields_set` on the backend.",
+      "category": "correctness",
+      "trigger": "A mutation maps an empty form field to `undefined` in a PATCH/PUT request body or update mask.",
+      "rationale": "`undefined` is dropped during JSON serialisation, so the field never reaches `model_fields_set` and the backend treats the clear as \"not supplied\" and leaves the old value in place.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:4", "t2/B:14"]
+    },
+    {
+      "rule": "Test for presence with an explicit `is not None` (Python) or `!== undefined && !== null` (TypeScript) rather than truthiness wherever `0`, `False` or an empty string is a legitimate value.",
+      "category": "correctness",
+      "trigger": "`if value:` / `if not value:` in Python or `if (value)` / `Boolean(value)` in TypeScript used as a presence check on a field — `bundle_version`, `dag.fileloc`, an active `map_index = 0` filter, an XCom value — whose valid domain includes falsy values.",
+      "rationale": "Airflow's domain is full of legitimately falsy values — map index 0, an empty bundle version, a `False` XCom — so a truthiness check quietly drops real data instead of testing whether the value was supplied.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:11", "t1/A:115", "t2/A:89"]
+    },
+    {
+      "rule": "Put imports at module scope; an import inside a function, method, fixture or test body is acceptable only to break a genuine circular import or for deliberate lazy loading (worker isolation, `TYPE_CHECKING`), and must carry a comment naming the reason — stdlib modules always go at the top of the file.",
+      "category": "correctness",
+      "trigger": "An `import` / `from ... import` statement inside a function, method, test helper or fixture body — `importlib`, `logging` and other stdlib modules included — with no adjacent comment explaining the cycle or lazy-loading reason it avoids.",
+      "rationale": "A body-level import hides the module's real dependency graph and repeats the import machinery on every call; the exceptions are narrow and known, so the ones that are legitimate say why, and everything else moves to the top.",
+      "kind": "convention",
+      "cluster_ids": ["t1/C:5", "t1/B:45", "t2/A:88"]
+    },
+    {
+      "rule": "Generate the execution JWT inside the same try block as, and before, the commit that transitions the task instance to running, so a token-generation failure cannot leave a TI committed as running without a token.",
+      "category": "correctness",
+      "trigger": "`services.aget(JWTGenerator)` / `generator.generate()` or the `X-Execution-Token` / Refreshed-API-Token assignment is placed after the `session.commit()` / `session.flush()` that moves the TI to running.",
+      "rationale": "Once the state transition is committed the worker is considered started; a token failure after that point strands a task instance in running that no worker can ever authenticate for.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:76", "t2/A:63"]
+    },
+    {
+      "rule": "Count DEFERRED task instances toward `max_active_tis_per_dag` and `max_active_tis_per_dagrun`; any divergence between those maps and the DAG-run active-tasks map behind `max_active_tasks` must be deliberate and justified in a comment.",
+      "category": "correctness",
+      "trigger": "A scheduler concurrency query or map (`task_concurrency_map`, `task_dagrun_concurrency_map`, `dag_run_active_tasks_map`) filters on `[running, queued]` and omits `TaskInstanceState.DEFERRED`, or adds/removes DEFERRED from one map without the same treatment in the others.",
+      "rationale": "A deferred task still holds its slot against the per-task limits users set, so leaving it out lets the scheduler over-schedule past the configured concurrency; the three maps back different limits, so their differences have to be explained rather than accidental.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:122", "t2/A:106"]
+    },
+    {
+      "rule": "When `create_dagrun()` is given a `bundle_version`, resolve it to a `DagVersion` first and drive everything that depends on the DAG definition — partition-key validation, deadline configuration — off that resolved version rather than `self` or the head DAG.",
+      "category": "correctness",
+      "trigger": "`create_dagrun()` calls `self.validate_partition_key(...)`, reads `self.deadline`, or otherwise uses the head DAG object while a `bundle_version` or resolved DAG argument is also present.",
+      "rationale": "The point of pinning a run to a bundle version is that the run behaves like that version of the DAG; validating or configuring it against the latest parsed DAG defeats the pin and produces runs the pinned code would have rejected.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:127", "t2/A:139"]
+    },
+    {
+      "rule": "Use the enum member (`DagRunState`, `TaskInstanceState`, a provider status enum such as `DmsTaskWaiterStatus`) wherever a state is compared or passed; never a raw string literal that duplicates its value.",
+      "category": "correctness",
+      "trigger": "A raw lowercase state string is passed as `state=` to `create_dagrun`, `DagRun(...)` or `TaskInstance(...)`, or a comparison like `if status != \"<state_string>\"` is added where the provider already defines a matching Enum.",
+      "rationale": "The enums are the single definition of the legal state set; a duplicated string literal is invisible to renames and typos and drifts out of sync with the enum it copies.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:124", "t2/B:45"]
+    },
+    {
+      "rule": "Diagnostics for conditions that are expected on paths the scheduler loop or the execution API re-runs every iteration or heartbeat must be logged at DEBUG; do not add INFO or WARNING logging to a hot fall-through branch.",
+      "category": "correctness",
+      "trigger": "A `log.info(...)` is added on a fallback or miss path inside a heartbeat or other high-frequency execution-API handler, or a `self.log.warning(...)` is added to a scheduler-loop helper on a branch whose rows re-enter it on the next loop.",
+      "rationale": "These branches run at loop frequency and their condition is normal, so a high log level floods operator logs with an entry per iteration and trains people to ignore genuine warnings.",
+      "kind": "convention",
+      "cluster_ids": ["t1/A:81", "t2/A:107"]
+    },
+    {
+      "rule": "Do not silence a failure with a blanket `except Exception: pass`-style handler: let the error propagate or chain it, or suppress only the specific expected exception types and log the suppression at debug.",
+      "category": "correctness",
+      "trigger": "A broad silent handler wraps credential resolution / token refresh in a secrets backend, or conn-id filesystem injection for `ObjectStoragePath` in `sdk/io/path.py`.",
+      "rationale": "The swallowed error is the only evidence of what actually went wrong; hiding it converts a diagnosable credential or provider failure into a generic downstream error nobody can trace back.",
+      "kind": "convention",
+      "cluster_ids": ["t1/C:132", "t2/C:59"]
+    },
+    {
+      "rule": "airflow-core, including `airflow-core/tests/`, must not import task-SDK internals — `airflow.sdk._shared`, SDK-only exceptions from `airflow.sdk.exceptions`, or other private SDK paths; tests for SDK-only symbols live in the SDK test tree.",
+      "category": "correctness",
+      "trigger": "An import in airflow-core source or tests is pointed at `airflow.sdk._shared.X`, `airflow.sdk.exceptions`, or another `airflow.sdk` internal namespace.",
+      "rationale": "The core/task-SDK split is a distribution boundary, not just a package layout; reaching into SDK internals from core re-couples the two and makes the SDK's private modules impossible to change independently.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:32", "t1/C:115"]
+    },
+    {
+      "rule": "Treat the numeric `status` field on the error object as the UI's API-error contract: read it as `(error as ExpandedApiError).status` / `error?.status` rather than `instanceof ApiError`, and attach `status` to any `Error` thrown from a raw `fetch()` inside a query function.",
+      "category": "correctness",
+      "trigger": "diff adds `instanceof ApiError` in a UI query or hook, or a `useQuery` `queryFn` calls `fetch()` directly and throws a plain `Error` without a `.status` property on a non-OK response.",
+      "rationale": "The global QueryClient retry guard and the UI's error handling both key off `error.status`; an `instanceof` check breaks across bundling boundaries and a status-less thrown Error makes 4xx responses retry as if they were transient.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:2", "t2/A:152"]
+    },
+    {
+      "rule": "Instance attributes belong to `__init__`: initialise every resource handle and state flag there, and never first-assign or overwrite them in `execute()`, `run()`, `submit()` or `get_conn()` — those methods resolve values into local variables and reset released resources to `None` after cleanup.",
+      "category": "correctness",
+      "trigger": "diff assigns `self.<resource>` or a state flag for the first time inside `async def run()` / `submit()` / `execute()`, or `get_conn()` assigns to `self.<param>` from `connection.extra_dejson` or a `getattr(..., default)` fallback chain.",
+      "rationale": "Triggers, hooks and operators are serialised, resumed and re-entered, so an attribute that only exists after a particular method has run raises `AttributeError` on the other paths and makes the object's state depend on call order.",
+      "kind": "convention",
+      "cluster_ids": ["t1/B:118", "t2/C:64"]
+    },
+    {
+      "rule": "Do not guard a Task SDK API client or supervisor-comms response with an `isinstance(resp, XResponse)` check whose else branch silently returns `[]`/`None`: these calls return their response model or raise `ServerResponseError`, so use the result directly and raise on an unexpected type.",
+      "category": "correctness",
+      "trigger": "An `isinstance(<resp>, <X>Response)` check with an `else` fallback around a `self.client.<resource>.<method>(...)` call in `supervisor.py`, or around a `SUPERVISOR_COMMS.send(...)` result in task-sdk `execution_time` context functions.",
+      "rationale": "The client contract already guarantees the response model or an exception, so the isinstance branch is dead code whose else arm turns a protocol violation into an empty result the caller then treats as legitimately empty data.",
+      "kind": "convention",
+      "cluster_ids": ["t1/C:129", "t2/C:105"]
+    }
+  ],
+  "demote": ["t1/B:74"]
+}

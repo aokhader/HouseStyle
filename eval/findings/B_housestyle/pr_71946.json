@@ -1,1 +1,8 @@
-{"pr": 71946, "findings": []}
+{"pr": 71946,
+ "findings": [
+   {"rule_id": "airflow-r421",
+    "path": "providers/common/ai/provider.yaml",
+    "line": 498,
+    "category": "commit-hygiene",
+    "message": "This adds `airflow.providers.common.ai.toolsets.managed_agent` to the `toolsets` list in `provider.yaml`, but the diff carries no matching change to `providers/common/ai/src/airflow/providers/common/ai/get_provider_info.py`. Run `prek run update-providers-build-files` and commit the regenerated `get_provider_info.py` alongside this edit, or the pre-commit consistency check fails and the new toolset module is missing from the packaged provider metadata."}
+ ]}

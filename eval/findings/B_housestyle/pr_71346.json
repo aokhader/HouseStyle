@@ -1,13 +1,8 @@
 {"pr": 71346,
  "findings": [
-   {"rule_id": "airflow-r002",
+   {"rule_id": "airflow-r419",
     "path": "providers/common/messaging/src/airflow/providers/common/messaging/triggers/msg_queue.py",
     "line": 65,
     "category": "api-design",
-    "message": "`MessageQueueTrigger.queue` is a public attribute holding the broker queue URI, and this renames it to `queue_uri` while re-pointing the `queue` name at the new trigger-queue value. Existing code that reads `trigger.queue` to get the broker URI does not fail - it now silently returns `None` (the ibm/mq test on line 244 shows exactly this flip). Keep `queue` forwarding to `queue_uri` with an `AirflowProviderDeprecationWarning` and pick a non-colliding attribute name for the triggerer-routing value, rather than reusing `queue` for a second meaning in the same release."},
-   {"rule_id": "airflow-r011",
-    "path": "providers/common/messaging/src/airflow/providers/common/messaging/triggers/msg_queue.py",
-    "line": 55,
-    "category": "docs",
-    "message": "`trigger_queue` is added to the `:param:` list here, but nothing under `providers/common/messaging/docs/` changes in this PR - the `howto/trigger:MessageQueueTrigger` guide this docstring points at in its own `.. seealso::` still documents only `queue`/`scheme`. Add the `trigger_queue` explanation (and the `queue` -> `queue_uri` rename) to that guide in this PR, the way `deferring.rst` and `deadline-alerts.rst` were updated for the core half of the feature."}
+    "message": "Renaming the public attribute `queue` to `queue_uri` and then re-defining `queue` as a property that returns the (new) trigger-routing queue silently changes what existing callers read: any DAG or out-of-tree subclass doing `MessageQueueTrigger(...).queue` used to get the broker URI and will now get `None`. Keep `queue` returning the broker URI (deprecating it if needed) and expose the new routing value under the new name only, or add a deprecation shim so the old attribute keeps working."}
  ]}

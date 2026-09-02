@@ -1,0 +1,698 @@
+{
+  "merges": [
+    {
+      "rule": "Do not perform per-row database work inside a loop over DAGs, task instances, or event rows: hoist the query out of the loop, batch it, or pass the already-fetched data in, and eager-load any relationship the loop dereferences (joinedload/selectinload) rather than letting it lazy-load per row.",
+      "category": "performance",
+      "trigger": "A session.scalar()/scalars()/execute() call, or a dotted lazy relationship access (event.dataset.uri, record.dag.<attr>, ti.<rel>), appears inside a for-loop over dags_needing_dagruns, dataset_triggered_dag_info, mapped task instances or other scheduler-loop rows, on a query carrying no joinedload/selectinload option.",
+      "rationale": "The scheduler loop runs continuously against the metadata DB, so a query or lazy attribute touched once per row turns a single statement into N; reviewers insist the data be fetched once, eagerly, before the loop starts.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:0",
+        "t2/A:2"
+      ]
+    },
+    {
+      "rule": "Express \"no referencing row\" in ORM queries as a correlated ~exists(select(Child.fk).where(Child.fk == Parent.id)) anti-join rather than <col>.not_in(select(...)), and do not carry a redundant is_not(None) inside the EXISTS.",
+      "category": "database",
+      "trigger": "The diff contains .not_in(select(...)) or NOT IN (SELECT ...) in a SQLAlchemy query, typically a scheduler/triggerer cleanup filter over a nullable FK column.",
+      "rationale": "NOT IN over a nullable column has surprising three-valued-logic semantics and plans badly on the large cleanup tables; the correlated EXISTS form is what the repo's other cleanup queries already use.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:105",
+        "t2/A:117"
+      ]
+    },
+    {
+      "rule": "Write SQLAlchemy queries in the 2.0 style - session.scalar()/session.scalars() over select(Model).where(...) - not the legacy session.query(Model).filter(...) API or Select.filter().",
+      "category": "database",
+      "trigger": "diff adds session.query(...).filter(...) in source or test code, or calls .filter() on a Select object.",
+      "rationale": "Airflow has migrated to the SQLAlchemy 2.0 select API; leaving legacy Query/filter forms in new code re-introduces the style the migration removed and blocks the eventual removal of the legacy layer.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:31",
+        "t2/B:23"
+      ]
+    },
+    {
+      "rule": "A FastAPI route decorator must declare every status code its handler can produce: each status raised via HTTPException belongs in the responses= mapping, and the decorator's status_code must agree with the success codes the handler actually returns.",
+      "category": "api-design",
+      "trigger": "raise HTTPException(status.HTTP_4xx_...) in a handler body whose decorator does not list that status in responses=, or a route declaring status_code=HTTP_204_NO_CONTENT whose handler also returns a different 2xx code.",
+      "rationale": "The decorator is what generates the OpenAPI spec and the generated UI client, so an undeclared status code is invisible to every consumer of the API.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/C:17",
+        "t2/A:58"
+      ]
+    },
+    {
+      "rule": "Every DB-backed list endpoint in the FastAPI APIs must paginate its query - use the paginated_select convention in the core API, or an explicit limit/offset (or documented hard cap) in the execution API - never return the whole collection.",
+      "category": "api-design",
+      "trigger": "A GET list route in api_fastapi/core_api/routes/ or the execution API calls session.scalars(select(...)).all() with no paginated_select, limit or offset.",
+      "rationale": "Collection endpoints run against unbounded metadata tables, so an unpaginated route is a latency and memory hazard the first time a deployment grows; pagination is the established shape for every other list route.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:80",
+        "t2/A:41"
+      ]
+    },
+    {
+      "rule": "Express sizing and spacing in Airflow UI components with Chakra UI token values (e.g. height={5}, p={2}), not raw CSS pixel strings passed through props or inline style/sx objects.",
+      "category": "api-design",
+      "trigger": "A Chakra UI component receives a size, padding, margin or font-size value as a quoted pixel string (height=\"20px\", style={{ padding: '8px' }}) rather than a numeric token.",
+      "rationale": "Chakra tokens are what keep the UI's spacing scale and theming coherent; hardcoded pixels opt individual components out of the design system.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t2/A:157",
+        "t2/B:13"
+      ]
+    },
+    {
+      "rule": "Keep FastAPI route modules to route handlers only: Pydantic request/response models belong in the package's datamodels module, authorization and business helpers in its services module, query/filter construction in the corresponding Query* filter class's to_orm, and callback or domain-object definitions in the module that owns the domain model.",
+      "category": "api-design",
+      "trigger": "A Pydantic BaseModel, an authorization dependency, a callback-definition object (e.g. _ImportPathCallbackDef), or resolution/query-building logic (e.g. resolve_task_group_pattern_to_task_ids) is defined or constructed inline inside a routes/*.py handler in the core API or a provider package.",
+      "rationale": "The Core API's datamodels/services/filter-parameter layering is what makes routes reviewable and reusable, and provider APIs are expected to mirror it; logic inlined into a handler is unreachable for other callers and untestable on its own.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:55",
+        "t2/A:69",
+        "t2/C:32"
+      ]
+    },
+    {
+      "rule": "Implement behaviour common to all implementations of a pluggable hierarchy in its base class or a shared mixin (BaseExecutor, BaseCoordinator) rather than duplicating it in each concrete subclass.",
+      "category": "api-design",
+      "trigger": "A new workload-handling method, or language-agnostic plumbing such as socket server startup / accept helpers, is added to multiple concrete executors or per-language coordinators with no base-class implementation.",
+      "rationale": "Executors and coordinators are extension points implemented in-tree and out-of-tree; anything the base class does not provide has to be re-implemented by every existing and future subclass, and third-party ones simply never get it.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:98",
+        "t1/C:105"
+      ]
+    },
+    {
+      "rule": "Do not add public API to a widely shared base class when its only consumer lives in another package or layer; keep the member with the layer that uses it, and require at least one in-scope consumer before it joins the shared surface.",
+      "category": "api-design",
+      "trigger": "A property, class attribute or method is added to a core or shared base class (CronMixin and other timetable bases, DbApiHook and other shared hooks) whose only reference site is a downstream package such as the task SDK or providers/common/ai.",
+      "rationale": "Every member on a shared base class becomes public API that all subclasses and downstream implementers inherit and maintain; reviewers want the concern kept in the layer that actually needs it rather than pushed into the shared contract.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:141",
+        "t2/C:23"
+      ]
+    },
+    {
+      "rule": "Fetch exactly the columns the consuming code reads: enumerate columns instead of select(SomeModel) in grid/UI and other hot-path queries, restrict with_row_locks selects to the key actually used, and do not add a column to load_only() that no caller consumes.",
+      "category": "performance",
+      "trigger": "A grid/UI or hot-path query uses select(SomeModel) instead of listing columns, a with_row_locks(select(Model)) retrieves the full entity when only .id is consumed, or a column is added to a load_only(...) call that no downstream code path reads.",
+      "rationale": "These queries run per page load or per scheduler pass over wide tables, so every extra column is bytes off the wire and rows the ORM has to hydrate for nothing; the column list is expected to match what the code actually reads.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:1",
+        "t2/A:76"
+      ]
+    },
+    {
+      "rule": "In `execute_complete`, branch explicitly on `event[\"status\"]` and handle every status the paired trigger can emit — success, error, timeout and cancelled — before reading any payload field; never collapse all non-success statuses into one failure branch.",
+      "category": "correctness",
+      "trigger": "`execute_complete` reads payload fields without a prior status check, or returns on `status == \"success\"` and falls through to a single failure/cancel handler while the paired Trigger can emit timeout or cancelled statuses.",
+      "rationale": "A trigger and the operator method that resumes from it are one contract written in the same PR. If the operator does not decode each status the trigger can emit, a cancellation or a timeout is reported to the user as the wrong error, or a payload field is read off an event that never carried one.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:89",
+        "t2/B:90",
+        "t2/C:40"
+      ]
+    },
+    {
+      "rule": "When a broad `except Exception` wraps code that deliberately raises `AirflowException`, add an `except AirflowException: raise` clause before the generic handler so the specific exception is neither re-wrapped nor swallowed.",
+      "category": "correctness",
+      "trigger": "A `raise AirflowException(...)` inside a `try` whose only handler is `except Exception as e`, with no preceding `except AirflowException: raise`.",
+      "rationale": "The deliberate raise carries task-failure semantics that callers and the task runner branch on; letting the catch-all re-wrap it turns a precise, intended failure into an opaque generic one.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:134",
+        "t2/B:122"
+      ]
+    },
+    {
+      "rule": "Operator, sensor and trigger error paths — including the failure and timeout branches of `execute_complete` — must raise Airflow exception types (`AirflowException`, `AirflowFailException`, `AirflowTaskTimeout`), never `RuntimeError` or another builtin.",
+      "category": "correctness",
+      "trigger": "diff adds `raise RuntimeError(...)` (or another builtin) on a trigger-event failure/timeout branch, or replaces an existing `raise AirflowException(` with `raise RuntimeError(` in an operator, sensor or trigger.",
+      "rationale": "Airflow's exception hierarchy is what the task runner and every caller catch on; swapping in a builtin silently changes retry and failure handling for code that was catching the Airflow type.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:113",
+        "t2/B:77"
+      ]
+    },
+    {
+      "rule": "Post-submit commands and other cleanup that must run once a job finishes belong in a `try/finally` that covers the whole method including its early-exit guards, so they execute on success, failure and kill alike.",
+      "category": "correctness",
+      "trigger": "A `_run_post_submit_commands()` / sidecar-cleanup call sits outside a `finally`, or a `raise` appears before the `try/finally` that wraps it, in `SparkSubmitHook.submit()` or a K8s/YARN poll method.",
+      "rationale": "These hooks exist to tear down sidecars and driver-side state; if the job raises or is killed the cleanup is exactly what still has to happen, so placing it on the success path only leaks the resources it was written to reclaim.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:121",
+        "t2/B:116"
+      ]
+    },
+    {
+      "rule": "Display counts for a paginated API result from the response's `total_entries`, never from the length of the returned array.",
+      "category": "correctness",
+      "trigger": "A badge, counter or summary renders `someList.length` / `data.items.length` where the list came from a paginated Airflow endpoint or a query that passes an explicit `limit`.",
+      "rationale": "The array is one page bounded by `limit`, so its length silently under-reports the true count as soon as the result exceeds the page size; the endpoint already returns the real total.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:8",
+        "t2/B:5"
+      ]
+    },
+    {
+      "rule": "To clear an existing server-side field through an Airflow PATCH/PUT endpoint, send `null` rather than `undefined`, so the key is present in the JSON body and lands in `model_fields_set` on the backend.",
+      "category": "correctness",
+      "trigger": "A mutation maps an empty form field to `undefined` in a PATCH/PUT request body or update mask.",
+      "rationale": "`undefined` is dropped during JSON serialisation, so the field never reaches `model_fields_set` and the backend treats the clear as \"not supplied\" and leaves the old value in place.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:4",
+        "t2/B:14"
+      ]
+    },
+    {
+      "rule": "Test for presence with an explicit `is not None` (Python) or `!== undefined && !== null` (TypeScript) rather than truthiness wherever `0`, `False` or an empty string is a legitimate value.",
+      "category": "correctness",
+      "trigger": "`if value:` / `if not value:` in Python or `if (value)` / `Boolean(value)` in TypeScript used as a presence check on a field — `bundle_version`, `dag.fileloc`, an active `map_index = 0` filter, an XCom value — whose valid domain includes falsy values.",
+      "rationale": "Airflow's domain is full of legitimately falsy values — map index 0, an empty bundle version, a `False` XCom — so a truthiness check quietly drops real data instead of testing whether the value was supplied.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:11",
+        "t1/A:115",
+        "t2/A:89"
+      ]
+    },
+    {
+      "rule": "Put imports at module scope; an import inside a function, method, fixture or test body is acceptable only to break a genuine circular import or for deliberate lazy loading (worker isolation, `TYPE_CHECKING`), and must carry a comment naming the reason — stdlib modules always go at the top of the file.",
+      "category": "correctness",
+      "trigger": "An `import` / `from ... import` statement inside a function, method, test helper or fixture body — `importlib`, `logging` and other stdlib modules included — with no adjacent comment explaining the cycle or lazy-loading reason it avoids.",
+      "rationale": "A body-level import hides the module's real dependency graph and repeats the import machinery on every call; the exceptions are narrow and known, so the ones that are legitimate say why, and everything else moves to the top.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/C:5",
+        "t1/B:45",
+        "t2/A:88"
+      ]
+    },
+    {
+      "rule": "Generate the execution JWT inside the same try block as, and before, the commit that transitions the task instance to running, so a token-generation failure cannot leave a TI committed as running without a token.",
+      "category": "correctness",
+      "trigger": "`services.aget(JWTGenerator)` / `generator.generate()` or the `X-Execution-Token` / Refreshed-API-Token assignment is placed after the `session.commit()` / `session.flush()` that moves the TI to running.",
+      "rationale": "Once the state transition is committed the worker is considered started; a token failure after that point strands a task instance in running that no worker can ever authenticate for.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:76",
+        "t2/A:63"
+      ]
+    },
+    {
+      "rule": "Count DEFERRED task instances toward `max_active_tis_per_dag` and `max_active_tis_per_dagrun`; any divergence between those maps and the DAG-run active-tasks map behind `max_active_tasks` must be deliberate and justified in a comment.",
+      "category": "correctness",
+      "trigger": "A scheduler concurrency query or map (`task_concurrency_map`, `task_dagrun_concurrency_map`, `dag_run_active_tasks_map`) filters on `[running, queued]` and omits `TaskInstanceState.DEFERRED`, or adds/removes DEFERRED from one map without the same treatment in the others.",
+      "rationale": "A deferred task still holds its slot against the per-task limits users set, so leaving it out lets the scheduler over-schedule past the configured concurrency; the three maps back different limits, so their differences have to be explained rather than accidental.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:122",
+        "t2/A:106"
+      ]
+    },
+    {
+      "rule": "When `create_dagrun()` is given a `bundle_version`, resolve it to a `DagVersion` first and drive everything that depends on the DAG definition — partition-key validation, deadline configuration — off that resolved version rather than `self` or the head DAG.",
+      "category": "correctness",
+      "trigger": "`create_dagrun()` calls `self.validate_partition_key(...)`, reads `self.deadline`, or otherwise uses the head DAG object while a `bundle_version` or resolved DAG argument is also present.",
+      "rationale": "The point of pinning a run to a bundle version is that the run behaves like that version of the DAG; validating or configuring it against the latest parsed DAG defeats the pin and produces runs the pinned code would have rejected.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:127",
+        "t2/A:139"
+      ]
+    },
+    {
+      "rule": "Use the enum member (`DagRunState`, `TaskInstanceState`, a provider status enum such as `DmsTaskWaiterStatus`) wherever a state is compared or passed; never a raw string literal that duplicates its value.",
+      "category": "correctness",
+      "trigger": "A raw lowercase state string is passed as `state=` to `create_dagrun`, `DagRun(...)` or `TaskInstance(...)`, or a comparison like `if status != \"<state_string>\"` is added where the provider already defines a matching Enum.",
+      "rationale": "The enums are the single definition of the legal state set; a duplicated string literal is invisible to renames and typos and drifts out of sync with the enum it copies.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:124",
+        "t2/B:45"
+      ]
+    },
+    {
+      "rule": "Diagnostics for conditions that are expected on paths the scheduler loop or the execution API re-runs every iteration or heartbeat must be logged at DEBUG; do not add INFO or WARNING logging to a hot fall-through branch.",
+      "category": "correctness",
+      "trigger": "A `log.info(...)` is added on a fallback or miss path inside a heartbeat or other high-frequency execution-API handler, or a `self.log.warning(...)` is added to a scheduler-loop helper on a branch whose rows re-enter it on the next loop.",
+      "rationale": "These branches run at loop frequency and their condition is normal, so a high log level floods operator logs with an entry per iteration and trains people to ignore genuine warnings.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:81",
+        "t2/A:107"
+      ]
+    },
+    {
+      "rule": "Do not silence a failure with a blanket `except Exception: pass`-style handler: let the error propagate or chain it, or suppress only the specific expected exception types and log the suppression at debug.",
+      "category": "correctness",
+      "trigger": "A broad silent handler wraps credential resolution / token refresh in a secrets backend, or conn-id filesystem injection for `ObjectStoragePath` in `sdk/io/path.py`.",
+      "rationale": "The swallowed error is the only evidence of what actually went wrong; hiding it converts a diagnosable credential or provider failure into a generic downstream error nobody can trace back.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/C:132",
+        "t2/C:59"
+      ]
+    },
+    {
+      "rule": "airflow-core, including `airflow-core/tests/`, must not import task-SDK internals — `airflow.sdk._shared`, SDK-only exceptions from `airflow.sdk.exceptions`, or other private SDK paths; tests for SDK-only symbols live in the SDK test tree.",
+      "category": "correctness",
+      "trigger": "An import in airflow-core source or tests is pointed at `airflow.sdk._shared.X`, `airflow.sdk.exceptions`, or another `airflow.sdk` internal namespace.",
+      "rationale": "The core/task-SDK split is a distribution boundary, not just a package layout; reaching into SDK internals from core re-couples the two and makes the SDK's private modules impossible to change independently.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:32",
+        "t1/C:115"
+      ]
+    },
+    {
+      "rule": "Treat the numeric `status` field on the error object as the UI's API-error contract: read it as `(error as ExpandedApiError).status` / `error?.status` rather than `instanceof ApiError`, and attach `status` to any `Error` thrown from a raw `fetch()` inside a query function.",
+      "category": "correctness",
+      "trigger": "diff adds `instanceof ApiError` in a UI query or hook, or a `useQuery` `queryFn` calls `fetch()` directly and throws a plain `Error` without a `.status` property on a non-OK response.",
+      "rationale": "The global QueryClient retry guard and the UI's error handling both key off `error.status`; an `instanceof` check breaks across bundling boundaries and a status-less thrown Error makes 4xx responses retry as if they were transient.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:2",
+        "t2/A:152"
+      ]
+    },
+    {
+      "rule": "Instance attributes belong to `__init__`: initialise every resource handle and state flag there, and never first-assign or overwrite them in `execute()`, `run()`, `submit()` or `get_conn()` — those methods resolve values into local variables and reset released resources to `None` after cleanup.",
+      "category": "correctness",
+      "trigger": "diff assigns `self.<resource>` or a state flag for the first time inside `async def run()` / `submit()` / `execute()`, or `get_conn()` assigns to `self.<param>` from `connection.extra_dejson` or a `getattr(..., default)` fallback chain.",
+      "rationale": "Triggers, hooks and operators are serialised, resumed and re-entered, so an attribute that only exists after a particular method has run raises `AttributeError` on the other paths and makes the object's state depend on call order.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:118",
+        "t2/C:64"
+      ]
+    },
+    {
+      "rule": "Do not guard a Task SDK API client or supervisor-comms response with an `isinstance(resp, XResponse)` check whose else branch silently returns `[]`/`None`: these calls return their response model or raise `ServerResponseError`, so use the result directly and raise on an unexpected type.",
+      "category": "correctness",
+      "trigger": "An `isinstance(<resp>, <X>Response)` check with an `else` fallback around a `self.client.<resource>.<method>(...)` call in `supervisor.py`, or around a `SUPERVISOR_COMMS.send(...)` result in task-sdk `execution_time` context functions.",
+      "rationale": "The client contract already guarantees the response model or an exception, so the isinstance branch is dead code whose else arm turns a protocol violation into an empty result the caller then treats as legitimately empty data.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/C:129",
+        "t2/C:105"
+      ]
+    },
+    {
+      "rule": "In provider code, raise the most appropriate built-in Python exception (ValueError, TypeError, RuntimeError) for argument validation, internal invariant violations and third-party service failures, rather than AirflowException.",
+      "category": "providers",
+      "trigger": "A new `raise AirflowException(...)` inside a provider hook, operator or trigger for parameter validation, an internal/programming error, or an error originating in an external service.",
+      "rationale": "AirflowException is Airflow's own signalling channel. Using it for ordinary programming errors or third-party failures makes provider errors indistinguishable from Airflow control flow and hides the real cause from users; the built-in exception types already say what went wrong.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:110",
+        "t1/C:35",
+        "t2/C:66"
+      ]
+    },
+    {
+      "rule": "A provider must not unconditionally import, call or attribute-access an airflow-core symbol that does not exist in its minimum supported core version: gate it behind an AIRFLOW_V_X_Y_PLUS check (or `getattr(obj, \"attr\", default)`) and keep the older fallback path.",
+      "category": "providers",
+      "trigger": "Provider code imports, calls or reads an airflow-core symbol, method or attribute introduced after that provider's minimum supported Airflow version with no version guard or fallback, or a diff deletes the Airflow 2 branch from a provider that still supports Airflow 2.",
+      "rationale": "Providers are released independently of core and are installed against a range of Airflow versions, so any core API newer than the declared floor has to be optional at runtime — otherwise the provider fails at import for every user on an older core.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:106",
+        "t1/C:13",
+        "t2/B:120",
+        "t2/C:35"
+      ]
+    },
+    {
+      "rule": "Express cross-version Airflow compatibility through the shared compat layer — the `AIRFLOW_V_X_Y_PLUS` sentinels in `version_compat` and the helpers in `providers/common/compat` — instead of inline `packaging.version.parse` comparisons or per-provider copies of the same check.",
+      "category": "providers",
+      "trigger": "Provider code compares `packaging.version.parse(airflow_version)` against a literal version string, or repeats an inline `if AIRFLOW_V_3_X_PLUS` shim that already exists in (or belongs in) `providers/common/compat`.",
+      "rationale": "Version gates are scattered across dozens of providers; when they live in one compat module they can be audited and retired in a single change, whereas hand-rolled comparisons drift and are missed when a minimum version is finally raised.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t2/B:121",
+        "t2/C:15"
+      ]
+    },
+    {
+      "rule": "Every version-compatibility shim in a provider must carry a comment naming the exact release involved — the minimum `>=X.Y.Z` that exports the symbol, or a `# TODO: Remove once minimum supported Airflow version is X.Y`.",
+      "category": "providers",
+      "trigger": "A `try: from airflow.sdk... except ImportError:` fallback, or another version-compat workaround block, is added to a provider with no comment naming the version that introduces or retires it.",
+      "kind": "convention",
+      "rationale": "Shims are the hardest thing to clean up later: without the version written down, nobody can tell when raising the minimum supported version makes the block dead code, so it survives long past its purpose.",
+      "cluster_ids": [
+        "t1/B:133",
+        "t1/C:15"
+      ]
+    },
+    {
+      "rule": "A dependency pin or upper bound added to a provider's `pyproject.toml` as a workaround must carry a comment naming the upstream issue and the condition under which the cap can be lifted.",
+      "category": "providers",
+      "trigger": "diff adds a `<X.Y` upper bound or a pinned/transitive dependency to a provider's `pyproject.toml` with no accompanying note or linked issue explaining when it may be relaxed.",
+      "rationale": "Caps added for a transient upstream breakage become permanent because no later reader can tell whether the reason still holds; recording the trigger for removal is what makes the pin reviewable a release later.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:94",
+        "t2/C:43"
+      ]
+    },
+    {
+      "rule": "Every package a provider imports directly must be declared as a dependency in that provider's `pyproject.toml` in the same PR; do not rely on it arriving transitively.",
+      "category": "providers",
+      "trigger": "diff adds `import <package>` under `providers/<name>/src/` where `<package>` is absent from `dependencies` (or the relevant extra) in `providers/<name>/pyproject.toml`.",
+      "rationale": "Providers are installed standalone, so a package that happens to be present in the CI image via another provider's dependency tree simply is not there for the user; the import breaks at runtime for exactly the people who install only this provider.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:119",
+        "t1/C:33"
+      ]
+    },
+    {
+      "rule": "Import anything a provider does not require unconditionally — a package behind an optional extra, or another provider's package — inside `try`/`except ImportError`, and either raise `AirflowOptionalProviderFeatureException` naming the extra to install or degrade the feature; never import it unconditionally at module top level.",
+      "category": "providers",
+      "trigger": "A provider module imports a package declared only as an optional extra, or a symbol from another `airflow.providers.*` package, at module top level with no `try`/`except ImportError` guard.",
+      "rationale": "A top-level import of something optional turns a missing extra into an import failure for the whole provider; guarding it keeps the rest of the provider usable and turns the error into an actionable message naming what to install.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t2/B:78",
+        "t2/C:50"
+      ]
+    },
+    {
+      "rule": "Reuse Airflow's established name for a concept instead of inventing a synonym: `run_after` for the DAG run scheduling timestamp, `wait_for_completion` for the wait-for-finish flag, and an `a`-prefixed method name (`aget_connection`) for the async variant of an existing method.",
+      "category": "naming",
+      "trigger": "A new or renamed parameter/method uses `logical_date` or `date` for scheduling time, `wait_for_termination` for a completion flag, or an `async_`-prefixed name where a sync counterpart already exists.",
+      "rationale": "Users move between providers constantly; a synonym for a parameter that is already named consistently across the AWS and core operators forces them to re-learn the same flag per package and shows up in every DAG they write.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/C:42",
+        "t2/C:75"
+      ]
+    },
+    {
+      "rule": "In executor methods that also reference `airflow.executors.workloads`, name the sequence parameter `workload_items`; do not keep the colliding name `workloads` or alias the module import to work around the collision.",
+      "category": "naming",
+      "trigger": "An executor method (`_process_workloads` or an override) declares a parameter named `workloads` in a module that does `from airflow.executors import workloads`, or imports that module under an alias to dodge the shadowing.",
+      "rationale": "The parameter shadows the module the same function needs, and aliasing the import hides the collision instead of removing it; renaming the local is the fix that keeps every executor override reading the same way.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:107",
+        "t2/B:81"
+      ]
+    },
+    {
+      "rule": "FastAPI apps and routers exposed by a provider plugin must declare their own auth dependencies at route or router level — `Depends(requires_access_*)` for authentication, plus `GetUserDep` alongside `SessionDep` on state-mutating handlers — rather than relying on the parent app's middleware.",
+      "category": "security",
+      "trigger": "A route or router defined under `providers/**/plugins/*.py` or a provider's `worker_api/routes/` declares no `requires_access_*` dependency, or a POST/PATCH/DELETE handler takes `SessionDep` without `GetUserDep`.",
+      "rationale": "A provider's sub-app is mounted into the API server, and the mount point's middleware is not a guarantee the plugin controls; declaring the dependency on the route is what makes the auth requirement visible and survives remounting.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/C:16",
+        "t2/C:3"
+      ]
+    },
+    {
+      "rule": "Serializers and deserializers for user-extensible types must go through the registration registry: `encode_*` must validate the class with a `find_registered_custom_*` lookup before trusting `qualname(var)`, and `decode_*` must guard `import_string` with an `is_core_*_import_path` check plus a registered-custom fallback.",
+      "category": "security",
+      "trigger": "A new `encode_*` function serializes a custom subclass using only `qualname(var)` with no registry guard, or a new `decode_*` function calls `import_string(var[Encoding.TYPE])` without a preceding core-import-path check and registry-based fallback.",
+      "rationale": "Serialized DAG data is attacker-reachable input to the scheduler; an unvalidated type path on either side of the round trip turns deserialization into arbitrary import, so both halves have to be anchored to the registry.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t2/A:138",
+        "t2/A:142"
+      ]
+    },
+    {
+      "rule": "Never log or print a Connection, a ConnectionResult, `Connection.get_uri()` output, or any credential-bearing string — including temporary debug output; redact it, or apply the security code-scanning suppression, before logging.",
+      "category": "security",
+      "trigger": "diff adds a `print(...)` or `log.*` call whose argument derives from a Connection object, a connection URI, a password or a secret — notably under `task-sdk/src/airflow/sdk/execution_time/`.",
+      "rationale": "Task and scheduler logs are retained and widely readable, so a single interpolated connection URI leaks the credential to everyone with log access at every level, debug included.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:23",
+        "t1/C:130"
+      ]
+    },
+    {
+      "rule": "Operators, triggers, notifiers and listeners must reach a third-party service through the provider's Hook class (sync or async) rather than constructing the underlying client or session inline.",
+      "category": "providers",
+      "trigger": "diff constructs a provider's underlying client or HTTP session directly — `confluent_kafka.Producer(...)`, `aiohttp.ClientSession()` — inside an operator, trigger, notifier or listener where the provider already exposes a Hook wrapping it.",
+      "rationale": "The Hook is where connection resolution, extras handling, auth and retry live; building the client inline bypasses all of it, so the operator quietly stops honouring the Airflow connection users configured.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:117",
+        "t2/C:62"
+      ]
+    },
+    {
+      "rule": "Take a service's scheme, host and port from the Airflow connection (and its extras) named by the operator's `*_conn_id`; do not hardcode them or re-parse them out of another string such as a queue URI.",
+      "category": "providers",
+      "trigger": "A provider hook, operator or trigger builds a request URL from a hardcoded scheme or port (e.g. `requests.get(f\"http://{host}:8080/...\")`), or parses `host:port` out of a URI string instead of reading the connection identified by its conn_id.",
+      "rationale": "The connection is the one place a deployment configures where a service lives and how it is reached; hardcoding a scheme or port makes the operator unusable on TLS or non-default deployments, and re-parsing a URI silently diverges from the connection the user actually set.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:145",
+        "t1/C:73"
+      ]
+    },
+    {
+      "rule": "When a provider change raises the minimum Airflow core or Task SDK version it actually requires — swapping a core import for the `common.compat.sdk` equivalent, or dropping SDK-specific parameters from a system test — update that provider's declared minimum version in the same PR.",
+      "category": "providers",
+      "trigger": "A diff replaces a core import with its `airflow.providers.common.compat.sdk` equivalent, or removes SDK-specific env vars or parameters, with no matching change to the provider's declared minimum core/SDK version.",
+      "rationale": "The declared minimum is what the release manager and the resolver act on; when the code starts requiring a newer core or SDK and the metadata does not say so, the provider installs cleanly and then fails at runtime for users on the older version.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/C:76",
+        "t2/B:101"
+      ]
+    },
+    {
+      "rule": "In user-facing prose - documentation, newsfragments, release notes, changelog entries, config.yml descriptions and UI strings - spell Airflow's core nouns the Airflow 3 way (Dag, Dags, Dag run, Dag files, Dag bundles, Dag Processor, API Server); never all-caps DAG/DAGs, \"DAG processor\" or \"webserver\", and reserve all-caps DAG for code identifiers and quoted strings.",
+      "category": "docs",
+      "trigger": "A docs page, newsfragment, RELEASE_NOTES.rst bullet, changelog entry, config.yml description or translated UI string adds prose containing \"DAG\"/\"DAGs\" outside backticks or a code identifier, or uses \"webserver\"/\"DAG processor\".",
+      "rationale": "Airflow 3 deliberately re-spelled these concepts; the all-caps forms leak pre-3.0 vocabulary into text users read, while the code identifiers keep their old casing, so reviewers correct the prose on sight.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:2",
+        "t2/A:15"
+      ]
+    },
+    {
+      "rule": "Keep a PR's diff scoped to what its title and description claim: regenerate uv.lock against fresh main so it carries only the dependency changes this PR actually makes, and split an independent schema-fix migration or a second unrelated feature into its own PR or call it out in the description with its own rationale.",
+      "category": "commit-hygiene",
+      "trigger": "The diff contains uv.lock changes no source change in the PR accounts for (extras added or dependencies dropped by a rebase), an independent schema-fix migration alongside a feature migration, or a second unrelated feature.",
+      "rationale": "Reviewers read the description as the contract for the diff; unexplained lockfile churn and piggy-backed migrations or features cannot be reviewed or reverted independently of the feature the PR is named for.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:6",
+        "t2/A:17"
+      ]
+    },
+    {
+      "rule": "Pick the newsfragment from the change's actual user-visible impact: none at all for a documentation-only or purely internal change, and bugfix.rst rather than significant.rst for an internal fix that changes no observable behaviour.",
+      "category": "commit-hygiene",
+      "trigger": "A PR whose diff touches only docs also adds a file under newsfragments/, or a significant.rst fragment is added for an internal race-condition fix or scheduler-internal improvement with no API or behaviour change.",
+      "rationale": "Newsfragments become the release notes users read; a fragment for a change nobody outside the repo can observe, or a significant fragment for an internal fix, inflates the upgrade reading users must do.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:33",
+        "t2/A:23"
+      ]
+    },
+    {
+      "rule": "Keep a locale's do-not-translate / keep-in-English list to the bare CamelCase code identifiers quoted verbatim as code (Asset, TaskInstance, DagRun); compound phrases and the same concepts appearing as UI labels must follow the wording that locale's i18n JSON files already use.",
+      "category": "docs",
+      "trigger": "A locale file under .github/skills/airflow-translations/locales/ lists a multi-word phrase built around an Airflow term, or blanket-lists CamelCase identifiers, without distinguishing code identifiers from UI labels the locale's JSON already translates.",
+      "rationale": "The guideline file has to agree with the translations already shipped in that locale's JSON; a list that blocks whole phrases or UI labels contradicts existing strings and freezes wording the translators deliberately localised.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:20",
+        "t2/A:14"
+      ]
+    },
+    {
+      "rule": "A bug fix to an example DAG that is motivated by a specific configuration (e.g. a non-UTC [core] default_timezone) must extend tests/unit/always/test_example_dags.py so that DAG is imported under the triggering config.",
+      "category": "testing",
+      "trigger": "An example_dags/ file is modified to fix a datetime/timezone or other config-dependent issue with no added or modified case in test_example_dags.py exercising that configuration.",
+      "rationale": "Example DAGs are only parsed under the default config in CI, so the exact scenario that produced the bug stays untested unless the example-DAG test is extended to cover it.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/A:96",
+        "t2/A:105"
+      ]
+    },
+    {
+      "rule": "Mocks standing in for a real Airflow, provider or SDK type must be specced - MagicMock(spec=...), spec_set= or create_autospec, including nested attributes - so signature drift against the real class fails the test; MagicMock(autospec=True) is a no-op keyword and specs nothing.",
+      "category": "testing",
+      "trigger": "A bare Mock()/MagicMock() (or MagicMock(autospec=True)) substituted for a known type - the Task SDK execution API Client, RunContext, ToolsetTool, a credentials object, a SerializedDAG cache entry, an AWS hook or its async connection, a SQLAlchemy session, an ORM instance, a DAG or an operator method - and then given attributes.",
+      "rationale": "An unspecced mock accepts any attribute or signature, so the test keeps passing after the real class changes; specced mocks are what makes these tests catch drift instead of hiding it.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/C:6",
+        "t2/B:47",
+        "t2/C:49"
+      ]
+    },
+    {
+      "rule": "Do not use pytest's caplog fixture to assert on log output; assert on observable behaviour or return values, or capture the logger directly with a mock.",
+      "category": "testing",
+      "trigger": "caplog appears as a fixture argument, or caplog.text/caplog.records is asserted on, in a test under providers/**/tests/, kubernetes-tests/ or the core test suites.",
+      "rationale": "Log text is not the contract under test; caplog assertions break on unrelated logging changes and depend on handler and propagation setup that differs between the unit, provider and integration suites.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:96",
+        "t1/C:96",
+        "t2/C:0"
+      ]
+    },
+    {
+      "rule": "Pin the query count with assert_queries_count when adding or changing a database access path whose cost matters: a new test for a FastAPI route returning a collection, and any performance-motivated ORM change such as replacing session.merge() with session.add().",
+      "category": "testing",
+      "trigger": "A new test exercises a FastAPI route returning a collection (assets, DAGs, task instances) with no assert_queries_count context manager, or a diff swaps session.merge( for session.add( on a task_instance/dag_run path with no accompanying assert_queries_count.",
+      "rationale": "Query-count regressions - a lost eager load, a re-introduced merge - are invisible in a passing functional test; assert_queries_count is the only thing that makes the performance intent of the change fail CI when it is undone.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:47",
+        "t2/B:30"
+      ]
+    },
+    {
+      "rule": "In Playwright e2e tests, wait on an explicit UI condition - a key element becoming visible before a navigation helper returns, expect.poll() for post-click assertions - never read state immediately after an action and never page.waitForLoadState('networkidle').",
+      "category": "testing",
+      "trigger": "A goto/navigateTo* helper is added with no subsequent waitFor/toBeVisible, page content is compared immediately after a navigation click without expect.poll, or waitForLoadState('networkidle') is called.",
+      "rationale": "The UI keeps fetching after navigation, so an immediate read or a networkidle wait is a race that flakes in CI; waiting on the element the test actually depends on is both deterministic and self-documenting.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:17",
+        "t2/B:20"
+      ]
+    },
+    {
+      "rule": "E2e tests and page objects must fail when the feature is broken: no if-guards around the assertions and no try/catch or .catch(() => false) around visibility/state checks - use web-first assertions such as expect(el).toBeVisible()/toBeHidden() and let failures propagate.",
+      "category": "testing",
+      "trigger": "A tests/e2e/specs/*.ts diff adds an if (count > 0) { ... } guard or similar short-circuit around the assertions, or a Playwright page-object method wraps isVisible()/isEnabled() in try/catch returning false.",
+      "rationale": "A conditional or swallowed check turns the spec into a test that passes whether or not the feature works, which is worse than no coverage because it looks like coverage.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:20",
+        "t2/B:19"
+      ]
+    },
+    {
+      "rule": "When a Helm value moves to a new path, or the executor or CRD that exercised it is removed, migrate the existing chart tests to the still-supported path instead of deleting them, so deprecated-but-supported overrides keep coverage.",
+      "category": "testing",
+      "trigger": "A helm test or parametrize case using the old broad value path is deleted when a component-scoped or per-executor path is introduced, while the old path is still listed in the NOTES.txt deprecation notice.",
+      "rationale": "The old value paths remain supported for chart users mid-upgrade; deleting the test that covered them removes the only proof the deprecated path still renders correctly.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:80",
+        "t2/B:63"
+      ]
+    },
+    {
+      "rule": "Every chart/values.yaml parameter must be declared in chart/values.schema.json, and where a value's behaviour depends on another value that dependency must be documented in both files.",
+      "category": "docs",
+      "trigger": "A key is added to chart/values.yaml with no corresponding entry in chart/values.schema.json, or a conditional expression in the config: block references two or more .Values fields while only one carries an explanatory comment.",
+      "rationale": "The schema is what validates users' values files and what the chart docs are generated from, so a key or a gating dependency that lives in only one of the two files is invisible to half the people who need it.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:64",
+        "t2/B:59"
+      ]
+    },
+    {
+      "rule": "Provider changelog.rst entries must read as sentence-case, user-facing prose: strip conventional-commit prefixes such as fix: or feat(...), do not open with a lowercase word, name no internal tooling such as Dependabot, and state the concrete change.",
+      "category": "docs",
+      "trigger": "A line added to providers/*/docs/changelog.rst starts with a lowercase word or a fix:/feat: prefix, or mentions dependabot instead of describing the user-visible change.",
+      "rationale": "The changelog is published documentation, not a commit log; raw commit titles and tooling names read as repo internals to the provider's users.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:93",
+        "t2/B:107"
+      ]
+    },
+    {
+      "rule": "A changelog or release-note entry is a single concise line stating the user-visible change; PR narration, methodology notes, test-coverage clauses and the detailed explanation belong in the PR.",
+      "category": "docs",
+      "trigger": "A multi-sentence bugfix entry is added to chart/RELEASE_NOTES.rst, or a provider changelog line carries parenthetical test-coverage, refactor-rationale or methodology text.",
+      "rationale": "Release notes are scanned, not read; the reasoning behind a fix is already preserved in the PR the entry links to.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:48",
+        "t2/C:14"
+      ]
+    },
+    {
+      "rule": "Add a bullet to a provider's changelog.rst only when that provider's own source files change; a PR limited to test files, to another provider's tests, or to non-functional pyproject.toml marker comments gets no entry.",
+      "category": "docs",
+      "trigger": "A new bullet or version section in providers/<name>/docs/changelog.rst for a diff whose changed files are all under tests/, belong to a different provider, or are only '# use next version' comments.",
+      "rationale": "A changelog entry announces a release of that provider to its users; test-only or cross-provider churn changes nothing they can observe and forces an otherwise unnecessary release.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:147",
+        "t1/C:38"
+      ]
+    },
+    {
+      "rule": "Example DAGs must be plain, self-contained and copy-pasteable against current main: no try/except ImportError compatibility shims for older Airflow versions or optional dependencies, and no imports of helpers shared across example DAG files.",
+      "category": "docs",
+      "trigger": "A file under example_dags/ adds a try: from ... except ImportError: fallback import block, or imports a helper defined in another example or support module.",
+      "rationale": "Example DAGs are read as the copy-paste starting point and are rendered into the docs; a version shim or a shared helper import gives readers a snippet that does not stand on its own and documents versions main no longer targets.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t2/A:104",
+        "t2/C:7"
+      ]
+    },
+    {
+      "rule": "Build test fixtures from the real library type the production code inspects - a V1PodStatus for a pod's status, a real sqlite3.OperationalError as an exception's orig - rather than a plain dict or string stand-in.",
+      "category": "testing",
+      "trigger": "Test code assigns pod.status = {\"key\": value} instead of a V1PodStatus instance, or mocks sqlalchemy.exc.OperationalError with a plain string as orig where the implementation reads e.orig.args[0].",
+      "rationale": "The code under test reaches into the object's real shape - attributes, args tuples - so a dict or string stand-in exercises a shape that never occurs in production and passes where the real type would fail.",
+      "kind": "convention",
+      "cluster_ids": [
+        "t1/B:150",
+        "t2/B:29"
+      ]
+    }
+  ],
+  "demote": [
+    "t1/A:44",
+    "t1/C:86",
+    "t1/B:74",
+    "t1/B:30",
+    "t2/B:105",
+    "t1/A:10",
+    "t1/A:69",
+    "t1/B:37",
+    "t1/B:40",
+    "t1/B:101",
+    "t1/B:115",
+    "t1/C:27",
+    "t1/C:53",
+    "t1/C:54",
+    "t1/C:81",
+    "t2/A:32",
+    "t2/A:66",
+    "t2/B:41",
+    "t2/B:54",
+    "t2/C:56",
+    "t2/C:57",
+    "t2/C:116",
+    "t2/C:126"
+  ]
+}

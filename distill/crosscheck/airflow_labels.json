@@ -2,218 +2,290 @@
   "repo": "apache/airflow",
   "mined_rules": [
     {
-      "id": "airflow-r002",
+      "id": "airflow-r441",
+      "label": "CONFIRMED",
+      "doc_reference": "AGENTS.md § Testing Standards — \"Use `spec`/`autospec` when mocking.\"",
+      "why": "AGENTS.md states the requirement verbatim; only the mined detail that `MagicMock(autospec=True)` is a silently-ignored keyword is undocumented."
+    },
+    {
+      "id": "airflow-r427",
+      "label": "CONFIRMED",
+      "doc_reference": "AGENTS.md § Coding Standards — \"Imports at top of file. Valid exceptions: circular imports, lazy loading for worker isolation, `TYPE_CHECKING` blocks.\"",
+      "why": "The rule and its exception list are stated almost word for word; only the mined addition that the exception must carry a comment naming the reason is absent from the docs."
+    },
+    {
+      "id": "airflow-r430",
+      "label": "CONFIRMED",
+      "doc_reference": "AGENTS.md § Naming — \"Write **Dag** (title case) in all prose. Keep the all-caps or lowercase spelling only when reproducing a literal code token\"",
+      "why": "The Dag/DAG spelling requirement and the code-identifier carve-out are stated explicitly; the mined rule's extra targets (\"webserver\", \"DAG processor\", \"API Server\") are not named in the docs but ride on the same requirement."
+    },
+    {
+      "id": "airflow-r433",
       "label": "IMPLIED",
-      "doc_reference": "contributing-docs/12_provider_distributions.rst § Breaking changes in the community managed providers",
-      "why": "The doc says all providers are 'in theory backward compatible' and that a breaking change must be communicated in changelog.rst with a migration path, but it never requires the concrete shims the mined rule demands (a deprecated forwarding property for a rename, a deprecated parameter whose values map onto the replacement, a new behaviour made opt-in behind a default)."
+      "doc_reference": "contributing-docs/13_airflow_dependencies_and_extras.rst § Referring to other Apache Airflow distributions in dependencies — \"Some of our dependencies have forced minimum version - mostly because of the Airflow 3 minimum version compatibility\"; contributing-docs/12_provider_distributions.rst § Breaking changes in the community managed providers — \"All providers are in theory backward compatible with future versions of Airflow\"",
+      "why": "The docs establish that a provider declares and must honour a minimum supported Airflow version, but they discuss this only as a dependency floor and never state the code-level requirement to gate a newer core symbol behind an `AIRFLOW_V_X_Y_PLUS` check or a `getattr` fallback."
     },
     {
-      "id": "airflow-r009",
-      "label": "CONFIRMED",
-      "doc_reference": "AGENTS.md § Coding Standards",
-      "why": "AGENTS.md states 'Imports at top of file. Valid exceptions: circular imports, lazy loading for worker isolation, TYPE_CHECKING blocks' — the same requirement with the same exception list; only the mined rule's extra demand that the exception carry a comment naming the reason is unstated."
-    },
-    {
-      "id": "airflow-r014",
-      "label": "CONFIRMED",
-      "doc_reference": "AGENTS.md § Testing Standards",
-      "why": "AGENTS.md states 'Use spec/autospec when mocking'; the mined rule adds the nested-attribute requirement and the MagicMock(autospec=True)-is-a-no-op detail on top of the same expectation."
-    },
-    {
-      "id": "airflow-r001",
+      "id": "airflow-r418",
       "label": "TRIBAL",
       "doc_reference": "",
-      "why": "Nothing in AGENTS.md, CONTRIBUTING.rst or contributing-docs/ requires a new parameter, field or property to have a real consumer and a real effect; the closest text (contributing-docs/19_execution_api_versioning.rst) explains how to add a datamodel field, not whether anything must read it."
+      "why": "contributing-docs/16_adding_api_endpoints.rst is the only doc covering FastAPI endpoints and it never mentions the datamodels, services or Query* filter modules — its \"Optional: Adding Pydantic Model\" step says only that you \"may define a model in a Python file\"."
     },
     {
-      "id": "airflow-r007",
+      "id": "airflow-r420",
       "label": "CONFIRMED",
-      "doc_reference": "contributing-docs/05_pull_requests.rst § Coding style and best practices → Templated fields in Operator's __init__ method",
-      "why": "The doc states a presence check must be written as 'is None' / 'is not None', 'never as a truthiness test — a supplied argument can itself be \"\", 0 or an empty list'; note it scopes this to constructor argument checks and explicitly blesses 'my_field = my_field or []' for mutable defaults, so the mined rule's 'param or []' clause is not the part the doc confirms."
+      "doc_reference": "contributing-docs/05_pull_requests.rst § Pull Request quality criteria, item 6 \"Coherent changes\" (plus the earlier bullet \"Make sure your PR is small and focused on one change only - avoid adding unrelated changes\") and § Gen-AI Assisted contributions",
+      "why": "Keeping the diff to what the PR claims is stated as a quality criterion PRs are measured against, and AGENTS.md's self-review step 1 repeats it; the uv.lock and split-migration specifics are the mined refinement."
     },
     {
-      "id": "airflow-r003",
+      "id": "airflow-r423",
+      "label": "TRIBAL",
+      "doc_reference": "",
+      "why": "Nothing in AGENTS.md or contributing-docs describes deferrable-operator event handling, `execute_complete`, or the statuses a trigger may emit."
+    },
+    {
+      "id": "airflow-r428",
+      "label": "TRIBAL",
+      "doc_reference": "",
+      "why": "No document discusses truthiness versus explicit `is not None` / `!== undefined` presence checks in either Python or TypeScript."
+    },
+    {
+      "id": "airflow-r429",
       "label": "IMPLIED",
-      "doc_reference": "contributing-docs/30_new_language_sdk.rst § Choosing an implementation path / SubprocessCoordinator: implementing _build_execute_task_command",
-      "why": "The new-language-SDK guide says the base class 'handles all TCP socket lifecycle, process ownership verification, startup draining, and teardown' and that subclasses 'only need to supply the command to run', which gestures at not re-implementing shared coordinator behaviour, but no doc states the general expectation for executors, notifiers or repeated version guards."
+      "doc_reference": "contributing-docs/05_pull_requests.rst — \"If your PR adds functionality, make sure to update the docs as part of the same PR, not only code and tests. Docstring is often sufficient.\"; AGENTS.md § Coding Standards — \"Keep selective-checks behaviour and its documentation in sync\"",
+      "why": "The docs require documentation to be updated alongside code and give one worked instance of a doc/behaviour sync obligation, but never state that a `:param:` docstring's override/fallback/validation semantics must match what the implementation actually does."
     },
     {
-      "id": "airflow-r004",
+      "id": "airflow-r439",
       "label": "TRIBAL",
       "doc_reference": "",
-      "why": "No fetched document mentions triggers, TriggerEvent, deferral or terminal event handling at all — the word 'trigger' appears only as the triggerer process, UI menu triggers and 'trigger a Dag'."
+      "why": "contributing-docs/09_testing.rst only enumerates the kinds of tests Airflow has; no fetched document mentions Playwright, e2e specs, page objects or assertion style (the contributing-docs/testing/ sub-pages are not in this corpus)."
     },
     {
-      "id": "airflow-r005",
-      "label": "CONFIRMED",
-      "doc_reference": "contributing-docs/05_pull_requests.rst § Pull Request guidelines (and § Pull Request quality criteria, item 6 'Coherent changes')",
-      "why": "The doc requires a PR to be 'small and focused on one change only - avoid adding unrelated changes', names coherent changes as a merge-quality gate, and AGENTS.md § Creating Pull Requests repeats it as a self-review step ('remove any unrelated changes')."
-    },
-    {
-      "id": "airflow-r006",
+      "id": "airflow-r417",
       "label": "TRIBAL",
       "doc_reference": "",
-      "why": "No document discusses broad 'except Exception' handlers, re-wrapping an exception that was deliberately raised to propagate, or updating enclosing fall-through loops when a new exception type is introduced."
+      "why": "contributing-docs/16_adding_api_endpoints.rst tells you to register the route with \"the appropriate HTTP method, query params, permissions, body type\" and to check the auto-generated /docs, but never mentions the `responses=` mapping or agreement between declared and returned status codes."
     },
     {
-      "id": "airflow-r008",
-      "label": "TRIBAL",
-      "doc_reference": "",
-      "why": "common.compat appears in the docs only as a cross-provider dependency-versioning topic (contributing-docs/13_airflow_dependencies_and_extras.rst) and airflow.utils.sqlalchemy is never mentioned; nothing tells a contributor to skip an inline try/except ImportError shim because a central layer already handles the import."
-    },
-    {
-      "id": "airflow-r010",
-      "label": "CONFIRMED",
-      "doc_reference": "AGENTS.md § Naming",
-      "why": "AGENTS.md opens with 'Write **Dag** (title case) in all prose' and enumerates exactly which literal code tokens keep the all-caps spelling, which is the mined rule verbatim."
-    },
-    {
-      "id": "airflow-r011",
+      "id": "airflow-r419",
       "label": "IMPLIED",
-      "doc_reference": "contributing-docs/05_pull_requests.rst § Pull Request guidelines; contributing-docs/12_provider_distributions.rst § Documentation for the community managed providers",
-      "why": "The docs require docs to be updated in the same PR as new functionality and list PyDoc class documentation and how-to guides among what a well documented provider has, but never state that a new keyword argument needs a ':param:' entry or that the provider's operators/connections RST guide must be edited — and 'Docstring is often sufficient' arguably relaxes the second half."
+      "doc_reference": "contributing-docs/12_provider_distributions.rst § Breaking changes in the community managed providers — \"Ideally you should provide a migration path for the users to follow in the ``changelog.rst``\"",
+      "why": "The docs treat changes to a provider's public surface as breaking changes that must be communicated and given a migration path, but explicitly allow them; they never require the change to be made opt-in behind a new parameter defaulting to the legacy behaviour."
+    },
+    {
+      "id": "airflow-r421",
+      "label": "CONFIRMED",
+      "doc_reference": "AGENTS.md § Boundaries — \"**Never** ... Edit generated files by hand when a generation workflow exists.\" (echoed by contributing-docs/15_node_environment_setup.rst on ``/openapi-gen``: \"autogenerated types and queries ... Do not manually edit.\")",
+      "why": "The general prohibition is stated as an absolute; the mined rule only adds which two files are generated and by which command."
+    },
+    {
+      "id": "airflow-r422",
+      "label": "CONFIRMED",
+      "doc_reference": "AGENTS.md § Coding Standards, newsfragments bullet — \"**Golden rule: never create a newsfragment unless you are certain the change is user-facing.** ... Adding a spurious newsfragment for a non-user-facing change is a defect, not a safe default.\" (repeated in § Commits and PRs)",
+      "why": "The \"no newsfragment for a docs-only or purely internal change\" half is stated outright; the bugfix-versus-significant type choice is only gestured at by the type list in contributing-docs/18_contribution_workflow.rst."
+    },
+    {
+      "id": "airflow-r424",
+      "label": "TRIBAL",
+      "doc_reference": "",
+      "why": "No document states where instance attributes must be initialised or forbids first-assigning `self.<attr>` in `execute()`/`run()`/`get_conn()`."
+    },
+    {
+      "id": "airflow-r425",
+      "label": "TRIBAL",
+      "doc_reference": "",
+      "why": "Not merely undocumented but documented backwards: AGENTS.md § Coding Standards forbids adding new `raise AirflowException(...)` anywhere including `providers`, while review history requires exactly that on operator/trigger failure and timeout branches."
+    },
+    {
+      "id": "airflow-r426",
+      "label": "TRIBAL",
+      "doc_reference": "",
+      "why": "No document discusses cleanup placement, `try/finally` coverage of early-exit guards, or post-submit commands."
+    },
+    {
+      "id": "airflow-r431",
+      "label": "IMPLIED",
+      "doc_reference": "contributing-docs/12_provider_distributions.rst § Breaking changes in the community managed providers — \"You have to update ``changelog.rst`` file in the ``docs`` folder ... If in doubt, you can always look at ``changelog.rst`` in other providers to see how we communicate\"",
+      "why": "The docs point at existing changelogs as the style model rather than stating the style, and AGENTS.md's ban on Conventional-Commit prefixes is scoped to commit messages and PR titles, not changelog lines."
     },
     {
       "id": "airflow-r012",
       "label": "TRIBAL",
       "doc_reference": "",
-      "why": "The only naming guidance in the documents is provider class/module naming (contributing-docs/12_provider_distributions.rst) and the action-verb rule in AGENTS.md; nothing asks a contributor to reuse an established concept name such as run_after, wait_for_completion or an a-prefixed async method instead of inventing a synonym."
+      "why": "AGENTS.md's only naming requirements are Dag capitalisation and action-verb function names; nothing tells a contributor to reuse Airflow's established term for a concept (`run_after`, `wait_for_completion`, the `a`-prefixed async variant)."
     },
     {
-      "id": "airflow-r013",
+      "id": "airflow-r432",
+      "label": "TRIBAL",
+      "doc_reference": "",
+      "why": "AGENTS.md's only database-performance requirement concerns batching bulk DELETE/UPDATE in the scheduler loop; nothing addresses column selection, `load_only()` or narrowing `with_row_locks` selects."
+    },
+    {
+      "id": "airflow-r434",
+      "label": "IMPLIED",
+      "doc_reference": "contributing-docs/13_airflow_dependencies_and_extras.rst § Referring to other Apache Airflow distributions in dependencies — the ``common.compat`` guidance: \"because it is one that changes often and almost always when it changes, there are some providers that need those changes\"",
+      "why": "The docs treat `common.compat` as the shared package providers depend on for cross-version needs, but frame it purely as a dependency-versioning concern and never say to prefer it over inline `packaging.version.parse` comparisons or per-provider copies."
+    },
+    {
+      "id": "airflow-r435",
+      "label": "TRIBAL",
+      "doc_reference": "",
+      "why": "No document mentions `AirflowOptionalProviderFeatureException` or an import guard; the nearest text (contributing-docs/12_provider_distributions.rst, optional-extras Shape B, step 4) assumes the opposite — an unguarded module-level `from <module> import ...` made to work in CI by injecting `sys.modules[...] = MagicMock()` in conftest."
+    },
+    {
+      "id": "airflow-r436",
       "label": "CONFIRMED",
-      "doc_reference": "AGENTS.md § Coding Standards; contributing-docs/05_pull_requests.rst § Don't raise AirflowException directly",
-      "why": "Both state the requirement outright — prioritise Python's standard exceptions such as ValueError/TypeError/OSError, define a dedicated class otherwise, and 'Never add new direct raise AirflowException(...) usages'."
+      "doc_reference": "AGENTS.md § Coding Standards — \"Never add new direct `raise AirflowException(...)` usages ... the `check-no-new-airflow-exceptions` prek hook enforces this across `airflow-core`, `airflow-ctl`, `task-sdk`, `providers`, and `shared`. Prefer a Python built-in (`ValueError`, `TypeError`, `OSError`, …)\"",
+      "why": "Stated as an absolute with the same preferred alternatives the mined rule names, and explicitly scoped to `providers`."
+    },
+    {
+      "id": "airflow-r437",
+      "label": "IMPLIED",
+      "doc_reference": "contributing-docs/12_provider_distributions.rst § Breaking changes in the community managed providers — \"When you introduce a breaking change in the provider, you have to make sure that you communicate it properly ... Ideally you should provide a migration path\"",
+      "why": "The docs require communication and a migration path for provider breaking changes but never require the deprecated forwarding property or the parameter-value mapping that the review history demands instead of a clean removal."
+    },
+    {
+      "id": "airflow-r438",
+      "label": "IMPLIED",
+      "doc_reference": "AGENTS.md § Testing Standards — \"Do not assert on raw log text (`caplog.text` for example), these are legacy string matching APIs planned for removal. Structured assertions via `caplog` ... are fine and preferred\"",
+      "why": "The docs forbid only raw-text `caplog` assertions and explicitly bless structured `caplog` assertions, so they stop short of the mined rule's broader \"do not use the caplog fixture to assert on log output at all\"."
+    },
+    {
+      "id": "airflow-r440",
+      "label": "TRIBAL",
+      "doc_reference": "",
+      "why": "No fetched document mentions Playwright, navigation helpers, `expect.poll()` or `waitForLoadState`."
     }
   ],
   "their_rules": [
     {
-      "statement": "Write Dag (title case) in all prose; keep the all-caps or lowercase spelling only when reproducing a literal code token (the SDK class DAG, dag_id, CLI commands, paths, config keys, anti-pattern quotes).",
+      "statement": "Write Dag (title case) in all prose; keep the all-caps or lowercase spelling only when reproducing a literal code token (the `DAG` SDK class, `dag_id`, CLI commands, paths and config keys, anti-pattern quotes).",
       "source": "AGENTS.md § Naming",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r010"],
-      "evidence_prs": [64322, 61702, 59430],
-      "why": "Promoted rule airflow-r010 (3 PRs, 3 reviewers) is the same expectation, mined from reviewers correcting all-caps DAG in newsfragments, config.yml descriptions, docstrings and test names."
+      "mined_rule_ids": ["airflow-r430"],
+      "evidence_prs": [67994, 64322, 62083, 61160, 59430, 53727],
+      "why": "The strongest docs-side match in the corpus: six PRs of review comments correcting DAG/Dag spelling in newsfragments, release notes, config descriptions and translated UI strings, plus below-threshold candidate airflow-r708 (support 1) extending it to docstrings and test names."
     },
     {
-      "statement": "Do not spell out 'Directed Acyclic Graph' except for historical context.",
+      "statement": "Do not spell out \"Directed Acyclic Graph\" except for historical context.",
       "source": "AGENTS.md § Naming",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule or below-threshold candidate touches the expanded spelling; the Dag/DAG casing half of the same section produced airflow-r010, so reviewers clearly do police the section — this specific clause simply never came up, which reads like a rule nobody violates."
+      "why": "No mined rule and no below-threshold candidate touches the expanded phrase; this looks like a convention nobody violates — contributors write \"Dag\", not the expansion — rather than one tooling suppresses."
     },
     {
-      "statement": "The Scheduler reads serialized Dags and must never run user code.",
-      "source": "AGENTS.md § Architecture Boundaries (3)",
+      "statement": "The Scheduler reads serialized Dags and never runs user code.",
+      "source": "AGENTS.md § Architecture Boundaries (item 3)",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule or candidate covers the scheduler/user-code boundary; this is an invariant enforced by software guards and by where the code physically lives, so a violation would be a design-level PR rather than a line a reviewer flags — the well-obeyed case, not evidence the rule is wrong."
+      "why": "No mined rule; the nearest candidate (airflow-r664, support 1) polices architecture *documentation* asserting this, not code violating it — evidence that the boundary is structural enough that diffs never breach it, so reviewers only ever argue about how it is described."
     },
     {
-      "statement": "Workers execute tasks via the Task SDK and communicate with the API server through the Execution API — they must never access the metadata DB directly.",
-      "source": "AGENTS.md § Architecture Boundaries (4)",
+      "statement": "Workers execute tasks via the Task SDK and communicate through the Execution API — never accessing the metadata DB directly.",
+      "source": "AGENTS.md § Architecture Boundaries (item 4)",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "Nothing in the mined set enforces the worker/metadata-DB boundary; the nearest evidence is below-threshold candidate airflow-r086 (support 2, #59883, #53389), which polices a different boundary — airflow-core must not import Task SDK internals."
+      "why": "No evidence because software guards enforce it before review: AGENTS.md itself says guards steer these processes through the Execution API. The corpus polices the adjacent seam instead — candidate airflow-r532 (support 2) on airflow-core importing task-SDK internals, and airflow-r555 (support 1) on unread fields in execution-API worker context models."
     },
     {
-      "statement": "Each distribution should declare the other distributions it needs, so that 'uv --project <FOLDER> sync' installs only that project's dependencies.",
-      "source": "AGENTS.md § Architecture Boundaries (9)",
+      "statement": "Each distribution must declare the other distributions it needs, so `uv --project <FOLDER> sync` installs only that project's dependencies.",
+      "source": "AGENTS.md § Architecture Boundaries (item 9)",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r268"],
+      "mined_rule_ids": ["airflow-r745"],
       "evidence_prs": [68479, 65991],
-      "why": "Relied on below-threshold candidate airflow-r268 (support 2): every package a provider imports directly must be a declared direct dependency in that provider's pyproject.toml, in the same PR as the import — the same expectation at provider granularity."
+      "why": "Relied on .bob/rules/airflow-candidates.md: airflow-r745 (support 2, below the promotion threshold) requires every package a provider imports directly to be declared in that provider's pyproject.toml in the same PR — the same expectation, at provider granularity."
     },
     {
-      "statement": "Always format and check Python files with ruff immediately after writing or editing them (uv run ruff format <file>, uv run ruff check --fix <file>).",
+      "statement": "Always format and check every Python file you create or modify with `uv run ruff format <file>` and `uv run ruff check --fix <file>` before moving on.",
       "source": "AGENTS.md § Coding Standards",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule or candidate; ruff runs as a prek hook and in CI, so unformatted code is fixed before a human reviewer sees it — a rule whose enforcement layer keeps it out of review history."
+      "why": "No evidence because tooling catches it first — the ruff and ruff-format prek hooks run pre-commit and in CI, so a formatting violation never reaches a human reviewer's line comment."
     },
     {
-      "statement": "No assert in production code.",
+      "statement": "No `assert` in production code.",
       "source": "AGENTS.md § Coding Standards",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule or candidate flags an assert in production code, despite the rule also being spelled out in contributing-docs/05_pull_requests.rst § Don't Use Asserts Outside Tests — this looks like a long-settled convention contributors already follow."
+      "why": "No evidence because tooling catches it first (ruff's assert rules run in the static-check hooks). The only assert-related candidate, airflow-r610 (support 1), recommends `if TYPE_CHECKING: assert x is not None` for type narrowing — a runtime no-op, so not a counter-example."
     },
     {
-      "statement": "Comment sparingly — code says what, comments say why. No narrating comments that restate the next line, no multi-line prose padding logic, no repeating the same rationale at several sites.",
+      "statement": "Comment sparingly — code says what, comments say why; no narrating comments that restate the next line, no multi-line prose padding, no repeating the same rationale at several sites.",
       "source": "AGENTS.md § Coding Standards",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule asks anyone to delete a redundant comment; the mined history runs the other way in tone but not in substance — several below-threshold candidates (airflow-r260, r235, r392, r202, r185) demand an explanatory why-comment at a non-obvious site, which is the half of this rule AGENTS.md endorses. Reviewers evidently police missing rationale, not over-commenting."
+      "why": "No mined rule asks for fewer comments. Notably, every comment-related candidate pushes the other way in scope but not in spirit — airflow-r618, r202, r702, r195, r579, r040 all demand an explanatory comment at a genuinely non-obvious site, which is precisely the carve-out this rule grants; reviewers evidently police missing why-comments, not excess what-comments."
     },
     {
-      "statement": "Use time.monotonic() for durations, not time.time().",
+      "statement": "Use `time.monotonic()` for durations, not `time.time()`.",
       "source": "AGENTS.md § Coding Standards",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r070"],
-      "evidence_prs": [66815, 64051],
-      "why": "Relied on below-threshold candidate airflow-r070 (support 2): measure deadlines and elapsed durations in triggers and operators with time.monotonic(), and build the expected values in their tests with the same clock."
+      "mined_rule_ids": ["airflow-r521", "airflow-r515"],
+      "evidence_prs": [64051, 66815],
+      "why": "Relied on .bob/rules/airflow-candidates.md: airflow-r521 states the rule for triggers and operators and airflow-r515 requires tests to use the same clock as the implementation — but both sit at support 1, so the review history confirms the rule only weakly."
     },
     {
-      "statement": "In airflow-core, a function that accepts a session parameter must not call session.commit(), and session parameters must be keyword-only.",
+      "statement": "In `airflow-core`, functions with a `session` parameter must not call `session.commit()`, and `session` parameters must be keyword-only.",
       "source": "AGENTS.md § Coding Standards",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r174"],
-      "evidence_prs": [62501],
-      "why": "Relied on below-threshold candidate airflow-r174 — thin evidence, a single PR — which says not to commit the caller's shared session from inside a method participating in a larger transaction; the keyword-only half has no mined evidence at all."
+      "mined_rule_ids": ["airflow-r638", "airflow-r646"],
+      "evidence_prs": [65239, 62501],
+      "why": "Relied on .bob/rules/airflow-candidates.md: airflow-r638 (keep commit responsibility in one place — a caller must not commit when its helper already does) and airflow-r646 (use `session.flush()` inside a method participating in a larger transaction) both express the no-commit half, each at support 1; the keyword-only half drew no comments at all."
     },
     {
-      "statement": "Imports go at the top of the file; the valid exceptions are circular imports, lazy loading for worker isolation, and TYPE_CHECKING blocks.",
+      "statement": "Imports at top of file. Valid exceptions: circular imports, lazy loading for worker isolation, `TYPE_CHECKING` blocks.",
       "source": "AGENTS.md § Coding Standards",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r009"],
-      "evidence_prs": [68118, 64563, 62850, 62696, 61077],
-      "why": "Promoted rule airflow-r009 (5 PRs) is the same rule with the same exception list; review history adds one thing AGENTS.md omits — the exception must carry a comment naming its reason."
+      "mined_rule_ids": ["airflow-r427"],
+      "evidence_prs": [68118, 66161, 64563, 62850, 62696, 61077],
+      "why": "Six PRs of review comments on function-local imports, matching the doc's exception list; the review history adds one requirement the doc lacks — the exception must carry a comment naming the cycle or lazy-loading reason (see also candidate airflow-r579, support 1)."
     },
     {
-      "statement": "Guard heavy type-only imports (e.g. kubernetes.client) with TYPE_CHECKING in multi-process code paths.",
+      "statement": "Guard heavy type-only imports (e.g. `kubernetes.client`) with `TYPE_CHECKING` in multi-process code paths.",
       "source": "AGENTS.md § Coding Standards",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule or candidate about import cost in multi-process paths; candidate airflow-r018 (support 1) mentions a TYPE_CHECKING import but for annotation correctness, not startup weight."
+      "why": "No mined rule expresses the import-weight concern. The two TYPE_CHECKING candidates are about something else — airflow-r752 (which module to import `Context` from) and airflow-r018 (annotating as `SerializedDAG`) — so the corpus cannot tell us whether the rule is obeyed or simply never comes up."
     },
     {
-      "statement": "Never add a new direct raise AirflowException(...); prefer a Python built-in (ValueError, TypeError, OSError) or a dedicated class in the appropriate exceptions.py, and narrow existing ones when you touch them.",
+      "statement": "Never add new direct `raise AirflowException(...)` usages; prefer a Python built-in (`ValueError`, `TypeError`, `OSError`) or a dedicated class in the appropriate `exceptions.py`, and narrow existing ones when you touch them.",
+      "source": "AGENTS.md § Coding Standards",
+      "label": "CONTRADICTED",
+      "mined_rule_ids": ["airflow-r436", "airflow-r425"],
+      "evidence_prs": [64119, 64051, 56936, 62240, 60963, 55068],
+      "why": "The review history is split by surface: airflow-r436 (support 3, #62240/#60963/#55068) confirms the rule for provider argument validation, invariant violations and third-party failures, but airflow-r425 (support 3, #64119/#64051/#56936) pushes the other way on operator, sensor and trigger error paths, where reviewers required `AirflowException`/`AirflowFailException`/`AirflowTaskTimeout` and rejected `RuntimeError` — the AGENTS.md wording admits no such carve-out, and candidate airflow-r138 (support 1) adds a third answer (`SystemExit` for provider CLI config errors)."
+    },
+    {
+      "statement": "Translate domain-layer exceptions to `HTTPException` at FastAPI route boundaries — catch `ValueError` and similar from domain code and re-raise as 404 for not-found, 400 for invalid input, so they do not propagate as 500.",
+      "source": "AGENTS.md § Coding Standards",
+      "label": "UNSUPPORTED",
+      "mined_rule_ids": [],
+      "evidence_prs": [],
+      "why": "No mined rule states it. The corpus does police route-boundary error handling but with the opposite emphasis — candidate airflow-r452 (support 1) warns against forwarding arbitrary internal messages as 4xx detail strings, and airflow-r479 (support 1) says the API layer should reject bad input rather than let a model helper raise — so the concern is live, but the specific translate-don't-500 requirement left no trace."
+    },
+    {
+      "statement": "Bulk `DELETE`/`UPDATE` in the scheduler loop or any synchronous interval task must be batched with `LIMIT` and committed between batches; filter columns used by the cleanup must be indexed.",
       "source": "AGENTS.md § Coding Standards",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r013"],
-      "evidence_prs": [62240, 60963, 55068],
-      "why": "Promoted rule airflow-r013 (3 PRs) is the same expectation, mined from provider hooks, operators and triggers being asked to raise ValueError/TypeError/RuntimeError instead of AirflowException."
+      "mined_rule_ids": ["airflow-r630", "airflow-r724", "airflow-r164"],
+      "evidence_prs": [66016, 63628, 63568, 63546, 66210],
+      "why": "Relied on .bob/rules/airflow-candidates.md: airflow-r630 and airflow-r724 (both support 2) require batching rather than per-row database work, and airflow-r164 (support 1) requires an explicit index on a foreign-key column used as a scheduler subquery filter predicate — together they cover both halves, though none is framed as the scheduler-loop unbounded-write case AGENTS.md describes."
     },
     {
-      "statement": "Translate domain-layer exceptions to HTTPException at FastAPI route boundaries — catch e.g. ValueError from domain code and re-raise as 404 for not-found or 400 for invalid input, rather than letting it become a 500.",
+      "statement": "Name functions and methods with action verbs (`get_`, `extract_`, `find_`, `compute_`, `build_`); avoid noun-only names like `_serialize_keys`, except `is_`/`has_` predicates.",
       "source": "AGENTS.md § Coding Standards",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule covers exception translation at route boundaries; the nearest is below-threshold candidate airflow-r141 (support 2, #64845, #64610), which requires HTTP 400 for an invalid query parameter instead of a silent fallback — the same status-code instinct, but about validation rather than about where domain exceptions get caught."
-    },
-    {
-      "statement": "Bulk DELETE/UPDATE in the scheduler loop or any synchronous interval task must be batched with LIMIT and committed between batches, never issued as one unbounded bulk write, and the filter columns must be indexed.",
-      "source": "AGENTS.md § Coding Standards",
-      "label": "UNSUPPORTED",
-      "mined_rule_ids": [],
-      "evidence_prs": [],
-      "why": "No mined rule or candidate covers unbounded bulk writes or lock-hold time in the scheduler loop; below-threshold candidate airflow-r244 (support 2) is about the opposite failure — per-row queries inside a loop — so it is not evidence for this one."
-    },
-    {
-      "statement": "Name functions and methods with action verbs (get_, extract_, find_, compute_, build_); avoid noun-only names like _serialize_keys or _base_names. Predicates (is_, has_) are the exception.",
-      "source": "AGENTS.md § Coding Standards",
-      "label": "UNSUPPORTED",
-      "mined_rule_ids": [],
-      "evidence_prs": [],
-      "why": "Nothing in the mined set or the naming candidates (airflow-r236, r237, r238, r239, r240, r393, r394) is about verb-vs-noun naming for callables; every mined naming comment is about the semantics a specific name carries, not its part of speech."
+      "why": "No evidence despite an unusually rich naming corpus: the candidates file holds roughly twenty naming comments (airflow-r236, r237, r238, r705 through r717, r851 and others) and every one argues about which term to use, never about verb-versus-noun form — which reads as a convention already well obeyed rather than one nobody checks."
     },
     {
       "statement": "Apache License header on all new files.",
@@ -221,183 +293,207 @@
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined evidence — AGENTS.md itself says prek enforces it, so a missing header is fixed automatically before review; the well-obeyed/auto-fixed case."
+      "why": "No evidence because tooling catches it first — AGENTS.md says \"prek enforces this\" and contributing-docs/05_pull_requests.rst says prek adds the header automatically, so a missing header is fixed before a reviewer could comment on it."
     },
     {
-      "statement": "Whenever you change a rule in dev/breeze/src/airflow_breeze/utils/selective_checks.py, update dev/breeze/doc/ci/04_selective_checks.md and add or adjust tests in dev/breeze/tests/test_selective_checks.py in the same PR.",
+      "statement": "Keep selective-checks behaviour and its documentation in sync: a change to `dev/breeze/src/airflow_breeze/utils/selective_checks.py` must update `dev/breeze/doc/ci/04_selective_checks.md` and adjust `dev/breeze/tests/test_selective_checks.py` in the same PR.",
       "source": "AGENTS.md § Coding Standards",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule requires the selective-checks doc/test to move with the code; below-threshold candidate airflow-r355 (support 1, #67012) touches selective_checks.py content (a missing file-group pattern) but says nothing about keeping its documentation in sync."
+      "why": "No mined rule. The corpus does reach into that file — candidate airflow-r355 (support 1) requires specific globs in a `selective_checks.py` file group — but never asks for the accompanying doc or test update, so this is likely a low-traffic rule rather than a well-obeyed or tool-enforced one."
     },
     {
-      "statement": "Only add a newsfragment when you are certain the change is user-facing; build/release tooling, CI, packaging, internal refactors, dev-only scripts and test-only changes must not get one, and a spurious newsfragment is a defect.",
-      "source": "AGENTS.md § Coding Standards / § Commits and PRs",
+      "statement": "Never create a newsfragment unless you are certain the change is user-facing; build/release tooling, CI, packaging, internal refactors and test-only changes get none, and a spurious newsfragment is a defect.",
+      "source": "AGENTS.md § Coding Standards (newsfragments bullet), repeated in § Commits and PRs",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r078"],
-      "evidence_prs": [65239, 62501],
-      "why": "Relied on below-threshold candidate airflow-r078 (support 2): use a bugfix fragment rather than significant for internal fixes with no observable user-facing behaviour change, and omit the fragment entirely when there is no user impact."
+      "mined_rule_ids": ["airflow-r422"],
+      "evidence_prs": [67994, 65239, 62501],
+      "why": "Reviewers removed a newsfragment from a docs-only PR and downgraded significant.rst to bugfix.rst for internal fixes with no observable behaviour change — the same golden rule, plus a type-selection refinement the docs do not state."
     },
     {
-      "statement": "Never add newsfragments for providers/ or airflow-ctl/ — edit providers/<provider>/docs/changelog.rst or airflow-ctl/RELEASE_NOTES.rst directly instead.",
+      "statement": "Never add newsfragments for `providers/` or `airflow-ctl/` — their release managers regenerate the changelog from `git log`; edit `providers/<provider>/docs/changelog.rst` or `airflow-ctl/RELEASE_NOTES.rst` instead.",
       "source": "AGENTS.md § Coding Standards / § Commits and PRs",
       "label": "CONTRADICTED",
       "mined_rule_ids": ["airflow-r190"],
       "evidence_prs": [63614],
-      "why": "Below-threshold candidate airflow-r190 (support 1) records a reviewer on #63614 asking a provider PR for a providers/<pkg>/newsfragments/<pr>.feature.rst alongside the RST update — the exact file AGENTS.md forbids; the changelog-editing half is separately backed by candidate airflow-r188 (support 2, #66424, #60706), so the contradiction is narrow and rests on a single PR."
+      "why": "Relied on .bob/rules/airflow-candidates.md: candidate airflow-r190 records a reviewer requiring a `providers/<pkg>/newsfragments/<pr>.feature.rst` newsfragment when adding deferrable mode to a provider operator — the exact thing this rule forbids. The contradiction rests on a single below-threshold observation (support 1, #63614) and may simply predate the AGENTS.md wording, so it flags a divergence to check rather than a settled counter-convention."
     },
     {
-      "statement": "Every changed or added behaviour must have a test, and every test must fail without the PR's change.",
+      "statement": "For a user-visible note in a provider, edit `providers/<provider>/docs/changelog.rst` directly.",
+      "source": "AGENTS.md § Commits and PRs",
+      "label": "SUPPORTED",
+      "mined_rule_ids": ["airflow-r431"],
+      "evidence_prs": [68642, 67920, 64864],
+      "why": "The mined history not only confirms the changelog is the place but adds what the entry must read like — sentence-case user-facing prose, no `fix:`/`feat:` prefixes, no mention of Dependabot — reinforced by candidates airflow-r663, airflow-r652 and airflow-r527 (support 2, 2 and 1)."
+    },
+    {
+      "statement": "Target exactly 100% coverage of what the PR changes: every changed or added behaviour must have a test that fails without the change, and no tests for pre-existing logic or for standard-library/third-party functions.",
       "source": "AGENTS.md § Testing Standards",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r341", "airflow-r342", "airflow-r349", "airflow-r357", "airflow-r322"],
-      "evidence_prs": [62812, 63665, 64963, 60855, 66573],
-      "why": "No single promoted rule states the general bar; the support is a cluster of below-threshold candidates (each support 1) in which reviewers demand the specific missing test for the specific behaviour a PR changed — propagation paths, multi-page traversal, cursor boundaries, supervisor-level coverage, callback firing."
+      "mined_rule_ids": ["airflow-r795", "airflow-r796"],
+      "evidence_prs": [69509, 64591, 62521],
+      "why": "Relied on .bob/rules/airflow-candidates.md for the first half — airflow-r795 (support 2) requires a test pinning every auth branch added or reordered, airflow-r796 (support 1) a test for every public hook method added, and contributing-docs/09_testing.rst states a PR should have a unit test. The \"no more than 100%\" half — do not test pre-existing or third-party logic — drew no comments at all, so only half this requirement is evidenced."
     },
     {
-      "statement": "Do not add tests for pre-existing logic that was already present before the PR, and do not test standard-library or third-party functions — target exactly 100% coverage of what the PR changes, no more.",
+      "statement": "Use pytest patterns, not `unittest.TestCase`.",
       "source": "AGENTS.md § Testing Standards",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "The mined history is entirely about missing tests, never about surplus ones; the closest signal is incident airflow-r362 (#64503), where a reviewer objected to an unrelated test-tightening hunk on scope grounds rather than coverage grounds."
+      "why": "No mined rule and no candidate. The repo-wide migration off `unittest.TestCase` is long finished and ruff's pytest-style rules run in the static checks, so this reads as a mix of well-obeyed and tool-enforced rather than unchecked."
     },
     {
-      "statement": "Use pytest patterns, not unittest.TestCase.",
-      "source": "AGENTS.md § Testing Standards",
-      "label": "UNSUPPORTED",
-      "mined_rule_ids": [],
-      "evidence_prs": [],
-      "why": "No mined rule or candidate; the migration away from unittest.TestCase appears to be complete enough in the reviewed window that no PR reintroduced it."
-    },
-    {
-      "statement": "Use spec/autospec when mocking.",
+      "statement": "Use `spec`/`autospec` when mocking.",
       "source": "AGENTS.md § Testing Standards",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r014"],
-      "evidence_prs": [68974, 67635, 64568, 62850, 53801],
-      "why": "Promoted rule airflow-r014 (5 PRs) is the same requirement and sharpens it: nested attributes must be specced too, and MagicMock(autospec=True) is a no-op keyword that specs nothing — a detail AGENTS.md's one-line version does not warn about."
+      "mined_rule_ids": ["airflow-r441"],
+      "evidence_prs": [68974, 67635, 64770, 64568, 64563, 62850],
+      "why": "The best-supported rule in the whole mined set (support 9), spanning core models, providers and task-SDK tests; review history also adds the trap the doc omits — `MagicMock(autospec=True)` is a no-op keyword that specs nothing."
     },
     {
-      "statement": "Prefer @mock.patch decorators over with mock.patch(...) context managers for patching.",
+      "statement": "Prefer `@mock.patch` decorators over `with mock.patch(...)` context managers for patching.",
       "source": "AGENTS.md § Testing Standards",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule or candidate expresses a preference between the decorator and context-manager forms; mined mock feedback is about specs (airflow-r014) and call assertions (candidate airflow-r402), not patch style."
+      "why": "No mined rule or candidate distinguishes the decorator from the context-manager form; nothing in the evidence says whether this is obeyed or merely never raised."
     },
     {
-      "statement": "Use conf_vars (tests_common.test_utils.config) for Airflow config overrides — as a decorator when the value is fixed, as a context manager when it varies via parametrize.",
-      "source": "AGENTS.md § Testing Standards",
-      "label": "UNSUPPORTED",
-      "mined_rule_ids": [],
-      "evidence_prs": [],
-      "why": "No mined rule or candidate mentions conf_vars; below-threshold candidate airflow-r139 (support 2) is about reading config with conf.getboolean in production code, not about overriding config in tests."
-    },
-    {
-      "statement": "Use time_machine for time-dependent tests; do not use datetime.now().",
+      "statement": "Use `conf_vars` (from `tests_common.test_utils.config`) for Airflow config overrides — as a decorator when the value is fixed, as a context manager when it varies via parametrize.",
       "source": "AGENTS.md § Testing Standards",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r332"],
-      "evidence_prs": [65232],
-      "why": "Relied on below-threshold candidate airflow-r332 — a single PR, so thin evidence — which states the rule almost verbatim: freeze time with time_machine and do not derive expected values from datetime.now()/utcnow()."
+      "mined_rule_ids": ["airflow-r805", "airflow-r810"],
+      "evidence_prs": [57744, 65493],
+      "why": "Relied on .bob/rules/airflow-candidates.md: airflow-r805 requires `conf_vars` rather than `unittest.mock.patch` on `conf.get`, and airflow-r810 requires exercising the flag-off state with `conf_vars` — both support 1, so real but thin."
     },
     {
-      "statement": "Use @pytest.mark.parametrize for multiple similar inputs — consolidate tests that differ only in input/expected values into one parametrized test.",
+      "statement": "Use `time_machine` for time-dependent tests; do not use `datetime.now()`.",
       "source": "AGENTS.md § Testing Standards",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r351"],
-      "evidence_prs": [55041],
-      "why": "Relied on below-threshold candidate airflow-r351 (support 1): tests for an endpoint parameter that accepts several values must be parametrized rather than folded into one assertion block."
+      "mined_rule_ids": ["airflow-r332", "airflow-r299"],
+      "evidence_prs": [65232, 65472],
+      "why": "Relied on .bob/rules/airflow-candidates.md: airflow-r332 requires freezing time with `time_machine` rather than deriving expected values from `datetime.now()`/`utcnow()`, and airflow-r299 bans `datetime.now()` in provider code in favour of `timezone.utcnow()`; both support 1, with airflow-r515 on clock consistency alongside."
     },
     {
-      "statement": "Use @pytest.mark.db_test for tests that require database access.",
+      "statement": "Use `@pytest.mark.parametrize` for multiple similar inputs — consolidate tests that differ only in input/expected values.",
       "source": "AGENTS.md § Testing Standards",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule or candidate mentions the marker; a missing db_test marker surfaces as a CI failure in the no-db test run rather than as a review comment."
+      "why": "No mined rule or candidate asks for consolidation into a parametrized test; the corpus mentions `parametrize` only incidentally (candidate airflow-r717, renaming parametrize ids after a Helm migration), so the evidence cannot say whether the rule is obeyed or unenforced."
     },
     {
-      "statement": "Test location mirrors source: airflow/cli/cli_parser.py maps to tests/cli/test_cli_parser.py.",
+      "statement": "Use `@pytest.mark.db_test` for tests that require database access.",
       "source": "AGENTS.md § Testing Standards",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule about mirroring directories; the nearest is below-threshold candidate airflow-r086 (support 2, #59883, #53389), which places tests in the distribution that owns the code under test — the same instinct at distribution granularity, not the file-path mirroring rule."
+      "why": "No evidence because tooling catches it first — Airflow's pytest plugin splits db and non-db runs, so a missing marker fails CI rather than drawing a review comment."
     },
     {
-      "statement": "Do not assert on raw log text (e.g. caplog.text); use structured assertions via caplog instead.",
+      "statement": "Test location mirrors source: `airflow/cli/cli_parser.py` → `tests/cli/test_cli_parser.py`.",
+      "source": "AGENTS.md § Testing Standards",
+      "label": "UNSUPPORTED",
+      "mined_rule_ids": [],
+      "evidence_prs": [],
+      "why": "No mined rule. Candidate airflow-r528 (support 1) is adjacent — rename the corresponding test file and class names when a source file is renamed — which suggests the mirroring convention is well enough obeyed that reviewers only notice when a rename breaks it."
+    },
+    {
+      "statement": "Do not assert on raw log text (`caplog.text`); structured assertions via `caplog` (`\"event name\" in caplog`, `{\"event\": ...} in caplog`) are fine and preferred.",
       "source": "AGENTS.md § Testing Standards",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r327"],
-      "evidence_prs": [63878, 53598],
-      "why": "Relied on below-threshold candidate airflow-r327 (support 2), which backs the prohibition but pushes further than AGENTS.md — reviewers asked for assertions on observable behaviour or return values, and mock-captured output in K8s/integration tests, rather than for the structured caplog form AGENTS.md prefers."
+      "mined_rule_ids": ["airflow-r438"],
+      "evidence_prs": [65232, 63878, 53598],
+      "why": "Supported but the review history is stricter than the doc: airflow-r438 as mined rejects the `caplog` fixture for log assertions outright in favour of observable behaviour or a mocked logger, whereas AGENTS.md explicitly blesses structured `caplog` assertions — and candidate airflow-r323 (support 1) even requires that a test taking `caplog` assert on it."
     },
     {
-      "statement": "Write commit messages focused on user impact, not implementation details.",
+      "statement": "Put any files you generate (PR reviews, reports, scratch output) under `files/`, creating it if it does not exist.",
+      "source": "AGENTS.md § Output conventions",
+      "label": "UNSUPPORTED",
+      "mined_rule_ids": [],
+      "evidence_prs": [],
+      "why": "No evidence because our corpus cannot see it: agent scratch output never appears in a merged PR diff, so it can never attract a line-level review comment. The nearest visible analogue is candidate airflow-r525 (support 1) on not committing build output."
+    },
+    {
+      "statement": "Commit messages and PR titles must not use Conventional Commits prefixes (`fix:`, `feat:`, `chore:`); write the subject as plain imperative prose focused on user impact, under 70 chars for the PR title.",
       "source": "AGENTS.md § Commits and PRs",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule covers commit-message content; the mined corpus is line-level review comments on merged PRs, where commit subjects are squashed at merge and rarely draw a comment — an evidence-source gap more than a signal about the rule."
+      "why": "No evidence because our corpus cannot see it — we mine line-level review comments on diffs, and commit subjects and PR titles are not diff lines; a `commit-msg` prek hook (`check-no-conventional-commit-message`) plus CI rejects them anyway. The visible analogue is airflow-r431 (support 3), which enforces the identical convention on provider changelog lines, so the convention is real and policed wherever it lands in a diff."
     },
     {
-      "statement": "Do not use Conventional Commits prefixes (feat:, fix:, chore:, docs:, refactor:) in commit subjects or PR titles; use the imperative mood and plain prose (area tags like UI: / API: / Helm: are fine).",
+      "statement": "The commit message body describes why the change is made — the motivation and context — never what changed.",
       "source": "AGENTS.md § Commits and PRs",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule; AGENTS.md itself notes a commit-msg prek hook (check-no-conventional-commit-message) plus a CI check rejects these, so violations never reach a reviewer's comment."
+      "why": "No evidence because our corpus cannot see commit bodies. Candidate airflow-r652 (support 2) applies the same instinct where it is visible — PR narration and methodology notes do not belong in a changelog or release-note line."
     },
     {
-      "statement": "The commit message body must describe why the change is made, never what it does.",
+      "statement": "Never add a `Co-Authored-By` trailer naming the agent as co-author of a commit.",
       "source": "AGENTS.md § Commits and PRs",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule or candidate; same evidence-source gap as commit-message content generally — the mining looked at diff review comments, not at commit bodies."
+      "why": "No evidence because our corpus cannot see it — commit trailers are not diff lines, and the rule is recent enough that it may also predate very few violations."
     },
     {
-      "statement": "Never add a Co-Authored-By trailer naming the agent as co-author of a commit.",
-      "source": "AGENTS.md § Commits and PRs",
+      "statement": "Always push branches to `origin` (the contributor's fork); never push directly to `upstream`, and never directly to `main` on either remote.",
+      "source": "AGENTS.md § Commits and PRs → Git remote naming conventions",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule or candidate; trailers are not part of the reviewed diff, so review history could not have caught this either way."
+      "why": "No evidence because our corpus cannot see it: this is a process rule about git operations, which leaves no trace in the line-level review comments of a merged PR."
     },
     {
-      "statement": "Before pushing, review the full diff (git diff main...HEAD), verify every change is intentional and related to the task, and remove any unrelated changes.",
-      "source": "AGENTS.md § Creating Pull Requests (self-review step 1)",
+      "statement": "Review the full diff and verify every change is intentional and related to the task — remove any unrelated changes before pushing.",
+      "source": "AGENTS.md § Commits and PRs → Creating Pull Requests (self-review step 1)",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r005"],
-      "evidence_prs": [61550, 60804, 55954],
-      "why": "Promoted rule airflow-r005 (3 PRs, 3 reviewers) is the same expectation seen from the reviewer's side — unrelated uv.lock churn reverted (#61550), a pre-existing schema fix split out (#55954), a second independent feature split or justified (#60804)."
+      "mined_rule_ids": ["airflow-r420"],
+      "evidence_prs": [67235, 61550, 60804, 55954],
+      "why": "Four PRs where reviewers asked for the diff to be pared back to what the title and description claim — stray uv.lock churn from a rebase, an independent schema-fix migration riding along with a feature migration, a second unrelated feature."
     },
     {
-      "statement": "If you have a conflict with uv.lock, delete it and run uv lock to regenerate it.",
+      "statement": "`uv.lock` is generated by `uv lock`/`uv sync` and committed; on a conflict delete it and regenerate rather than hand-resolving.",
       "source": "AGENTS.md § Repository Structure",
-      "label": "CONTRADICTED",
-      "mined_rule_ids": ["airflow-r005"],
-      "evidence_prs": [61550],
-      "why": "Regenerating the whole lock file is exactly what produced the churn a reviewer rejected on #61550 ('362 lines of churn here looks unrelated to this feature. Please revert or split'); the instruction is safe only if the resulting diff is then trimmed to the dependency actually changed, which AGENTS.md does not say."
-    },
-    {
-      "statement": "When a PR applies a workaround, version cap, mitigation or partial fix, open a tracking issue and add its full URL as a comment at the workaround site in the code (not a bare #NNNNN), and reference it by number in the PR body; never write vague forward-looking phrases like 'will open a tracking issue'.",
-      "source": "AGENTS.md § Tracking issues for deferred work",
       "label": "SUPPORTED",
-      "mined_rule_ids": ["airflow-r260", "airflow-r305"],
-      "evidence_prs": [66674, 60855, 62962],
-      "why": "Relied on below-threshold candidates airflow-r260 (support 2 — a workaround for an older core API carries a 'TODO: Remove once minimum supported Airflow version is X.Y' comment) and airflow-r305 (support 1 — a dependency upper bound must record, in a comment or a linked issue, the condition for lifting it); review history backs annotating the workaround site with its removal condition, but not the full-URL-over-#NNNNN or open-the-issue-first specifics."
+      "mined_rule_ids": ["airflow-r420"],
+      "evidence_prs": [67235, 60804],
+      "why": "Review history goes one step further than the doc: regenerating is not enough — airflow-r420 requires the lock to be regenerated against fresh main so it carries only the dependency changes this PR actually makes, since a stale-base regeneration silently adds extras or drops dependencies."
     },
     {
-      "statement": "Never edit generated files by hand when a generation workflow exists, and never edit the .apache-magpie snapshot directly — adopter-specific changes go in .apache-magpie-overrides/.",
-      "source": "AGENTS.md § Boundaries / § apache-magpie framework",
+      "statement": "A PR that ships a workaround, version cap, mitigation or partial fix must open a GitHub tracking issue, reference it by number in the PR body, and add the full issue URL as a comment at the workaround site in the code — never vague forward-looking phrases like \"will open a tracking issue\".",
+      "source": "AGENTS.md § Commits and PRs → Tracking issues for deferred work",
+      "label": "SUPPORTED",
+      "mined_rule_ids": ["airflow-r733", "airflow-r747", "airflow-r524"],
+      "evidence_prs": [63520, 62962, 66674, 60855, 66608],
+      "why": "Relied on .bob/rules/airflow-candidates.md, and the convergence is striking for below-threshold patterns: airflow-r733 (support 2) requires a dependency cap to carry a comment naming the upstream issue and the lift condition, airflow-r747 (support 2) requires every version-compat shim to name the exact release or a removal TODO, and airflow-r524 (support 1) the same for trigger backward-compat fallbacks. Three independent candidates asking for the same comment-at-the-workaround-site discipline is strong support that the promotion threshold happened to split across surfaces."
+    },
+    {
+      "statement": "Anything an agent drafts that is posted to GitHub (PR/issue comments, reviews, line-level review comments) must end with a `Drafted-by:` attribution footer.",
+      "source": "AGENTS.md § Commits and PRs → GitHub messages drafted by agents",
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule or candidate about hand-edited generated files; the generated artifacts (the OpenAPI spec, provider dependency blocks) are regenerated by prek hooks that overwrite manual edits, so the mistake corrects itself before review."
+      "why": "No evidence because our corpus cannot see it — we mine the content of review comments, not their authorship footers, and this convention is new enough that the mined PR range largely predates it."
+    },
+    {
+      "statement": "AI agents must not mention or tag individual contributors with GitHub usernames unless explicitly instructed; refer to roles, teams, code ownership or components instead.",
+      "source": "AGENTS.md § Commits and PRs → Do not tag individuals",
+      "label": "UNSUPPORTED",
+      "mined_rule_ids": [],
+      "evidence_prs": [],
+      "why": "No evidence because our corpus cannot see it: this constrains what an agent writes into a comment, and the mined rules describe code expectations extracted from those comments, not the comments' social conventions."
+    },
+    {
+      "statement": "Never edit generated files by hand when a generation workflow exists.",
+      "source": "AGENTS.md § Boundaries",
+      "label": "SUPPORTED",
+      "mined_rule_ids": ["airflow-r421"],
+      "evidence_prs": [63733, 62816, 62790],
+      "why": "airflow-r421 (support 3) names the concrete instances reviewers caught — hand-edited `get_provider_info.py`, hand-edited task-SDK `_generated.py`, and a `provider.yaml` change without the regenerated output — with candidate airflow-r484 (support 1) adding the UI `openapi-gen/` client."
     },
     {
       "statement": "Never commit secrets, credentials, or tokens.",
@@ -405,7 +501,7 @@
       "label": "UNSUPPORTED",
       "mined_rule_ids": [],
       "evidence_prs": [],
-      "why": "No mined rule about committed secrets; the nearest is below-threshold candidate airflow-r316 (support 2, #57744, #56191), which forbids logging or printing a connection, its URI or any credential string — an adjacent exposure route, not this one. Secret scanning and the suspicious-changes triage path handle committed secrets outside code review."
+      "why": "No mined rule, and this looks like the well-obeyed-plus-tooling case: secret scanning and maintainer diff review before CI approval (contributing-docs/05_pull_requests.rst on suspicious changes) catch it upstream of line comments. The corpus polices the neighbouring leak instead — candidate airflow-r774 (support 2) forbids logging a Connection, `get_uri()` output or any credential-bearing string."
     }
   ]
 }

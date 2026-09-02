@@ -23,8 +23,10 @@ def write(path, obj):
     path.write_text(json.dumps(obj), encoding="utf-8")
 
 
-def chunk_file(tmp_path, letter, clusters):
-    p = tmp_path / f"clusters_{letter}.json"
+def chunk_file(tmp_path, letter, clusters, tranche="t1"):
+    """Cluster ids are <tranche>/<letter>:<index>, so the file must live in a
+    tranche-named directory for the id to be predictable."""
+    p = tmp_path / tranche / f"clusters_{letter}.json"
     write(p, {"clusters": clusters})
     return str(p)
 
@@ -57,7 +59,7 @@ class TestNothingIsLost:
         b = chunk_file(tmp_path, "B", [cl("same thing", ["t1/b2#0"])])
         rc, got = run_expand(tmp_path, [a, b], {"merges": [
             {"rule": "merged", "category": "correctness", "trigger": "t",
-             "rationale": "r", "kind": "convention", "cluster_ids": ["A:0", "B:0"]}]})
+             "rationale": "r", "kind": "convention", "cluster_ids": ["t1/A:0", "t1/B:0"]}]})
         assert rc == 0
         # one merge group + one untouched singleton
         assert got["n_clusters_out"] == 2
@@ -70,7 +72,7 @@ class TestNothingIsLost:
         a = chunk_file(tmp_path, "A", [cl(f"r{i}", [f"t1/b1#{i}"]) for i in range(5)])
         rc, got = run_expand(tmp_path, [a], {"merges": [
             {"rule": "m", "category": "correctness", "trigger": "t", "rationale": "r",
-             "kind": "convention", "cluster_ids": ["A:0", "A:3"]}]})
+             "kind": "convention", "cluster_ids": ["t1/A:0", "t1/A:3"]}]})
         keys = sorted(k for c in got["clusters"] for k in c["members"])
         assert keys == [f"t1/b1#{i}" for i in range(5)]
         assert rc == 0
@@ -86,12 +88,12 @@ class TestIncidentsCannotInflateSupport:
         ])
         _, got = run_expand(tmp_path, [a], {"merges": [
             {"rule": "merged", "category": "correctness", "trigger": "t",
-             "rationale": "r", "kind": "convention", "cluster_ids": ["A:0", "A:1"]}]})
+             "rationale": "r", "kind": "convention", "cluster_ids": ["t1/A:0", "t1/A:1"]}]})
         assert got["clusters"][0]["kind"] == "incident"
 
     def test_demote_marks_a_singleton_as_an_incident(self, tmp_path):
         a = chunk_file(tmp_path, "A", [cl("use meaningful names", ["t1/b1#0"])])
-        _, got = run_expand(tmp_path, [a], {"merges": [], "demote": ["A:0"]})
+        _, got = run_expand(tmp_path, [a], {"merges": [], "demote": ["t1/A:0"]})
         assert got["clusters"][0]["kind"] == "incident"
         assert got["n_candidates_covered"] == 1   # kept, only barred from promotion
 
@@ -100,15 +102,46 @@ class TestMalformedMergeIsLoud:
     def test_reusing_a_cluster_id_is_an_error(self, tmp_path):
         a = chunk_file(tmp_path, "A", [cl("one", ["t1/b1#0"]), cl("two", ["t1/b1#1"])])
         rc, got = run_expand(tmp_path, [a], {"merges": [
-            {"rule": "x", "cluster_ids": ["A:0"]},
-            {"rule": "y", "cluster_ids": ["A:0", "A:1"]},
+            {"rule": "x", "cluster_ids": ["t1/A:0"]},
+            {"rule": "y", "cluster_ids": ["t1/A:0", "t1/A:1"]},
         ]})
         assert rc == 1
-        assert got["duplicate_cluster_ids"] == ["A:0"]
+        assert got["duplicate_cluster_ids"] == ["t1/A:0"]
 
     def test_unknown_cluster_id_is_an_error(self, tmp_path):
         a = chunk_file(tmp_path, "A", [cl("one", ["t1/b1#0"])])
         rc, got = run_expand(tmp_path, [a], {"merges": [
-            {"rule": "x", "cluster_ids": ["A:0", "Z:99"]}]})
+            {"rule": "x", "cluster_ids": ["t1/A:0", "Z:99"]}]})
         assert rc == 1
         assert got["unknown_cluster_ids"] == ["Z:99"]
+
+
+class TestClusterIdsAreTrancheScoped:
+    """Cross-tranche merges read t1/clusters_A.json and t2/clusters_A.json together.
+
+    Keying cluster ids by chunk letter alone made t1's "A:0" and t2's "A:0" the same
+    key, so one tranche silently overwrote the other — 874 clusters collapsed to 457
+    with no error. The id carries the tranche directory for exactly this reason.
+    """
+
+    def _tranche(self, tmp_path, name, rules):
+        d = tmp_path / name
+        d.mkdir(parents=True, exist_ok=True)
+        p = d / "clusters_A.json"
+        write(p, {"clusters": [cl(r, [f"{name}/b1#{i}"]) for i, r in enumerate(rules)]})
+        return str(p)
+
+    def test_same_chunk_letter_in_two_tranches_both_survive(self, tmp_path):
+        from distill.critic import load_chunk_clusters
+        a = self._tranche(tmp_path, "t1", ["t1 rule one", "t1 rule two"])
+        b = self._tranche(tmp_path, "t2", ["t2 rule one", "t2 rule two"])
+        got = load_chunk_clusters([a, b])
+        assert len(got) == 4
+        assert sorted(got) == ["t1/A:0", "t1/A:1", "t2/A:0", "t2/A:1"]
+
+    def test_expand_covers_every_candidate_across_tranches(self, tmp_path):
+        a = self._tranche(tmp_path, "t1", ["t1 rule one", "t1 rule two"])
+        b = self._tranche(tmp_path, "t2", ["t2 rule one", "t2 rule two"])
+        rc, out = run_expand(tmp_path, [a, b], {"merges": []})
+        assert rc == 0
+        assert out["n_candidates_covered"] == 4

@@ -1,13 +1,13 @@
 {"pr": 71073,
  "findings": [
-   {"rule_id": "airflow-r002",
+   {"rule_id": "airflow-r419",
     "path": "providers/common/ai/src/airflow/providers/common/ai/operators/llm_branch.py",
     "line": 80,
     "category": "api-design",
-    "message": "`fail_on_reject` defaults to `False`, so the new behaviour becomes the default: a rejected review that today raises `HITLRejectException` and leaves downstream tasks `upstream_failed` will silently start skipping them instead. Default it to `True` so existing DAGs keep the documented behaviour and the skip is opt-in, or emit a deprecation warning for one release before flipping the default."},
-   {"rule_id": "airflow-r014",
+    "message": "`fail_on_reject: bool = False` makes the new skip-downstream behaviour the default, so every existing DAG using LLMBranchOperator silently changes: a rejected review used to propagate `HITLRejectException` and leave downstream tasks `upstream_failed`, and now it returns None and skips them. Default the new keyword to the legacy behaviour (`fail_on_reject: bool = True`) and let users opt into skipping, or add a deprecation cycle before flipping the default."},
+   {"rule_id": "airflow-r441",
     "path": "providers/common/ai/tests/unit/common/ai/operators/test_llm_branch.py",
     "line": 409,
     "category": "testing",
-    "message": "`task`, `ti` and `ctx` are bare `MagicMock()`s standing in for the task, TaskInstance and Context that `execute_complete` reads. Spec them (`MagicMock(spec=BaseOperator)` / `create_autospec`, and `spec=TaskInstance` for `ti`) so this test fails if `get_direct_relatives` or `is_teardown` stops existing on the real objects instead of fabricating them."}
+    "message": "These bare mocks stand in for real types: `task`, `task_a` and `cleanup` for operators (they are given `is_teardown` and `get_direct_relatives`) and `ti` for a TaskInstance. Spec them - `MagicMock(spec=BaseOperator)` / `create_autospec(...)` for the tasks and a specced TaskInstance for `ti` - otherwise the test keeps passing if `get_direct_relatives` or `is_teardown` is renamed or its signature changes."}
  ]}

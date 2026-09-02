@@ -1,8 +1,8 @@
 {"pr": 64422,
  "findings": [
-   {"rule_id": "airflow-r014",
-    "path": "providers/git/tests/unit/git/hooks/test_git.py",
-    "line": 681,
-    "category": "testing",
-    "message": "`mock_integration` and `mock_access_token` are bare `MagicMock()`s standing in for PyGithub's `GithubIntegration` and its `InstallationAuthorization` result, and the test then invents `.get_access_token`, `.token` and `.expires_at` on them. Spec them - `mock.MagicMock(spec=GithubIntegration)` and `spec=InstallationAuthorization` (or `create_autospec`) - so the test fails if PyGithub renames or drops the attributes `_get_github_app_token` reads."}
+   {"rule_id": "airflow-r429",
+    "path": "providers/git/docs/connections/git.rst",
+    "line": 131,
+    "category": "docs",
+    "message": "This says the hook writes an inline `private_key` to a temporary file and uses it for the GitHub App connection, but that is not what the GitHub App path does: `_get_github_app_token` passes `self.private_key` straight to `Auth.AppAuth(...)`, and `configure_hook_env` returns after `_github_app_askpass_env()` before ever reaching the `if self.private_key:` `NamedTemporaryFile` branch. Reword this bullet to say the PEM string is passed directly to the GitHub App auth (the temp-file behaviour only applies to SSH key auth)."}
  ]}

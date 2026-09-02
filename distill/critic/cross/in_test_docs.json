@@ -1,0 +1,2037 @@
+{
+  "n_clusters": 254,
+  "clusters": [
+    {
+      "cluster_id": "t1/A:2",
+      "rule": "In user-facing prose - newsfragments, release notes and config.yml descriptions - write the Airflow concept as title-case \"Dag\"/\"Dags\", never all-caps \"DAG\"/\"DAGs\"; reserve all-caps DAG for code identifiers and quoted strings.",
+      "category": "docs",
+      "trigger": "A newsfragment, release note or config.yml description: block adds prose containing \"DAG\" or \"DAGs\" outside backticks or a code identifier.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/A:6",
+      "rule": "Keep a PR scoped to the change its title and description claim: unrelated uv.lock churn must be reverted, an Alembic migration that fixes a pre-existing schema issue must go in its own PR, and a second independent feature must either be split out or added to the PR description with its own rationale and compatibility notes.",
+      "category": "commit-hygiene",
+      "trigger": "The diff contains uv.lock changes with no dependency bump in the description, an independent schema-fix migration alongside a feature migration, or a second unrelated feature (e.g. worker recycling added to a DAG-caching PR).",
+      "kind": "convention",
+      "n_candidates": 3
+    },
+    {
+      "cluster_id": "t1/A:8",
+      "rule": "Help text for CLI date arguments that filter runs by partition or logical date must state the exact semantics: whether the end bound is inclusive or exclusive (and what value covers a whole calendar period), and that the calendar day is derived from the UTC instant rather than the user's local or the timetable's timezone.",
+      "category": "docs",
+      "trigger": "A CLI argument in cli_config.py / dag_command.py adds --start-date / --end-date (or another type=parsedate date filter) whose help text does not spell out inclusivity and the UTC-day interpretation.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/A:10",
+      "rule": "New or changed behaviour on a public API endpoint must be covered by tests asserting the new response, including the new validation error path and the changed default.",
+      "category": "testing",
+      "trigger": "A bulk endpoint gains a validation guard, or a service method changes what an endpoint returns by default, without new or updated tests for those paths.",
+      "kind": "incident",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/A:13",
+      "rule": "Task-SDK client changelog entries belong in the Task-SDK changelog, not in the airflow-core RELEASE_NOTES.rst.",
+      "category": "docs",
+      "trigger": "RELEASE_NOTES.rst gains a line mentioning task-sdk / Task SDK client inside an airflow-core section.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:15",
+      "rule": "A new config option introduced in a patch release must be declared in config.yml and explicitly called out in that minor version's upgrade notes.",
+      "category": "docs",
+      "trigger": "A patch PR adds a key to config.yml, or documents a new [section] key_name, with no corresponding entry in the upgrade notes.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:19",
+      "rule": "Every locale skill file under .github/skills/airflow-translations/locales/ must declare that it extends the global rules in ../SKILL.md and that the locale file takes precedence on conflict.",
+      "category": "docs",
+      "trigger": "A locale skill file (.github/skills/airflow-translations/locales/<lang>.md) is added or modified without a reference to ../SKILL.md and an explicit precedence statement.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:20",
+      "rule": "In a locale's do-not-translate list, mark only the bare Airflow noun (e.g. \"Asset\") as untranslatable; do not block compound phrases (e.g. \"Asset Events\") whose surrounding words the existing locale JSON already translates.",
+      "category": "docs",
+      "trigger": "A locale skill file's do-not-translate list contains a multi-word phrase built around an Airflow term while the locale's JSON files translate the non-Airflow words of that phrase.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:21",
+      "rule": "Documentation for extensible Airflow interfaces (state backends, secrets backends, other plug points) must describe the contract and behaviour rather than enumerate concrete method signatures.",
+      "category": "docs",
+      "trigger": "A .rst file adds a list-table or code-block of full method signatures (e.g. async def ...) for a pluggable backend or extension point.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:23",
+      "rule": "AIP skill SKILL.md files must anchor AIP URL detection to the Apache Confluence prefix https://cwiki.apache.org/confluence/display/AIRFLOW rather than treating any https:// argument as the AIP URL.",
+      "category": "docs",
+      "trigger": "A SKILL.md under .github/skills/aip-* describes AIP URL detection as \"other https:// arguments are the AIP URL\" with no cwiki.apache.org/confluence/display/AIRFLOW anchor.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:24",
+      "rule": "Locale skill files must cross-reference the rationale already documented in airflow-core/src/airflow/ui/public/i18n/locales/<lang>/README.md when they consolidate that locale's translation conventions.",
+      "category": "docs",
+      "trigger": "A locale skill file under .github/skills/airflow-translations/locales/ is created or updated with no reference to the in-tree i18n README for that locale.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:25",
+      "rule": "Docs examples showing regex filtering of asset partition keys must call .partition_key_pattern(), not .partition_key() (which is exact-match).",
+      "category": "docs",
+      "trigger": "A docs example passes a regex string to .partition_key(.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:26",
+      "rule": "Documentation for a feature introduced in a specific Airflow version must get its own .. note:: block or subheader rather than being nested under a section that documents a different feature.",
+      "category": "docs",
+      "trigger": "A diff adds documentation for a new feature (e.g. Resumable Tasks) inside an existing section covering a distinct feature (e.g. Deferred Operators).",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:29",
+      "rule": "Airflow documentation must describe the current behaviour without comparing it to earlier versions; drop phrases like \"no longer\", \"previously\", \"used to\" and \"as of version X\".",
+      "category": "docs",
+      "trigger": "Documentation prose adds \"no longer\", \"previously\", \"used to\", or \"as of Airflow X.Y\".",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:30",
+      "rule": "Document task-state-store and asset-state-store values as JsonValue (any JSON-serialisable type), not as strings.",
+      "category": "docs",
+      "trigger": "Docs describe a task store or asset store value type as \"string\"/\"str\" rather than JsonValue or JSON.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:31",
+      "rule": "Authentication documentation must not present the FAB Auth Manager as the default; the default auth manager in Airflow 3 is the Simple Auth Manager.",
+      "category": "docs",
+      "trigger": "Docs or configuration examples imply the FAB Auth Manager is in use by default.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:32",
+      "rule": "Getting-started and quickstart documentation must cover both the uv-based install path and the standard pip + venv path.",
+      "category": "docs",
+      "trigger": "The install quickstart section is added or rewritten covering only uv or only pip.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:33",
+      "rule": "Use a bugfix.rst newsfragment rather than significant.rst for internal fixes with no observable user-facing behaviour change, and omit the fragment entirely when there is no user impact.",
+      "category": "commit-hygiene",
+      "trigger": "A significant.rst newsfragment is added for an internal race-condition fix or scheduler-internal improvement with no API or behaviour change.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:34",
+      "rule": "A significant newsfragment describing a permission or endpoint change must name the surface precisely (e.g. \"FastAPI UI /dags endpoint\") to distinguish it from other endpoints sharing the same path.",
+      "category": "commit-hygiene",
+      "trigger": "A significant.rst newsfragment mentions /dags or another ambiguous path without saying whether it is the UI route or the public REST API endpoint.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:39",
+      "rule": "Do not set document.title from inside React components in the Airflow UI; the title is defined once in index.html.",
+      "category": "docs",
+      "trigger": "A document.title assignment appears inside a useEffect in a .tsx file under the Airflow UI source tree.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:58",
+      "rule": "Tests for a cursor-paginated route must assert both boundaries: previous_cursor is null on the first page and next_cursor is null on the last.",
+      "category": "testing",
+      "trigger": "A new cursor-pagination route is added without tests covering previous_cursor on page 1 and next_cursor on the final page.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:69",
+      "rule": "Assign a large dict to a named variable before passing it to Model.model_validate() rather than inlining the literal in the call.",
+      "category": "docs",
+      "trigger": "Model.model_validate({...}) is called with a multi-key inline dict containing computed or conditional expressions.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:75",
+      "rule": "When a route handler writes the Refreshed-API-Token header that JWTReissueMiddleware also writes, add an inline comment explaining why they cannot collide.",
+      "category": "docs",
+      "trigger": "response.headers[\"Refreshed-API-Token\"] is assigned in a route handler that coexists with JWTReissueMiddleware.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:84",
+      "rule": "config.yml descriptions must not name internal database tables; describe the concept in user-facing terms instead.",
+      "category": "docs",
+      "trigger": "A description: in config.yml references an internal table name such as \"task_state rows\" or \"dag_run rows\".",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:93",
+      "rule": "Docstrings on overridable DAG-processing methods must state the conditions under which the default implementation does nothing.",
+      "category": "docs",
+      "trigger": "A method in dag_processing/ intended for override has a docstring that omits its no-op conditions.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:96",
+      "rule": "A fix to an example DAG for a timezone or datetime bug must come with a regression test that imports the DAG under a non-UTC [core] default_timezone.",
+      "category": "testing",
+      "trigger": "An example_dags/ file is modified to fix a datetime/timezone issue with no test exercising a non-UTC default_timezone.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:108",
+      "rule": "A significant change to triggerer behaviour must ship with a newsfragment.",
+      "category": "docs",
+      "trigger": "The diff changes triggerer behaviour (new capability, protocol change, significant fix) with no file added under newsfragments/.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:125",
+      "rule": "Update the docstring when a method is decorated with @provider_info_cache so it describes the cached semantics rather than the former uncached helper's.",
+      "category": "docs",
+      "trigger": "A docstring is moved from an uncached helper onto a @provider_info_cache-decorated method, or the decorator is added without revising the docstring.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:143",
+      "rule": "When adding an i18n key to en/common.json, seed the same English string into every other locale's common.json.",
+      "category": "docs",
+      "trigger": "A key is added to ui/public/i18n/locales/en/common.json and no other locale's common.json is touched.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:145",
+      "rule": "Capitalise acronyms in translation strings as they are in English (JSON, DAG, API, UI, ID).",
+      "category": "docs",
+      "trigger": "A locale JSON value introduces a well-known acronym in all-lowercase.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:150",
+      "rule": "An /* eslint-disable max-lines */ comment must be accompanied by an inline justification for why the file legitimately exceeds the limit.",
+      "category": "docs",
+      "trigger": "/* eslint-disable max-lines */ is added with no explanatory comment on the same or the following line.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:7",
+      "rule": "Use Chakra semantic color tokens in `.tsx` component files; do not reference hardcoded colour-scale strings outside the designated theme/utils file.",
+      "category": "docs",
+      "trigger": "diff adds a literal colour scale reference (e.g. `blue.500`, `green.300`) in a component instead of a semantic token.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:17",
+      "rule": "E2e helpers and assertions must wait for the UI to settle rather than reading immediately after an action: navigation helpers must wait for a key element to be visible before returning, and post-click assertions (e.g. pagination) must use `expect.poll()`.",
+      "category": "testing",
+      "trigger": "diff adds a `goto(`/`navigateTo*` helper with no subsequent `waitFor`/`toBeVisible`, or compares page content immediately after a navigation click without `expect.poll`.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/B:18",
+      "rule": "E2e page objects and specs must take the DAG under test from `testConfig.testDag.id`; do not hardcode a DAG ID, neither as a spec-level constant nor as a default parameter value on a page-object method.",
+      "category": "testing",
+      "trigger": "diff adds `const DAG_ID = \"example_bash_operator\"` in `tests/e2e/specs/*.ts`, or a `tests/e2e/pages/*.ts` method with a default string argument such as `dagId: string = \"example_bash_operator\"`.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/B:19",
+      "rule": "E2e specs that assert on state produced by a DAG run must trigger the DAG and wait for `\"success\"` in a `test.beforeAll` block before running assertions.",
+      "category": "testing",
+      "trigger": "diff adds a `test.describe` block in `tests/e2e/specs/*.ts` asserting run-dependent state without a `beforeAll` that triggers the DAG and verifies its status.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:20",
+      "rule": "E2e tests must not contain conditional logic that lets them pass whether or not the feature works.",
+      "category": "testing",
+      "trigger": "diff adds an `if (count > 0) { ... }` guard or similar short-circuit around the assertions in `tests/e2e/specs/*.ts`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:22",
+      "rule": "In e2e page objects targeting an `InputWithAddon`, locate the field with `getByText(label)` plus `.locator('input')` rather than `getByRole('textbox', { name: ... })`.",
+      "category": "testing",
+      "trigger": "diff adds `getByRole(\"textbox\", { name: ... })` in a page object for a field rendered by `InputWithAddon`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:29",
+      "rule": "A provider module path may only be added to the `test_providers_modules_should_have_tests` allowlist in the same PR that adds the referenced test file.",
+      "category": "testing",
+      "trigger": "diff adds a path string to the project-structure allowlist without the corresponding test file in the same PR.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:33",
+      "rule": "Alembic stairway migration tests must include the failing revision ID in the failure message.",
+      "category": "testing",
+      "trigger": "diff adds a loop over migration revisions calling `command.upgrade`/`downgrade` without re-raising or failing with the `revision_id` in the message.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:36",
+      "rule": "Tests asserting on a tag/stats dictionary that should be fully specified must assert full dict equality, not a series of per-key assertions.",
+      "category": "testing",
+      "trigger": "diff replaces `assert tags == {...}` with individual `assert tags[\"key\"] == ...` assertions.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:37",
+      "rule": "Prefer top-level `def test_*` functions over tiny one-scenario test classes in files whose dominant pattern is top-level functions.",
+      "category": "testing",
+      "trigger": "diff adds a narrow new test class to a file where top-level test functions are the established pattern.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:38",
+      "rule": "Paginated bulk-action API endpoints must have a test that exercises multi-page traversal (e.g. `limit=1`) to prove the action applies across every page.",
+      "category": "testing",
+      "trigger": "diff adds tests for a paginated bulk PATCH/POST endpoint with no `limit=1` case.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:39",
+      "rule": "New task-group / task-instance state-change API handlers must have unmocked integration tests covering upstream and downstream propagation, past/future run coverage and the deadlock/409 paths.",
+      "category": "testing",
+      "trigger": "diff adds a `TestPatch*TaskGroup`/`TestPatch*TaskInstance` class whose tests all mock the underlying state-transition method.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:40",
+      "rule": "Tests for endpoint parameters that accept several values (e.g. True/False/None filter flags) must be `@pytest.mark.parametrize`d, not folded into one assertion block.",
+      "category": "testing",
+      "trigger": "diff adds a test function asserting several filter-param combinations sequentially in a single body.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:46",
+      "rule": "Consolidate multiple `session.flush()` calls in test setup into a single flush at the end, unless an earlier flush is required by a subsequent setup query.",
+      "category": "testing",
+      "trigger": "Two or more `session.flush()` calls appear in the setup section of one test function or fixture.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:47",
+      "rule": "Guard performance-motivated ORM changes (e.g. replacing `session.merge()` with `session.add()`) with an `assert_queries_count()` assertion so a regression fails CI.",
+      "category": "testing",
+      "trigger": "diff swaps `session.merge(` for `session.add(` on a `task_instance`/`dag_run` path with no accompanying `assert_queries_count`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:48",
+      "rule": "Bugfix entries in `chart/RELEASE_NOTES.rst` must be a concise one-line title; the detailed explanation belongs in the PR, not the release note.",
+      "category": "docs",
+      "trigger": "diff adds a multi-sentence bugfix entry to `chart/RELEASE_NOTES.rst`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:49",
+      "rule": "When a Helm value is split into executor-specific keys (e.g. `workers.labels` into `workers.celery.labels` / `workers.kubernetes.labels`), document it as deprecated in favour of the per-executor keys — with an example for each new key — and never as a 'rename'.",
+      "category": "docs",
+      "trigger": "diff adds a deprecation notice in chart docs, `NOTES.txt` or `_helpers.yaml` that says 'renamed to X' for a split value, or removes the worker example without adding one per new key.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/B:50",
+      "rule": "`chart/newsfragments/*.significant.rst` entries for breaking changes must enumerate every removed Helm value with its replacement as an explicit old-to-new mapping, not a prose summary.",
+      "category": "docs",
+      "trigger": "diff adds a `.significant.rst` newsfragment mentioning removed values or dropped executor support without listing the specific key mappings.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:55",
+      "rule": "Tests for `@operator_defaults` must include a case where the operator explicitly overrides the decorator's default (e.g. `retries=0` beating `@operator_defaults(retries=3)`).",
+      "category": "testing",
+      "trigger": "diff adds `@operator_defaults` test cases that only cover the decorator supplying its value.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:56",
+      "rule": "DAG serialization test fixtures containing fields that are always emitted because their defaults come from `airflow.cfg` at parse time (e.g. `catchup`, `max_active_runs`, `max_active_tasks`) must carry an inline comment saying so.",
+      "category": "docs",
+      "trigger": "diff adds or edits a serialization fixture including such fields with no explanatory comment.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:58",
+      "rule": "A test that takes the `caplog` fixture must assert on captured log output; if there is nothing to assert, remove `caplog` and its setup.",
+      "category": "testing",
+      "trigger": "A test function accepts `caplog` but contains no assertion against `caplog.text` or `caplog.records`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:59",
+      "rule": "Do not bundle unrelated tightening (e.g. adding `spec=` to an existing MagicMock) into a PR whose title describes a distinct bug fix; drop the hunk or call it out in the PR body.",
+      "category": "commit-hygiene",
+      "trigger": "diff modifies an existing `mock.MagicMock()` to add `spec=` in a file otherwise changed only for an unrelated fix.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:61",
+      "rule": "Docker Compose services under `airflow-e2e-tests/` must not set a fixed `container_name`, must address each other by service-name hostname, and must not publish host ports without a demonstrated external need.",
+      "category": "testing",
+      "trigger": "diff adds `container_name:` or a host-port mapping to a service in a compose file under `airflow-e2e-tests/`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:62",
+      "rule": "In `chart/RELEASE_NOTES.rst`, wrap every Helm values key reference in double RST backticks (e.g. ``workers.celery.nodeSelector``).",
+      "category": "docs",
+      "trigger": "diff adds a line to `chart/RELEASE_NOTES.rst` containing a dotted Helm values path without surrounding double backticks.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:63",
+      "rule": "In `chart/values.yaml`, describe auto-generated config values as 'generated by default from `.Values.<helmPath>`' and point users at the Helm value, rather than calling the config key deprecated or the override the only option.",
+      "category": "docs",
+      "trigger": "A values.yaml comment says a config key is 'deprecated' or 'only possible' via direct `config.*` override when the chart actually generates it from a Helm value.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:64",
+      "rule": "When a Helm config flag's behaviour depends on another value (e.g. `statsd_on` gated on `otelCollector.metricsEnabled`), document the dependency in both `values.yaml` and `values.schema.json`.",
+      "category": "docs",
+      "trigger": "A conditional expression in the `config:` block of values.yaml references two or more `.Values` fields but only one carries an explanatory comment.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:67",
+      "rule": "The `KUSTOMIZE_OVERLAYS_FILES` group in `selective_checks.py` must include `^chart/templates/` and `^chart/files/`.",
+      "category": "testing",
+      "trigger": "diff adds or edits `FileGroupForCi.KUSTOMIZE_OVERLAYS_FILES` without those patterns.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:69",
+      "rule": "Tests for Breeze CLI flag-pair rendering must include a flag that has both a short and a long alias, asserting the long form is the one emitted.",
+      "category": "testing",
+      "trigger": "A test in `dev/breeze/tests/` for flag-rendering logic only covers flags with a single long form.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:70",
+      "rule": "Do not put implementation-detail comments in `chart/values.yaml`; comments there describe what the field controls, not template guard logic, schema mechanics or helper internals.",
+      "category": "docs",
+      "trigger": "A values.yaml comment explains internal template or Helm helper behaviour rather than the field's user-facing effect.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:71",
+      "rule": "Release-tooling shell scripts under `dev/` must branch on `$(uname)` so both macOS (BSD `date`) and Linux (GNU `date`) syntax work.",
+      "category": "commit-hygiene",
+      "trigger": "A shell script in `dev/` uses GNU-only `date --utc` or BSD-only `date -v` with no OS check.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:73",
+      "rule": "New path-parsing or git-worktree logic in Breeze must be covered by unit tests for an absolute gitdir path, a relative gitdir path, and the non-worktree case.",
+      "category": "testing",
+      "trigger": "A function reading `.git` file content or deriving paths from `AIRFLOW_ROOT_PATH` is added to `path_utils.py`/`shell_params.py` without those three cases.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:76",
+      "rule": "When invoking or documenting `prek` in Breeze code and messages, use `--hook-stage`, not `--stage`.",
+      "category": "commit-hygiene",
+      "trigger": "A prek invocation or instructional string under `dev/breeze/` uses `--stage`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:80",
+      "rule": "Helm test coverage for deprecated-but-still-supported value overrides (e.g. `workers.keda.query`) must be kept when the executor or CRD that exercised them is removed; migrate the case to an equivalent supported executor instead of deleting it.",
+      "category": "testing",
+      "trigger": "diff deletes a helm test parametrize case covering a value path still listed in the `NOTES.txt` deprecation notice.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:82",
+      "rule": "Helm tests for a given component must live in that component's established `test_<component>.py` file, not be spread across other files.",
+      "category": "testing",
+      "trigger": "diff adds a test class for a component (e.g. `TestMetadataConnectionTplRendering`) to a file other than the component's dedicated test file.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:84",
+      "rule": "Where the Go SDK and the Python supervisor use different frame-size caps for the IPC channel, each side's constant must carry a doc comment explaining its value and why the two sides differ.",
+      "category": "docs",
+      "trigger": "diff adds or changes a frame/buffer-size constant in `go-sdk/pkg/execution/` with no comment relating it to the Python cap.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:86",
+      "rule": "ADR documents must cite the actual function or method where the described behaviour lives; do not name a helper when the logic sits in the exported entry point.",
+      "category": "docs",
+      "trigger": "diff adds or edits an ADR `.md` referencing a code symbol by name that does not match the real location.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:87",
+      "rule": "Source release tarballs built from the Java SDK must `export-ignore` binary wrapper artifacts such as `gradle-wrapper.jar`.",
+      "category": "commit-hygiene",
+      "trigger": "diff adds a `git archive` invocation in a Gradle release task without a `.gitattributes` export-ignore for `gradle-wrapper.jar`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:88",
+      "rule": "Public interfaces and classes in the Java/Kotlin SDK must carry KDoc/JavaDoc.",
+      "category": "docs",
+      "trigger": "diff adds a `public interface` or `public class` under `java-sdk/sdk/src/main/kotlin/` with no KDoc block.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:93",
+      "rule": "Provider `changelog.rst` entries must use sentence-case commit titles; lowercase openers and conventional-commit prefixes such as `fix:` are not acceptable.",
+      "category": "docs",
+      "trigger": "diff adds a line to `providers/*/docs/changelog.rst` whose title starts with a lowercase word or a `fix:`/`feat:` prefix.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:95",
+      "rule": "A Trigger test that verifies one deadline path (e.g. `execution_deadline`) must set the other deadline (`end_time`) to a future value so exactly one timeout branch is exercised.",
+      "category": "testing",
+      "trigger": "diff adds a Trigger unit test where both `end_time` and `execution_deadline` are already expired.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:96",
+      "rule": "Do not use `caplog` in Kubernetes/integration tests; capture logs with mocks instead.",
+      "category": "testing",
+      "trigger": "diff adds `caplog` as a parameter or fixture to a test under `kubernetes-tests/`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:101",
+      "rule": "When changing behaviour that existing tests cover, update the tests to cover both the new branch and the altered or removed one; do not leave assertions describing behaviour that no longer exists.",
+      "category": "testing",
+      "trigger": "diff changes conditional logic in an operator without adding or updating tests for both sides of the condition.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:102",
+      "rule": "Amazon provider docstrings must append `(templated)` to the description of every parameter listed in `template_fields`.",
+      "category": "docs",
+      "trigger": "diff adds a `:param:` line in an Amazon provider operator, trigger or sensor for a field present in `template_fields` without the `(templated)` marker.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:104",
+      "rule": "Provider how-to RST docs must order lifecycle sections to follow the resource lifecycle: Create, Start, Stop, Update, Delete.",
+      "category": "docs",
+      "trigger": "diff adds a section to a provider how-to doc out of lifecycle order.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:115",
+      "rule": "Avoid adding unit tests that only re-exercise paths an existing broader test already covers; prefer fewer, higher-value tests over branch-by-branch duplication.",
+      "category": "testing",
+      "trigger": "diff adds several small test functions each covering a single branch already exercised as a sub-case of an existing test in the same file.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:116",
+      "rule": "In caplog-based trigger tests, call `caplog.set_level(...)` before invoking the method under test.",
+      "category": "testing",
+      "trigger": "diff adds an `async def test_*` that asserts on `caplog.records`/`caplog.text` without a preceding `caplog.set_level`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:122",
+      "rule": "Spark provider docs for K8s-API tracking must state that the worker's kube client is used for pod tracking and that the K8s path bypasses `ResumableJobMixin`, so a retry submits a fresh driver rather than reattaching.",
+      "category": "docs",
+      "trigger": "diff adds or edits a Requirements/Caveats section for K8s-based Spark submission under `providers/apache/spark/docs/`.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:123",
+      "rule": "Spark provider documentation describing worker-crash and resubmission behaviour must mention that a non-idempotent job can conflict on resubmission, not only that compute is wasted.",
+      "category": "docs",
+      "trigger": "diff adds prose about job resubmission under `providers/apache/spark/docs/` without mentioning idempotency conflicts.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:126",
+      "rule": "In system tests, set `AIRFLOW_CONN_*` environment variables and perform connection setup — including reads of `SystemTestContextBuilder` values — inside a `@task`-decorated function, never at DAG-parse scope.",
+      "category": "testing",
+      "trigger": "diff adds `os.environ[...] = ...` or connection construction at module/DAG-definition scope in a system test file.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/B:127",
+      "rule": "System tests must mark each step of the task chain with its phase — setup, test body, teardown — following the pattern in canonical examples such as `example_sqs.py`.",
+      "category": "testing",
+      "trigger": "diff adds a `chain(...)` in a system test with no comments or naming distinguishing the phases.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:128",
+      "rule": "System tests must be run end-to-end locally before submission; reviewers reject system tests that have not been exercised.",
+      "category": "testing",
+      "trigger": "diff adds or substantially modifies a file under `providers/*/tests/system/`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:129",
+      "rule": "`pytest.raises(ClientError)` in provider tests must carry a `match=` asserting the specific AWS error code under test.",
+      "category": "testing",
+      "trigger": "diff adds `pytest.raises(ClientError)` without `match=` in a provider unit test.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:130",
+      "rule": "Remove unused `moto` fixtures and their `mock_aws` imports from unit test modules that make no real AWS API calls.",
+      "category": "testing",
+      "trigger": "diff adds a `@pytest.fixture` wrapping a hook in `mock_aws()` that no test in the module references.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:135",
+      "rule": "Notes and warnings in provider changelog RST must use the `.. note::` / `.. warning::` directive rather than plain prose.",
+      "category": "docs",
+      "trigger": "A `docs/changelog.rst` diff adds a paragraph that reads as a note or warning without the directive.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:136",
+      "rule": "Documentation claims about KubernetesPodOperator deduplication or ambiguity prevention must be scoped to the specific code path where the guarantee actually holds (e.g. `get_or_create_pod`), not asserted end-to-end.",
+      "category": "docs",
+      "trigger": "A provider docs RST diff claims 'no possibility of ambiguity failure' or equivalent absolute language about pod reconnect behaviour.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:137",
+      "rule": "New keyword arguments on `KubernetesPodOperator.__init__` (and other cncf.kubernetes operators) need a matching `:param name:` docstring entry describing the type; for `Callable` parameters the entry must name what each positional argument means.",
+      "category": "docs",
+      "trigger": "diff adds a keyword argument to such an `__init__` with no corresponding `:param:` entry.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:139",
+      "rule": "When a parameter's behaviour is gated on a minimum Airflow version, its `:param:` docstring entry must state the constraint explicitly (e.g. \"Only available for Airflow 3.3+\").",
+      "category": "docs",
+      "trigger": "A new operator parameter whose full behaviour requires Airflow >= X.Y is documented without the version constraint.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:147",
+      "rule": "Do not add a provider changelog release entry for a PR that changed only test files or non-functional `pyproject.toml` marker comments.",
+      "category": "docs",
+      "trigger": "A provider `docs/changelog.rst` diff adds a version section for a PR whose changed files are all under `tests/` or are only `# use next version` comments.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:150",
+      "rule": "In Kubernetes-provider tests, set pod status with `V1PodStatus(...)` objects rather than plain dicts.",
+      "category": "testing",
+      "trigger": "Test code assigns `pod.status = {\"key\": value}` instead of a `V1PodStatus` instance.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:151",
+      "rule": "Freeze time with `time_machine` in tests that compare timestamps or durations; do not derive expected values from `datetime.now()`/`utcnow()`.",
+      "category": "testing",
+      "trigger": "A test calls `datetime.datetime.now()` or `utcnow()` to compute an expected duration or timestamp rather than using `@time_machine.travel`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:152",
+      "rule": "In `SparkKubernetesOperator` pod-selection tests, keep `metadata.name` identical across all mock pods and set `deletion_timestamp` explicitly so each selection criterion is exercised independently.",
+      "category": "testing",
+      "trigger": "A test for `find_spark_job`/`get_or_create_pod` builds mock pods with differing names or omits `deletion_timestamp`.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:153",
+      "rule": "Provider documentation that exposes a subset of an upstream library's capabilities must link the upstream capability list and state which features are not yet supported.",
+      "category": "docs",
+      "trigger": "A provider `.rst` lists supported backends/integrations without referencing the upstream list or noting the gaps.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:154",
+      "rule": "Complete runnable DAGs in provider documentation must be pulled in with `.. exampleinclude::` from a tested file under `example_dags/`; `.. code-block:: python` is for fragments only.",
+      "category": "docs",
+      "trigger": "A provider `.rst` contains a `.. code-block:: python` holding a full, runnable DAG.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:6",
+      "rule": "Mocks that stand in for a real interface must be specced — `MagicMock(spec=...)`, `spec_set=`, or `create_autospec` — including nested attributes; `MagicMock(autospec=True)` is a no-op keyword and does not spec anything.",
+      "category": "testing",
+      "trigger": "A bare `MagicMock()` (or `MagicMock(autospec=True)`) substituted for a known type such as the Task SDK execution API `Client`, `RunContext`, `ToolsetTool`, or a credentials object, then given attributes the real type may not have",
+      "kind": "convention",
+      "n_candidates": 3
+    },
+    {
+      "cluster_id": "t1/C:8",
+      "rule": "Tests for `get_async_connection` with a custom `hook=` argument must cover both the `aget_connection` path and the sync `get_connection` fallback path.",
+      "category": "testing",
+      "trigger": "A test exercising `get_async_connection(hook=...)` that asserts only on the async branch",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:10",
+      "rule": "When a provider operator or hook gains a new documented parameter or changes its documented behaviour (auth types, supported options), update the class docstring and the matching provider RST guide under `providers/<name>/docs/` in the same PR.",
+      "category": "docs",
+      "trigger": "A new `__init__` parameter or a changed `:param ...:` docstring list in a provider operator/hook with no corresponding edit to `providers/<name>/docs/operators/*.rst` or `providers/<name>/docs/connections/*.rst`",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/C:11",
+      "rule": "In RST documentation, write version milestones as \"Airflow version X.Y.Z\", not a bare \"version X.Y.Z\".",
+      "category": "docs",
+      "trigger": "An RST sentence containing `version <n>.<n>` without `Airflow` immediately before it",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:27",
+      "rule": "Extract repeated `test_client.app.dependency_overrides[...]` setup into a shared fixture instead of duplicating it in each test method.",
+      "category": "testing",
+      "trigger": "Several test methods in one class repeating the same `dependency_overrides` assignment block",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:29",
+      "rule": "Give `timetable_type` a sensible default in the `DagModel` constructor so tests do not have to assign it on every instance.",
+      "category": "testing",
+      "trigger": "Tests assigning `dag_model.timetable_type = \"\"` in setUp or individual test bodies",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:38",
+      "rule": "Add a bullet to a provider's `changelog.rst` only when that provider's own source files change; a PR touching only another provider's tests gets no entry.",
+      "category": "docs",
+      "trigger": "A new bullet in `providers/<name>/docs/changelog.rst` for a diff limited to test files of a different provider",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:39",
+      "rule": "Place forward-looking compatibility notes in a provider changelog above the upcoming release section, never inside or below an already-published release block.",
+      "category": "docs",
+      "trigger": "A `.. note::` or compatibility banner inserted into or after an existing versioned release block in `changelog.rst`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:40",
+      "rule": "Add new provider documentation as `.rst` files wired into the existing docs structure, not as standalone `.md` files.",
+      "category": "docs",
+      "trigger": "A new `.md` file added under `providers/*/docs/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:44",
+      "rule": "Name provider system test files after the existing files in the same system-test folder; do not append a `_system` suffix.",
+      "category": "testing",
+      "trigger": "A new file under `providers/*/tests/system/` named `test_<service>_system.py`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:45",
+      "rule": "Document a hook's connection configuration behaviour in its docstring: which `extra` keys are supported and in what precedence order, and exactly when a keyless fallback such as Application Default Credentials applies versus when an explicit key is still required.",
+      "category": "docs",
+      "trigger": "A hook connection-init or auth method that adds conditional key-file skipping or several `extra.get(...)` branches without a matching `:param ...:`/docstring description",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/C:48",
+      "rule": "Provider documentation links must use the canonical `https://airflow.apache.org/docs/apache-airflow-providers-<name>/` form; do not omit the `-providers-` segment.",
+      "category": "docs",
+      "trigger": "An RST hyperlink to `https://airflow.apache.org/docs/apache-airflow-<name>/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:49",
+      "rule": "Each release version heading must appear exactly once in a provider's `changelog.rst`.",
+      "category": "docs",
+      "trigger": "A version heading plus RST underline that already exists earlier in the same changelog file",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:53",
+      "rule": "Target `@patch` at the symbol as the module under test imports it; patching a path the module never imports is a silent no-op.",
+      "category": "testing",
+      "trigger": "`@patch(\"airflow.providers.<pkg>.hooks.<module>.<name>\")` where `<name>` is not imported by that module",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:54",
+      "rule": "Async hook tests must exercise the real method body with only the underlying I/O primitives patched, rather than patching the method under test itself.",
+      "category": "testing",
+      "trigger": "`patch.object(hook, 'consume', side_effect=[...])` (or equivalent) replacing the very method the test claims to cover",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:59",
+      "rule": "Provider unit tests must build `Connection` fixtures with the provider's own `conn_type`, not a generic type such as `http`.",
+      "category": "testing",
+      "trigger": "A test under `providers/*/tests/` creating a `Connection(conn_type=\"http\")` for a hook that declares its own `conn_type`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:61",
+      "rule": "Use proper RestructuredText footnote syntax in provider docs rather than plain bracketed numbers like `[1]`.",
+      "category": "docs",
+      "trigger": "A `[N]` reference in `providers/*/docs/*.rst` that is not a real RST footnote or citation",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:63",
+      "rule": "Adding deferrable mode to a provider operator requires both an update to that operator's RST docs page and a `providers/<pkg>/newsfragments/<pr>.feature.rst` newsfragment.",
+      "category": "docs",
+      "trigger": "A diff adding `self.defer(...)` to a provider operator with no newsfragment file and/or no operator docs update",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:67",
+      "rule": "An `AirflowPlugin` subclass docstring must describe only the events the plugin actually registers and handles.",
+      "category": "docs",
+      "trigger": "A plugin docstring claiming to handle event types (e.g. DAG run events) that the plugin body does not implement",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:68",
+      "rule": "Assertions on `trigger.serialize()` must check that the result is a tuple, that the class path string matches the trigger's `__module__`/`__name__`, and that the full kwargs dict is as expected.",
+      "category": "testing",
+      "trigger": "A test destructuring `trigger.serialize()` without verifying the tuple type or the fully-qualified class path",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:75",
+      "rule": "Update `tests/unit/openlineage/plugins/test_manager.py` whenever the OpenLineage extractor manager's branching changes.",
+      "category": "testing",
+      "trigger": "A change to `openlineage/extractors/manager.py` with no corresponding test change",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:81",
+      "rule": "Assert a mock was called exactly once (`assert_called_once()` or a `call_count` check) before inspecting `call_args`.",
+      "category": "testing",
+      "trigger": "Access to `mock_*.call_args` with no preceding call-count assertion",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:96",
+      "rule": "Do not assert on log output with `caplog`; assert on observable behaviour or return values instead.",
+      "category": "testing",
+      "trigger": "A test importing or using pytest's `caplog` fixture to assert on logged messages",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:97",
+      "rule": "Tests for SecretsMasker exception redaction must traverse the whole exception chain: attach a secret via `__cause__`/`__context__` and assert it is redacted, and include a cross-attribute cycle (`exc1.__cause__ = exc2; exc2.__context__ = exc1`) to prove the visited-set guard holds.",
+      "category": "testing",
+      "trigger": "A redaction test that only inspects `exc.args`, or a circular-chain test that covers only same-attribute cycles",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/C:98",
+      "rule": "Task SDK documentation examples showing an async `@task` function must include the enclosing `@dag`-decorated wrapper so the snippet is a runnable DAG file.",
+      "category": "docs",
+      "trigger": "An `.rst`/`.md` example defining an `@task` function and calling it at module level with no `@dag` function around it",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:99",
+      "rule": "The `check_provide_session_kwargs` hook tests must cover the bypass path where an allowlist entry is removed or newly added, not only where an existing entry's count is loosened.",
+      "category": "testing",
+      "trigger": "Tests for `_expand_for_allowlist_edits` exercising only the increased-count case",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:100",
+      "rule": "Pre-commit hook tests must pass `Path.resolve()`d paths so they match the production hook's path normalisation.",
+      "category": "testing",
+      "trigger": "A hook test passing a raw path where the production code calls `Path(f).resolve()` before comparing",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:102",
+      "rule": "When a class reads an Airflow config value to supply an argument default, add a regression test that changes that config key before constructing the object and asserts the default is picked up.",
+      "category": "testing",
+      "trigger": "An `__init__` reading `conf.get*` for a default with no test that constructs the class after modifying that section/key",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:110",
+      "rule": "When renaming a message class in `task-sdk/.../execution_time/comms.py`, update the hardcoded message-type allowlists in `airflow-core/tests/unit/dag_processing/test_processor.py` and `airflow-core/tests/unit/jobs/test_triggerer_job.py` in the same PR.",
+      "category": "testing",
+      "trigger": "A renamed `ToTask`/`ToSupervisor` message class with no corresponding edit to the allowlists in those two core test files",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:114",
+      "rule": "When a Task SDK API method queries only the metadata database and deliberately skips secrets backends (e.g. `Variable.keys()` versus `Variable.get()`), document the asymmetry and its reason in a `.. note::` block in the docstring.",
+      "category": "docs",
+      "trigger": "A new listing method in `task-sdk/src/airflow/sdk/definitions/variable.py` with no note about secrets-backend exclusion",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:119",
+      "rule": "Size-limit warnings and API error messages in task-SDK execution code must name the worker-side `[workers] state_store_backend` option as the remedy, using the same section name in the asset-store warning and the API errors.",
+      "category": "docs",
+      "trigger": "A size-limit warning or HTTP error in task-sdk execution code naming a `[state_store] backend` option",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:121",
+      "rule": "When client-level exception translation replaces an existing error path, keep end-to-end coverage at the supervisor level: replace the removed `test_supervisor.py` test with one asserting the new exception propagates from `ActivitySubprocess.start()`/`supervise` and the child process is killed.",
+      "category": "testing",
+      "trigger": "A diff deleting a test from `task-sdk/tests/task_sdk/execution_time/test_supervisor.py` while adding the equivalent coverage only in `tests/task_sdk/api/test_client.py`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:122",
+      "rule": "Tests that keep a task subprocess alive to exercise signal delivery must bound their worst case to tens of seconds; do not write operator bodies like `for i in range(1000): sleep(1)`.",
+      "category": "testing",
+      "trigger": "A test operator whose `execute` sleeps in a loop with a worst-case total well beyond a minute",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:124",
+      "rule": "A regression test for a new `sys.exit(...)` inside `run()` must assert more than `SystemExit(1)`: it must also verify `on_failure_callback`, the `on_task_instance_failed` listener and `email_on_failure` still fire for the failed task instance.",
+      "category": "testing",
+      "trigger": "A task-runner test asserting only `pytest.raises(SystemExit)` or an exit code for a failure path introduced by a new `sys.exit()`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:133",
+      "rule": "A comment or docstring that tells the reader to run a benchmark or helper script must name an entrypoint that exists in the tree (e.g. under `dev/`); otherwise add the script in the same PR or drop the instruction.",
+      "category": "docs",
+      "trigger": "A comment or docstring pointing at a `dev/...` script or other repo entrypoint that is not present in the repository",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:0",
+      "rule": "Hand-written lists inside `.github/` that mirror repository state (the provider inventory in issue templates, locale/namespace inventories in agent SKILL.md files) must be generated or validated by a prek/pre-commit hook rather than maintained by hand",
+      "category": "commit-hygiene",
+      "trigger": "A PR adds a manually enumerated list of providers, locales, or i18n namespaces to `.github/ISSUE_TEMPLATE/*.yml` or `.github/skills/**/SKILL.md` without a corresponding hook entry in `.pre-commit-config.yaml`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:1",
+      "rule": "A new pre-commit hook's `files:` pattern must be narrowed to exactly the distributions and subpackages the rule applies to; never a bare `\\.py$` or a whole-distribution glob",
+      "category": "commit-hygiene",
+      "trigger": "A new `- id:` block in `.pre-commit-config.yaml` uses `files: \\.py$` or a broad `^providers/<dist>/(src|tests)/.*\\.py$` for a check that only holds in part of that tree",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:5",
+      "rule": "The version dropdown in `.github/ISSUE_TEMPLATE/1-airflow_bug_report.yml` must list only currently released, non-yanked versions; a yanked release is rolled back until `main` is bumped to its replacement",
+      "category": "docs",
+      "trigger": "A PR adds or leaves a version string in the bug report template's `options:` list for a release that has been yanked or not yet cut",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:6",
+      "rule": "Adding a new UI translation locale requires an identified, dev-list-confirmed owner recorded in `.github/CODEOWNERS` and a locale guideline file at `.github/skills/airflow-translations/locales/<code>.md`",
+      "category": "commit-hygiene",
+      "trigger": "A PR adds a new `airflow-core/src/airflow/ui/public/i18n/locales/<code>/` directory or CODEOWNERS entry without a dev@airflow.apache.org thread establishing owners and without the matching locale guideline file",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/A:7",
+      "rule": "Do not add hand-written documentation pages that enumerate REST API endpoints or their schemas; the auto-generated `stable-rest-api-ref` page already publishes them",
+      "category": "docs",
+      "trigger": "A new `.rst` file under `airflow-core/docs/` documents an API surface (endpoints, request/response shapes) that is already generated from the OpenAPI spec",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:8",
+      "rule": "A new provider-governance policy section in `PROVIDERS.rst` must state its applicability to already-existing providers - either that it applies only to providers created after the governing AIP's approval date, or how existing providers are transitioned",
+      "category": "docs",
+      "trigger": "A PR adds a governance section (stewardship, lifecycle, ownership requirements) to `PROVIDERS.rst` stating requirements without scoping them to new versus existing providers",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:12",
+      "rule": "Locale guideline files under `.github/skills/airflow-translations/locales/` must use the same heading format as the existing ones - the language name plus the locale code only, e.g. `# Thai (th)`",
+      "category": "docs",
+      "trigger": "A new `locales/<code>.md` file opens with a descriptive heading such as `# Thai (th) Translation Guidelines for Apache Airflow` instead of `# Thai (th)`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:13",
+      "rule": "A locale guideline file adapted from another locale's document must carry over every glossary term from the source, including deliberately untranslated ones such as `Dag ID`",
+      "category": "docs",
+      "trigger": "A new or updated `locales/<code>.md` glossary omits terms that the locale document it was derived from lists",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:14",
+      "rule": "In translation guidelines, the keep-in-English term list applies only to CamelCase code/class identifiers quoted verbatim as code (`TaskInstance`, `DagRun`, `Triggerer`); when the same concepts appear as UI labels they must follow the wording already in that locale's `i18n/locales/<code>/*.json`",
+      "category": "docs",
+      "trigger": "A locale guideline file lists `TaskInstance`, `DagRun` or similar CamelCase identifiers under a blanket keep-in-English rule without distinguishing code identifiers from UI labels",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:15",
+      "rule": "Prose in docs, newsfragments, release notes and UI strings must use the Airflow 3 spellings of core nouns - `Dag`, `Dags`, `Dag run`, `Dag files`, `Dag bundles`, `Dag Processor`, `API Server` - never `DAG`, `DAGs`, `DAG processor` or `webserver`; generic concept words stay lowercase unless they name an actual class",
+      "category": "docs",
+      "trigger": "A `.rst` docs page, newsfragment, `RELEASE_NOTES.rst` bullet, changelog entry or translated UI string spells the term `DAG`/`DAGs`, uses `webserver` or `DAG processor`, or capitalises a generic concept noun that is not a class name",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/A:17",
+      "rule": "`uv.lock` changes in a PR must match that PR's code diff; regenerate the lockfile against fresh `main` to strip rebase artefacts such as unrelated extras or dependency removals",
+      "category": "commit-hygiene",
+      "trigger": "A PR's `uv.lock` diff adds or removes dependencies (e.g. dropping `langchain-openai` from an extra) that nothing in the PR's source changes touches",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:18",
+      "rule": "When docs enumerate a feature's parameters, each bullet must name the exact keyword argument in double backticks (``reference``, ``interval``, ``callback``) and the stated mandatory/optional counts must match the real signature",
+      "category": "docs",
+      "trigger": "A docs page lists parameters as capitalised prose words (`Reference:`, `Interval:`, `Callback Kwargs:`) or claims a number of mandatory parameters that disagrees with the constructor signature",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:20",
+      "rule": "A `.feature.rst` newsfragment must state what the new API does for users, not the internal defect it fixes",
+      "category": "docs",
+      "trigger": "A newsfragment sentence is phrased as \"... to fix <internal component/behaviour>\" instead of describing the capability the change adds",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:21",
+      "rule": "A `.significant.rst` newsfragment that ticks the Behaviour-change or Code-interface-change checkbox must spell out the delta in prose: \"Previously it worked as X, now it works as Y\" / \"Previously the interface was X, now it is Y\"",
+      "category": "docs",
+      "trigger": "A `.significant.rst` file marks `[x] Behaviour changes` or `[x] Code interface changes` but contains no before/after explanation of what changed",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:22",
+      "rule": "A significant newsfragment describing an observability or process-management change must add the operator-visible impact and migration step (dashboards built on the old Gauge must move to Histogram aggregations; how to roll-restart the api-server on Kubernetes)",
+      "category": "docs",
+      "trigger": "A `.significant.rst` describes an internal representation or process change (metric instrument type, uvicorn worker/restart model) without saying what existing deployments must do about it",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:23",
+      "rule": "Do not add a newsfragment for a documentation-only change; a `.doc.rst` fragment for a pure docs update is overkill",
+      "category": "commit-hygiene",
+      "trigger": "A PR whose diff touches only files under `docs/` also adds a file under `airflow-core/newsfragments/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:27",
+      "rule": "In `multi-team.rst`, feature-specific sections belong above the concluding multi-team architecture diagram, which is meant to end the page",
+      "category": "docs",
+      "trigger": "A new section is appended after the `multi_team_arch_diagram.png` image block in `airflow-core/docs/core-concepts/multi-team.rst`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:28",
+      "rule": "Architecture docs must say the scheduler reads serialized Dags from the metadata database and needs no direct Dag bundle access, and must not assert that another component (e.g. the triggerer) accesses bundles directly without verifying it",
+      "category": "docs",
+      "trigger": "A docs diff enumerates which Airflow components require access to Dag bundles or Dag files",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:29",
+      "rule": "`curl` examples in the docs must percent-encode reserved characters in the query string (`%7C` for `|`, `%5E` for `^`) or use `curl --data-urlencode`, so the example runs when copied verbatim",
+      "category": "docs",
+      "trigger": "A `.. code-block:: bash` block adds a curl invocation whose URL query string contains a raw `|`, `^`, or other RFC 3986 reserved character",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:30",
+      "rule": "A language-SDK docs page that documents log forwarding must also document the configuration the SDK already reads for it - for the Java SDK, `AIRFLOW__LOGGING__LOGGING_LEVEL` and `AIRFLOW__LOGGING__NAMESPACE_LEVELS`",
+      "category": "docs",
+      "trigger": "A new Logging section under `airflow-core/docs/authoring-and-scheduling/language-sdks/` lists the integration artifacts but has no subsection on setting log levels",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:31",
+      "rule": "A new row in `extra-packages-ref.rst` must describe exactly the component types the provider ships (hooks, triggers, queue providers, operators); do not write \"hooks and operators\" for a provider that defines no operators",
+      "category": "docs",
+      "trigger": "A diff adds a row to the extras table in `airflow-core/docs/extra-packages-ref.rst` whose description does not match the components actually defined in the corresponding provider package",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:32",
+      "rule": "A PR's title and description must describe the scope actually present in the diff; a documentation/CI/repo-metadata-only change must not be titled as a CLI or behaviour fix",
+      "category": "commit-hygiene",
+      "trigger": "PR title or description claims a code/CLI behaviour change but the diff touches only docs, CI configuration, or repo metadata",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:34",
+      "rule": "Do not describe the Execution API as an \"internal\" API; describe it as an API for use by Airflow itself rather than third-party callers, because it is deliberately reachable from outside the deployment",
+      "category": "docs",
+      "trigger": "Security or API documentation introduces the Execution API with the word \"internal\", or implies it is not exposed outside the deployment boundary",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:39",
+      "rule": "Do not shorten ILIKE performance-warning descriptions in filter_param_factory docstrings; the explicit version explaining that `ILIKE '%term%'` prevents B-tree indexes and that prefix_pattern is preferred is required to guide operators on large tables",
+      "category": "docs",
+      "trigger": "Performance note in filter_param_factory description shortened or replaced with an abbreviated form that omits the ILIKE expansion and index guidance",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:64",
+      "rule": "OpenAPI HTTP exception description strings within the same route file must consistently either all end with a period or none do",
+      "category": "docs",
+      "trigger": "create_openapi_http_exception_doc([...]) call where some description strings end with '.' and others do not within the same file",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:66",
+      "rule": "Remove TODO comments that document conclusions of already-completed investigations; if the conclusion is 'no easy way to achieve this', delete the comment rather than leaving it in code",
+      "category": "commit-hygiene",
+      "trigger": "# TODO: comment in execution_api routes where the investigation has already concluded it is infeasible",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:68",
+      "rule": "Error messages that cite 'manually triggered' as the reason logical_date is None must also cover asset-triggered DAG runs, which equally have logical_date=None",
+      "category": "docs",
+      "trigger": "error message string containing 'manually triggered' adjacent to a logical_date is None check on a DagRun",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:78",
+      "rule": "Config entries in `config.yml` must document the meaning of all special sentinel values (e.g. `0` meaning \"disabled\" or \"unlimited\") in the `description` field",
+      "category": "docs",
+      "trigger": "A new config key with a numeric `default` of `0` (or another sentinel) is added to `config.yml` without the `description` explaining what `0` means",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:79",
+      "rule": "A config `description` in `config.yml` must not reference Airflow features or model fields that do not exist at HEAD in the same PR",
+      "category": "docs",
+      "trigger": "A new config key's `description` mentions a field name or feature (e.g. `TaskInstanceDTO.language`) that is not present in the codebase in the same PR",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:91",
+      "rule": "In example DAGs, inject context values via named `@task` parameters (e.g. `def load(asset_state):`) rather than capturing them from `**context`",
+      "category": "docs",
+      "trigger": "An example DAG `@task` function signature uses `**context` and then accesses `context[\"asset_state\"]`, `context[\"task_state\"]`, or similar named keys",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:93",
+      "rule": "When renaming an example DAG file or model, rename the corresponding test file and all test class names in the same commit; do not leave stale `*State` names in files that now test `*Store` semantics",
+      "category": "commit-hygiene",
+      "trigger": "A PR renames an example DAG (e.g. `example_task_state` -> `example_task_store`) but the matching test file path or class name still contains the old identifier",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:104",
+      "rule": "Example DAGs in `airflow-core/src/airflow/example_dags/` that target the current `main` branch (Airflow 3.1+) must not include `try/except ImportError` compatibility shims for older Airflow versions",
+      "category": "docs",
+      "trigger": "An example DAG file adds a `try: from airflow.sdk import X / except ImportError: from airflow.utils... import X` block",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:105",
+      "rule": "When a bug-fix to an example DAG is motivated by a specific config scenario (e.g. non-UTC `[core] default_timezone`), extend `tests/unit/always/test_example_dags.py` to cover that DAG under the triggering config",
+      "category": "testing",
+      "trigger": "A commit changes `start_date` or timezone handling in an example DAG file without adding or modifying a corresponding test in `test_example_dags.py`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:123",
+      "rule": "A cross-version compatibility test must drive the real entry path that builds the workload, not call the trigger's `run()` directly with hand-built kwargs",
+      "category": "testing",
+      "trigger": "A test named `*_compat` / `*_32x_compat` instantiates the trigger and awaits `run()` itself, while the production path reaches `run()` only after a workload-construction gate",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:127",
+      "rule": "Emit datetime attributes in OpenTelemetry span attribute dicts as RFC3339/ISO8601 strings, not raw Python datetime reprs or UNIX integer timestamps",
+      "category": "docs",
+      "trigger": "attributes[\"airflow.*date*\"] = str(some_datetime) where str() of a datetime does not produce ISO8601 format, or a raw timestamp integer is used",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:143",
+      "rule": "When adding `__repr__`, `__str__`, or `serialize()` to serialization sentinel classes (e.g. `ArgNotSet`), add a focused unit test asserting the returned string is stable and that subclasses produce distinct output",
+      "category": "testing",
+      "trigger": "New `__repr__`, `__str__`, or `serialize()` methods added to a serialization sentinel/singleton class in `airflow-core/src/airflow/serialization/` without a corresponding unit test",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:149",
+      "rule": "Backward-compat fallback code in triggers that reads from old serialized state must include a comment stating in which Airflow version the fallback can be removed (once no pre-upgrade in-flight triggers remain)",
+      "category": "commit-hygiene",
+      "trigger": "A trigger adds a fallback branch for pre-upgrade serialized state without a `# TODO: remove in X.Y` or similar comment explaining the removal condition",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:1",
+      "rule": "Changes to task-group click/navigation behaviour in the Grid view must come with a Playwright regression case in the dag-grid-view spec",
+      "category": "testing",
+      "trigger": "A component under airflow-core/src/airflow/ui/src/layouts/Details/Grid changes click or navigation behaviour of task groups with no corresponding Playwright spec update",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:4",
+      "rule": "Build documentation links from the shared docs-URL helper (src/utils/docs.ts); do not hard-code the stable-docs base URL in component files",
+      "category": "docs",
+      "trigger": "The literal 'https://airflow.apache.org/docs/apache-airflow/stable' appears in a .ts/.tsx file other than the dedicated docs-URL utility",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:8",
+      "rule": "New custom filter hooks in the UI must ship with unit tests covering their state transitions (adding/removing values, mode toggles at threshold boundaries)",
+      "category": "testing",
+      "trigger": "A new useXxxFilter hook is added under airflow-core/src/airflow/ui/src without a corresponding unit test file",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:18",
+      "rule": "Log e2e teardown failures at console.warn, not console.debug, so CI surfaces residual state left behind by a run",
+      "category": "testing",
+      "trigger": "An e2e teardown file downgrades a failure log from console.warn to console.debug",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:19",
+      "rule": "Playwright page objects must not wrap visibility/state checks in try/catch (or `.catch(() => false)`); use web-first assertions such as expect(el).toBeVisible()/toBeHidden() and let failures propagate",
+      "category": "testing",
+      "trigger": "A Playwright page-object method wraps isVisible()/isEnabled() in a try/catch returning false, or uses .catch(() => false), to handle a conditionally rendered element",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/B:20",
+      "rule": "Do not use page.waitForLoadState('networkidle') in Playwright tests; wait on an explicit UI condition instead",
+      "category": "testing",
+      "trigger": "A Playwright test or page object calls waitForLoadState('networkidle')",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:21",
+      "rule": "Set a shared e2e timeout once via testInfo.setTimeout() in beforeEach rather than repeating test.setTimeout() in every test of a describe block",
+      "category": "testing",
+      "trigger": "Multiple tests in the same describe block each call test.setTimeout() with the same value",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:22",
+      "rule": "E2e specs for sort, filter and pagination features must assert the resulting data order or content, not merely that the control is visible or opens",
+      "category": "testing",
+      "trigger": "An e2e spec for a sort/filter/pagination control only asserts visibility or clickability without asserting the resulting rows",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:29",
+      "rule": "When testing SQLite-specific OperationalError handling, pass a real sqlite3.OperationalError as `orig` so the implementation's `e.orig.args[0]` inspection exercises the real shape",
+      "category": "testing",
+      "trigger": "A test mocks sqlalchemy.exc.OperationalError with a plain string as the orig argument where the implementation reads e.orig.args[0]",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:30",
+      "rule": "New FastAPI endpoint tests that fetch collections must wrap the request in assert_queries_count so N+1 regressions from a missing eager load are caught",
+      "category": "testing",
+      "trigger": "A new test exercises a FastAPI route returning a collection (assets, DAGs, task instances) with no assert_queries_count context manager",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:32",
+      "rule": "A shared pytest fixture that mutates the execution API `lifespan.registry` must remove its override after yield",
+      "category": "testing",
+      "trigger": "A pytest fixture wider than function scope calls lifespan.registry.register_value(...) with no cleanup after yield",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:33",
+      "rule": "Execution API TI state-transition tests must cover both the idempotent same-state path (200) and the conflicting non-running state path (409) as separate explicit cases",
+      "category": "testing",
+      "trigger": "A test covers an idempotent TI state update but the test file has no adjacent case asserting a mismatched state returns 409",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:34",
+      "rule": "Heartbeat endpoint tests must assert that the fast-path UPDATE fired (or that the SELECT FOR UPDATE fallback did not) rather than counting total UPDATE statements against task_instance",
+      "category": "testing",
+      "trigger": "A heartbeat endpoint test asserts update_count == N derived from all UPDATE calls against the task_instance table",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:35",
+      "rule": "Coordinate concurrency tests deterministically with threading.Barrier/Event; do not use time.sleep() or randomised delays to create the timing window a race needs",
+      "category": "testing",
+      "trigger": "A test uses time.sleep(...) or random.randint(...) delays to order threads or to force a lock/mutex conflict instead of an explicit synchronization primitive",
+      "kind": "convention",
+      "n_candidates": 3
+    },
+    {
+      "cluster_id": "t2/B:36",
+      "rule": "When test ordering within a class matters because conf_vars interacts with provider config layers, express it with pytest.mark.order instead of relying on file order",
+      "category": "testing",
+      "trigger": "A test class comment or docstring states that certain tests must run after others without a pytest.mark.order annotation",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:37",
+      "rule": "Changes to DagBag/DagFileProcessorProcess file discovery must be covered by a test asserting whether extension-less files are still parsed",
+      "category": "testing",
+      "trigger": "A change alters the DagBag file-discovery path by adding or removing an extension filter with no test covering files without a .py extension",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:38",
+      "rule": "Tests for DagFileProcessorProcess log forwarding must exercise _get_target_loggers and _create_log_forwarder rather than mocking start() and asserting a kwarg was passed",
+      "category": "testing",
+      "trigger": "A DAG-processor log-routing test mocks DagFileProcessorProcess.start and asserts only that a kwarg is present",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:41",
+      "rule": "Keep imports at module scope in test files; do not add stdlib, concurrent.futures or SQLAlchemy imports inside test functions or nested helpers",
+      "category": "testing",
+      "trigger": "A diff adds an import statement inside a function or nested def body in a test file",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:42",
+      "rule": "Scheduler tests for the TI adopt-failure metric must pass an explicit executor whose try_adopt_task_instances returns all TIs unresumed instead of relying on the ambient default executor",
+      "category": "testing",
+      "trigger": "A test for the scheduler adopt_failure metric constructs SchedulerJobRunner without specifying an executor and without asserting to_reset is non-empty",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:46",
+      "rule": "Tests for dag.clear(only_new=True) must also pin the combined only_new=True plus task_ids= behaviour (error or precedence)",
+      "category": "testing",
+      "trigger": "A new test exercises dag.clear(only_new=True, ...) with no adjacent case passing both only_new=True and a non-empty task_ids list",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:47",
+      "rule": "Mocks standing in for Airflow or provider classes must be spec'd (MagicMock(spec=...) or create_autospec) so signature drift against the real class fails the test",
+      "category": "testing",
+      "trigger": "A test creates a bare MagicMock() for a SerializedDAG cache entry, an AWS hook, its async connection method, or an async context manager",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/B:48",
+      "rule": "OTEL protocol-resolution parametrization must include a case where OTEL_EXPORTER_OTLP_TRACES_PROTOCOL overrides the generic OTEL_EXPORTER_OTLP_PROTOCOL",
+      "category": "testing",
+      "trigger": "A parametrize block for OTEL exporter protocol resolution lacks a case combining both the generic and the traces-specific env var",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:50",
+      "rule": "Do not assert a hard-coded total plugin count in plugin-manager tests; assert the specific presence or deduplication behaviour under test",
+      "category": "testing",
+      "trigger": "assert len(plugins) == <integer literal> in plugin manager tests",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:51",
+      "rule": "Assert serialization truncation using the exported TRUNCATE_PREFIX/TRUNCATE_SUFFIX constants, not a loose substring check",
+      "category": "testing",
+      "trigger": "assert '...' in result or a similar substring check is used to verify serialize_template_field truncation output",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:52",
+      "rule": "Wrap tests that call config-reading functions (e.g. resolve_state_backend()) in a conf_vars context manager instead of depending on ambient global config",
+      "category": "testing",
+      "trigger": "A test calls an Airflow config-reading function without a conf_vars({...}) context manager",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:54",
+      "rule": "Write all code comments in English, including in test files",
+      "category": "docs",
+      "trigger": "A non-English comment appears in any file under airflow-core/ or airflow-ctl/",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:55",
+      "rule": "In Helm chart documentation say values files 'override' (not 'overwrite') the defaults, matching the chart's mergeOverwrite helper semantics",
+      "category": "docs",
+      "trigger": "The word 'overwrite' is used in Helm chart docs to describe values-file or --set precedence",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:58",
+      "rule": "Document the Breeze k8s workflow as `breeze k8s deploy-cluster --rebuild-base-image`, not the two-step build-k8s-image plus upload-k8s-image sequence",
+      "category": "docs",
+      "trigger": "breeze k8s build-k8s-image followed by breeze k8s upload-k8s-image appears in documentation or scripts",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:59",
+      "rule": "Every new parameter added to chart/values.yaml must also be declared in chart/values.schema.json",
+      "category": "docs",
+      "trigger": "A key is added to values.yaml with no corresponding entry in values.schema.json",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:62",
+      "rule": "Do not restate a default inside a values.schema.json description when the schema already declares it in a sibling `default` field",
+      "category": "docs",
+      "trigger": "A values.schema.json description ends with 'Defaults to <X>.' where X is also given in the default field",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:63",
+      "rule": "When the chart moves a value to a component-scoped path (ingress.enabled to ingress.apiServer.enabled), update the existing Helm tests to the new path instead of deleting them",
+      "category": "testing",
+      "trigger": "A Helm test using the old broad values path is deleted when a component-scoped path is introduced",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:64",
+      "rule": "Refer to the mypy distribution as apache_airflow_mypy / airflow_mypy.plugins in release docs and config examples; never as apache_airflow.mypy or airflow.mypy.plugins",
+      "category": "docs",
+      "trigger": "A twine upload glob uses apache_airflow.mypy-, or a mypy plugins= line reads airflow.mypy.plugins",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/B:65",
+      "rule": "In Breeze's global_constants.py, DEFAULT_POSTGRES_VERSION must be the oldest supported version in the list, not the newest",
+      "category": "testing",
+      "trigger": "DEFAULT_POSTGRES_VERSION is set from the last entry of CURRENT_POSTGRES_VERSIONS rather than the first",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:71",
+      "rule": "When a new ADR supersedes part of an earlier one, add a 'Superseded in part by ADR NNNN' note to the older ADR's Status section",
+      "category": "docs",
+      "trigger": "A new ADR changes decisions from an older ADR without updating the older ADR's Status section",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:72",
+      "rule": "Helm template tests must cover the edge cases, not just the happy path: multiple map entries for templated annotations, and unset/null plus boundary values (e.g. 0) for conditionally rendered fields",
+      "category": "testing",
+      "trigger": "A Helm test asserts only a single annotation key for an airflow.tplDict-rendered map, or covers only the enabled/set case of a conditionally rendered value",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/B:79",
+      "rule": "A provider howto .rst page must describe the operator's typical use case, not just literalinclude an example and link the vendor API reference",
+      "category": "docs",
+      "trigger": "A new providers/*/docs/operators/*.rst consists only of literalinclude blocks plus a Reference link to vendor documentation",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:82",
+      "rule": "A change that silently alters which driver, backend or default an existing provider user gets must add an entry to that provider's docs/changelog.rst in the same PR",
+      "category": "docs",
+      "trigger": "A hook rewrites a connection URI drivername, swaps a client library, or changes a default with no corresponding providers/<name>/docs/changelog.rst entry",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:99",
+      "rule": "When a system-test example moves from Jinja xcom_pull syntax to task.output, keep the old Jinja form as an inline comment",
+      "category": "docs",
+      "trigger": "A system-test example replaces a '{{ task_instance.xcom_pull(...) }}' expression with <task>.output without leaving the old form as a comment",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:100",
+      "rule": "Every [START howto_...] / [END howto_...] marker added to a system-test example must be referenced from the corresponding docs .rst",
+      "category": "docs",
+      "trigger": "A [START howto_<name>] marker is added under tests/system/ with no matching literalinclude or reference in the docs directory",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:102",
+      "rule": "Use @tenacity retry decorators, not time.sleep(), to handle transient waits and races in provider system tests and cleanup helpers",
+      "category": "testing",
+      "trigger": "A system-test helper or cleanup function calls time.sleep() to wait for an async resource state",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:103",
+      "rule": "Tests for AWS operator-link persistence must supply a context dict containing ti directly rather than switching on do_xcom_push, keeping UI-link behaviour decoupled from XCom return-value behaviour",
+      "category": "testing",
+      "trigger": "A test sets do_xcom_push=True in order to exercise _persist_cloudwatch_link or a similar link-persistence method",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:104",
+      "rule": "Put non-user-facing entries (internal tooling, build configuration, CI) in the hidden section of a provider changelog, not in a visible section such as Misc",
+      "category": "commit-hygiene",
+      "trigger": "A provider changelog.rst adds an internal PR entry (build config, CI tooling) under a visible section",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:106",
+      "rule": "Sensor and trigger docstrings must name the granularity actually waited on: a sensor that waits for a Task Instance must say Task Instance, not DAG Run",
+      "category": "docs",
+      "trigger": "A :param or docstring description in a sensor/trigger says 'DAG Run' where the wait target is a Task Instance, or vice versa",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:107",
+      "rule": "Write provider changelog entries as plain user-facing prose: strip conventional-commit prefixes such as 'feat(...)', name no internal tooling (Dependabot), and state the concrete change (e.g. 'Bump aiohttp>=3.14.0')",
+      "category": "docs",
+      "trigger": "A changelog entry starts with a conventional-commit prefix or mentions dependabot instead of describing the user-visible change",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/B:110",
+      "rule": "SparkSubmitHook docstrings must keep `master` and `deploy_mode` as distinct parameters; do not collapse them into a phrase like 'YARN cluster'",
+      "category": "docs",
+      "trigger": "A SparkSubmitHook docstring refers to 'YARN cluster' or otherwise merges the master and deploy_mode concepts",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:123",
+      "rule": "Spell out full operator class names (KubernetesPodOperator) in provider changelogs and user-facing docs instead of internal abbreviations (KPO, KJO)",
+      "category": "docs",
+      "trigger": "A changelog or docs .rst references an operator by an abbreviation rather than its class name",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:127",
+      "rule": "Update a method's docstring when its caching or reload semantics change (e.g. from load-once to conditional reload)",
+      "category": "docs",
+      "trigger": "A method's logic changes its execution frequency (a _config_loaded flag is bypassed) while the docstring still describes the old once-per-instance semantics",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:130",
+      "rule": "Keep asserted log messages in tests identical to the strings the production code emits; do not change the expected string without changing the log call",
+      "category": "testing",
+      "trigger": "A test asserts a caplog.text substring that does not match the string passed to self.log.* in the corresponding production code",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:133",
+      "rule": "Provider documentation for an enum-valued operator parameter (e.g. on_finish_action) must enumerate every valid value with its exact state-transition semantics",
+      "category": "docs",
+      "trigger": "A docs .rst lists only a subset of the valid values for an enum-type operator parameter without noting the omission",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:0",
+      "rule": "Do not use pytest's `caplog` fixture in provider tests; capture the logger directly or assert on observable behaviour instead",
+      "category": "testing",
+      "trigger": "`caplog` appears as a fixture argument in a test function under `providers/**/tests/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:1",
+      "rule": "Do not await real `asyncio.sleep` durations in trigger unit tests; patch `asyncio.sleep` or use `asyncio.wait_for` to assert the trigger has not completed",
+      "category": "testing",
+      "trigger": "`asyncio.sleep` with a literal float/int appears inside a test function in `providers/**/tests/**/triggers/test_*.py`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:2",
+      "rule": "A parameter's documented semantics must match what the code actually does with it: whether the value overrides, is appended to or merged with an underlying default; what the real fallback is when it is unset; and how much the code actually validates. Fix whichever side is wrong - reword the docstring, or make the implementation pass the value conditionally so the documented fallback really applies",
+      "category": "docs",
+      "trigger": "A `:param:` docstring, RST page or OpenAPI query-parameter description states override/append/merge semantics, a fallback (\"if None, the connection's project id is used\"), or a validation scope that the implementation does not actually provide - e.g. the kwarg is passed unconditionally so the spec-file default can never apply, or `build_ordering()` supports a single field while the description says comma-separated",
+      "kind": "convention",
+      "n_candidates": 5
+    },
+    {
+      "cluster_id": "t2/C:4",
+      "rule": "When adding a row to the operator comparison table in a provider's `docs/operators/index.rst`, also update the operator count stated in the surrounding prose and add the matching descriptive paragraph",
+      "category": "docs",
+      "trigger": "A new `* -` row is added to the operators table in `providers/**/docs/operators/index.rst` while the \"N operators\" sentence above it is unchanged",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:5",
+      "rule": "In `AIRFLOW_CONN_*` examples in the common.ai quickstart, express `extra` as a nested JSON object rather than a JSON-serialised string",
+      "category": "docs",
+      "trigger": "An `AIRFLOW_CONN_` shell export in provider docs sets `extra` to a quoted, escaped JSON string instead of a plain nested object",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:6",
+      "rule": "Keep `provider.yaml` field descriptions in step with the schema they describe; drop wording that refers to connection fields or parameters that no longer exist",
+      "category": "docs",
+      "trigger": "A `description:` value in `provider.yaml` names a field that is absent from the same connection-type block",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:7",
+      "rule": "Example DAGs must be plain, self-contained and copy-pasteable: do not import helpers shared across example DAG files, and do not wrap optional-dependency imports in `try`/`except ImportError`",
+      "category": "docs",
+      "trigger": "A file under `providers/**/example_dags/*.py` imports a helper defined in another example/support module, or guards an import with `try: import ... except ImportError`",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/C:8",
+      "rule": "Never hand-edit generated files; change the source of truth and regenerate in the same commit - `get_provider_info.py` comes from `provider.yaml` via `prek run update-providers-build-files`, and the task-SDK `datamodels/_generated.py` comes from the Execution API OpenAPI schema",
+      "category": "commit-hygiene",
+      "trigger": "A diff edits `providers/**/get_provider_info.py` or `task-sdk/src/airflow/sdk/api/datamodels/_generated.py` by hand, or edits a `provider.yaml` without the matching regenerated `get_provider_info.py`",
+      "kind": "convention",
+      "n_candidates": 3
+    },
+    {
+      "cluster_id": "t2/C:14",
+      "rule": "Keep provider `changelog.rst` entries to a single terse statement of the user-visible change; no methodology notes, PR narration, or \"add tests for ...\" clauses",
+      "category": "docs",
+      "trigger": "A changelog line contains parenthetical test-coverage, refactor-rationale or methodology text",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:17",
+      "rule": "A changelog `.. note::` about minimum Airflow version must not claim the release requires a newer Airflow than it does when the provider still runs on older versions and only conditionally activates the new feature",
+      "category": "docs",
+      "trigger": "A `changelog.rst` note states the provider *requires* Airflow X.Y while the code activates the feature behind a version guard",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:18",
+      "rule": "Refer to Airflow's metrics integration generically (statsd and OpenTelemetry) in documentation; do not describe it as \"statsd\" only",
+      "category": "docs",
+      "trigger": "Docs or comments describe Airflow metrics/observability exclusively as statsd with no mention of OTel",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:20",
+      "rule": "Tests for a validation or safety helper must include the exact call signature the production operator uses (e.g. `allowed_types=DEFAULT_ALLOWED_TYPES`), not only synthetic argument combinations",
+      "category": "testing",
+      "trigger": "New tests for a validation function cover argument combinations that the owning operator never produces, leaving the operator's real code path untested",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:27",
+      "rule": "Every authentication branch added to or reordered inside a hook's `_get_token`/`_init_conn`/`get_conn` must come with a unit test that pins that branch - including the ambiguous case where several auth extras are set at once",
+      "category": "testing",
+      "trigger": "A provider hook gains a new auth branch, or reorders existing auth if-branches, with no test covering that branch or the multi-extra precedence",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/C:29",
+      "rule": "Do not commit compiled provider UI build output; `dist/` bundles must be produced by Breeze or at provider-package build time and be gitignored",
+      "category": "commit-hygiene",
+      "trigger": "Files under `providers/*/**/plugins/www/dist/` (`*.js`, `*.js.map`, `*.d.ts`) added in a diff",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:36",
+      "rule": "Build Elasticsearch response fixtures with the existing `_build_es_search_response()` test helper rather than hand-rolling response dicts",
+      "category": "testing",
+      "trigger": "A literal ES response dict such as `{\"hits\": {\"total\": ..., \"hits\": []}}` used as a mock return value in elasticsearch provider tests",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:42",
+      "rule": "Write `AIRFLOW_CONN_*` environment-variable examples in Google provider docs in connection-URI form rather than as a JSON object literal",
+      "category": "docs",
+      "trigger": "A provider `.rst` file contains `export AIRFLOW_CONN_<ID>='{...}'` with a JSON object literal",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:49",
+      "rule": "Create mocks with `spec=`/`autospec=`/`mock.create_autospec()` when standing in for real Airflow objects - SQLAlchemy sessions, ORM instances, DAGs and operator methods - rather than bare `Mock()`/`MagicMock()`",
+      "category": "testing",
+      "trigger": "`Mock()`/`MagicMock()` used for a session, role, permission or model object in a provider test, or `monkeypatch.setattr(DAG, \"...\", mock.MagicMock())` in task-SDK tests",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/C:53",
+      "rule": "In Google hooks decorated with `@GoogleBaseHook.fallback_to_default_project_id`, document `project_id` as optional and place it last in the parameter list and docstring",
+      "category": "docs",
+      "trigger": "A method with that decorator documents `project_id` as required or lists it before the other parameters",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:55",
+      "rule": "When a docstring's `:param api_version:` example is bumped, update the versioned API documentation links in the same docstring to the matching version",
+      "category": "docs",
+      "trigger": "A `:param api_version:` example changes (e.g. v4 to v5) while an official-API-docs link in the same class docstring still contains the old `/rest/v4/` path",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:56",
+      "rule": "Collapse provider unit tests that differ only in one input and one expected value into a single `@pytest.mark.parametrize`d test",
+      "category": "testing",
+      "trigger": "Two adjacent tests such as `test_x_with_<flag>` / `test_x_without_<flag>` with identical bodies apart from one argument and one assertion",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:57",
+      "rule": "Tests must assert the behaviour a change produces, not that arguments were forwarded or internals were touched: for an error-suppression flag, give the mocked client a `side_effect` raising the real provider exception and assert nothing propagates",
+      "category": "testing",
+      "trigger": "A test for `ignore_error=True`/soft-fail behaviour only asserts `<method>.assert_called_once_with(..., on_error=mock.ANY)` and never sets `side_effect`, or a test asserts only on `inspect.signature` or internal state the fix did not change",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/C:58",
+      "rule": "Every public hook method added must gain a unit test that asserts the mocked client call chain arguments and the returned value, matching the pattern already used in that test module",
+      "category": "testing",
+      "trigger": "A hook gains public methods while the corresponding `providers/*/tests/unit/.../test_<hook>.py` covers only some of them",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:61",
+      "rule": "Tests for behaviour gated on an Airflow config flag must also exercise the flag-off state with `conf_vars`, asserting the legacy path is unchanged",
+      "category": "testing",
+      "trigger": "Every new test wraps the call in `with conf_vars({(\"core\", \"multi_team\"): \"True\"})` and none exercises the same call with the flag disabled",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:73",
+      "rule": "Do not mutate `sys.modules` from a provider test package's `__init__.py`; install the stub with `monkeypatch.setitem` in a fixture scoped to the tests that need it",
+      "category": "testing",
+      "trigger": "`sys.modules[\"...\"] = ...` in a `tests/` package `__init__.py` rather than in a fixture or conftest",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:74",
+      "rule": "Provider documentation examples for providers whose minimum Airflow version is 3 must use `schedule=` and import `PythonOperator` from `airflow.providers.standard.operators.python`",
+      "category": "docs",
+      "trigger": "A provider README or docs example uses `schedule_interval=` or imports `PythonOperator` from `airflow.operators.python`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:77",
+      "rule": "A test for a polling-retry loop must assert the sleep mock's call count, not only the final result",
+      "category": "testing",
+      "trigger": "A test patches `time.sleep` while exercising a polling retry loop but never asserts `mock_sleep.call_count`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:86",
+      "rule": "Documentation for the `_openlineage` DAG-run conf dict must state that all six parent and root ID fields should be provided together, and that omitting root information is discouraged for consumers supporting ParentRunFacet 1.1.0",
+      "category": "docs",
+      "trigger": "Docs list the `_openlineage` parent/root fields as fully optional with no note about supplying all six",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:98",
+      "rule": "New documentation added under `task-sdk/docs/` must be linked from the corresponding `airflow-core/docs/authoring-and-scheduling/` page",
+      "category": "docs",
+      "trigger": "A new `.rst` file under `task-sdk/docs/` with no link or `toctree` entry from the core authoring docs",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:110",
+      "rule": "New fields in task-SDK IPC message types must be covered by direct unit tests exercising both the populated and the absent/None case",
+      "category": "testing",
+      "trigger": "A new field added to a `CommsDecoder` message type or `_RequestFrame` in `execution_time/comms.py` with no corresponding presence/absence tests under `task-sdk/tests/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:112",
+      "rule": "When `__attrs_post_init__` normalises a field in place (e.g. resolving a preset alias to its canonical value), add an inline comment explaining the transformation and that `attrs.evolve`, equality and serialisation will see the resolved value",
+      "category": "docs",
+      "trigger": "`self.<field> = <transform>(self.<field>)` inside `__attrs_post_init__` in a task-sdk attrs class with no explanatory comment",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:114",
+      "rule": "Comment `force_flush(timeout_millis=...)` call sites to note that the value is an upper bound rather than a fixed wait",
+      "category": "docs",
+      "trigger": "`provider.force_flush(timeout_millis=...)` added in task-SDK teardown with no explanatory comment",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:115",
+      "rule": "Override Airflow configuration in tests with the `conf_vars` context manager rather than `unittest.mock.patch` on `conf.get`",
+      "category": "testing",
+      "trigger": "`with patch(\"airflow.sdk.configuration.conf.get\", ...)` or `patch(\"airflow.configuration.conf.get\", ...)` in task-sdk tests",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:116",
+      "rule": "Delete unused test helper functions instead of leaving them as dead code",
+      "category": "testing",
+      "trigger": "A helper defined in a test module under `task-sdk/tests/` that no test in the file calls",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:117",
+      "rule": "Guard tests that depend on POSIX `dup2` semantics with `pytest.mark.skipif(os.name == \"nt\", ...)`",
+      "category": "testing",
+      "trigger": "`os.dup2(socket.fileno(), 0/1/2)` inside a test in `test_supervisor.py` with no platform guard",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:118",
+      "rule": "Use a short `time.sleep` (2 seconds or less) in the signal-forwarding integration test DAG so the test exits on SIGTERM instead of waiting out the supervisor watchdog window",
+      "category": "testing",
+      "trigger": "`time.sleep(N)` with N > 5 inside a test operator's `execute()` in `signal_forward_test.py`",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:119",
+      "rule": "OTel span tests in the task SDK must assert parent/child span relationships, not merely that a span with the expected name was exported",
+      "category": "testing",
+      "trigger": "A test asserts `\"task.execute\" in [s.name for s in exporter.get_finished_spans()]` without checking `span.parent.span_id`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:125",
+      "rule": "A task-SDK RPC helper's docstring must describe its own parameters and return value, not those of a sibling method it was copied from",
+      "category": "docs",
+      "trigger": "A new `@staticmethod` in task_runner.py whose docstring names parameters or return values absent from its own signature",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:126",
+      "rule": "`pytest.param` ids must describe the scenario they actually configure, including whether a parameter has a default",
+      "category": "testing",
+      "trigger": "`pytest.param(..., id=\"...\")` whose id claims a property (e.g. `without_default`) contradicted by the lambda/function signature in the same case",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:127",
+      "rule": "When fixing a `KNOWN_CONTEXT_KEYS` decorator bug, add a regression case using the actual context key names from the report (`start_date`, `end_date`), not placeholder names",
+      "category": "testing",
+      "trigger": "`test_construction_succeeds` parametrize cases added for a KNOWN_CONTEXT_KEYS fix with no case using real context key names",
+      "kind": "incident",
+      "n_candidates": 1
+    }
+  ]
+}

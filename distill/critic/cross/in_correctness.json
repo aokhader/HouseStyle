@@ -1,0 +1,1869 @@
+{
+  "n_clusters": 233,
+  "clusters": [
+    {
+      "cluster_id": "t1/A:7",
+      "rule": "Read tri-state boolean config options (declared type: boolean with default: ~) through conf.getboolean without a fallback that contradicts the declared default, and never use conf.has_option to test whether such an option is enabled.",
+      "category": "correctness",
+      "trigger": "conf.getboolean(section, key, fallback=False) is used for a key whose config.yml default is True, or conf.has_option(section, key) is used as the condition for a boolean feature flag.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/A:9",
+      "rule": "Changes to callback execution must be applied to both the executor path and the triggerer path so the two stay behaviourally identical: a new context key must be added via the shared build_context_from_dag_run helper (and declared in the Context TypedDict and KNOWN_CONTEXT_KEYS), and both paths must fail the same way when required context such as the DagRun cannot be fetched.",
+      "category": "correctness",
+      "trigger": "callback_supervisor.py populates context or handles a fetch failure differently from the corresponding build_context_from_dag_run / context-fetch code in triggerer_job_runner.py (e.g. one returns None while the other raises or exits).",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/A:11",
+      "rule": "Bulk endpoints must enforce the same authorization and state guards as their single-item counterparts: shared helpers must take the HTTP method as a parameter instead of hardcoding \"PUT\", and handle_bulk_delete must apply the single-delete state checks unless the relaxation is documented and intentional.",
+      "category": "correctness",
+      "trigger": "A shared authorization helper (e.g. _categorize_entities) hardcodes method=\"PUT\" but is called from a bulk-delete path, or handle_bulk_delete omits a guard the single-delete route applies (e.g. refusing RUNNING DagRuns).",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/A:12",
+      "rule": "Every actions/upload-artifact step in a GitHub Actions job must use a unique artifact name, including names built from a shared dynamic suffix.",
+      "category": "correctness",
+      "trigger": "Two or more upload-artifact steps in the same job share a name: value or the same name template (e.g. both container-logs-${{env.JOB_ID}}).",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:22",
+      "rule": "A CI shell script that starts `airflow standalone` in the background and polls for readiness must check liveness with `kill -0 $AIRFLOW_PID` so it exits as soon as the process dies instead of waiting out the full timeout.",
+      "category": "correctness",
+      "trigger": "A CI script launches airflow standalone in the background, captures its PID, then polls in a timed loop with no kill -0 $AIRFLOW_PID check.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:27",
+      "rule": "Derive component versions such as TASK_SDK_VERSION from PACKAGE_VERSION with packaging.version.parse_version() and its .minor/.micro attributes, never by splitting the version string on \".\".",
+      "category": "correctness",
+      "trigger": "PACKAGE_VERSION.split('.') is used to derive a version component.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:36",
+      "rule": "Do not add native/binary C-extension libraries to the mandatory dependencies of airflow-core; they belong in an optional extra or a provider.",
+      "category": "correctness",
+      "trigger": "A library distributed only as a compiled wheel, with no pure-Python fallback, is added to the dependencies list in airflow-core/pyproject.toml.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:42",
+      "rule": "When cursor pagination receives an unparseable cursor token (e.g. a malformed UUID for a Uuid column), raise HTTP 400 instead of silently falling back to the raw value.",
+      "category": "correctness",
+      "trigger": "An except block in _coerce_value or cursor-parsing code returns the original value rather than raising.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:47",
+      "rule": "In SortParam.get_resolved_columns(), derive attr_name after applying to_replace so the resolved name matches the ORM attribute used in ORDER BY and cursor encoding.",
+      "category": "correctness",
+      "trigger": "attr_name = lstriped_orderby is assigned before the to_replace mapping is applied.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:48",
+      "rule": "When a Pydantic validator silently coerces an unrecognised stored value to None, emit a log.warning so schema drift between the server and the database stays observable.",
+      "category": "correctness",
+      "trigger": "`except ValidationError: return None` in a Pydantic validator with no preceding log.warning when the value was not already None.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:51",
+      "rule": "Compare DagRunType enum members directly against dm.allowed_run_types rather than comparing their .value.",
+      "category": "correctness",
+      "trigger": "DagRunType.<member>.value not in dm.allowed_run_types (accessing .value before the membership test).",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:52",
+      "rule": "Partition-date-window localization implemented inline in a route must not silently use a different interval convention from DagRun.apply_partition_date_window; consolidate the logic or cross-reference it in a comment.",
+      "category": "correctness",
+      "trigger": "An inline timetable.localize_partition_datetime call in a route duplicates DagRun.apply_partition_date_window with a different inclusive/half-open boundary.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:53",
+      "rule": "Validate that a requested try_number exists in the database before using it to build extra links, and return 404 when it does not.",
+      "category": "correctness",
+      "trigger": "ti.try_number = try_number is assigned in an extra-links route with no preceding check that the try number exists.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:56",
+      "rule": "Use entity.name when collecting pool names in bulk-action validation; check attribute names against the actual Pydantic body class before building error lists.",
+      "category": "correctness",
+      "trigger": "invalid_entities.append(entity.pool) or a similar wrong attribute access on a PoolBody instance in bulk-action validation.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:61",
+      "rule": "Parallel EXISTS subquery predicates on the grid endpoint (e.g. has_note, has_missed_deadline) must use identical filter conditions for their DagRun and TaskInstance counterparts.",
+      "category": "correctness",
+      "trigger": "A subquery EXISTS predicate on DagRunNote differs in its filtering (e.g. an extra .isnot(None)) from the TaskInstanceNote version.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:63",
+      "rule": "Query-string parameters that are used as regex patterns must reject the empty string with HTTP 400 rather than executing regexp_match(\"\").",
+      "category": "correctness",
+      "trigger": "A regex query parameter (e.g. partition_key_pattern) is validated against None only, not against the empty string.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:66",
+      "rule": "Do not add fields to the execution-API worker context models (e.g. the DagRun model in execution_api/datamodels/taskinstance.py) that no worker code reads.",
+      "category": "correctness",
+      "trigger": "A nullable field is added to the DagRun StrictBaseModel in execution_api/datamodels/taskinstance.py with no worker-side consumer.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:68",
+      "rule": "When a new conditional branch is added in a service method, update the response-serialisation helper to cover it so the branch is not dead code.",
+      "category": "correctness",
+      "trigger": "A new query branch is added in a service method while _serialize_response (or equivalent) still gates on the old condition.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:70",
+      "rule": "Do not use getattr(Model, \"field\") in SQLAlchemy column-selection expressions; resolve optional or dynamically named columns inside the model definition instead.",
+      "category": "correctness",
+      "trigger": "A select() call references a column via getattr(SomeModel, \"column_name\").",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:76",
+      "rule": "Generate the execution JWT before the transition to the running state is committed.",
+      "category": "correctness",
+      "trigger": "generator.generate() or the Refreshed-API-Token assignment is placed after the session.commit()/session.flush() that moves the TI to running.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:77",
+      "rule": "Keep JWT and token-generation code outside `except SQLAlchemyError` blocks in execution-API route handlers; the DB error handler must cover only database operations.",
+      "category": "correctness",
+      "trigger": "services.aget(JWTGenerator) or generator.generate() is placed inside a try/except SQLAlchemyError block in an execution API route.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:81",
+      "rule": "Use log.debug rather than log.info for fall-through diagnostics on high-volume execution-API paths such as heartbeat.",
+      "category": "correctness",
+      "trigger": "log.info(...) is added on a fallback or miss path inside a heartbeat or other high-frequency execution API handler.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:82",
+      "rule": "When archiving a task_instance_history row on the retry path, copy rendered_map_index whenever the field is present in the patch payload, including when its value is None.",
+      "category": "correctness",
+      "trigger": "A TIH archive path sets ti._rendered_map_index only under `if ti_patch_payload.rendered_map_index is not None:`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:83",
+      "rule": "Declare static-path routes (e.g. HEAD routes) before parameterised routes at the same prefix in the execution API so greedy path-parameter matching cannot swallow them.",
+      "category": "correctness",
+      "trigger": "@router.head(...) declarations are reordered or removed relative to @router.get(...) with overlapping path patterns in the execution API routes.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:85",
+      "rule": "Extract logic shared between sibling asset-store endpoints (e.g. /by-uri/value and /by-name/value) into a helper instead of duplicating the body after the resolve call.",
+      "category": "correctness",
+      "trigger": "A second execution-API asset-store route repeats the body of an existing route after its _resolve_asset_id_by_* call.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:91",
+      "rule": "In DagBundleManager._refresh_dag_bundles, remove a bundle from _force_refresh_bundles only after DB persistence succeeds, and clear _bundle_versions when persistence fails.",
+      "category": "correctness",
+      "trigger": "A bundle is removed from _force_refresh_bundles before update_bundle_state, or an exception from update_bundle_state is swallowed without clearing _bundle_versions.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:94",
+      "rule": "Broad `except Exception` handlers in dag_processing must not re-wrap purpose-built sentinel exceptions such as CallbackBundleUnavailable; let them propagate or re-raise them explicitly.",
+      "category": "correctness",
+      "trigger": "An except Exception block in dag_processing/ wraps or swallows an exception that can be CallbackBundleUnavailable.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:95",
+      "rule": "In DagFileProcessorProcess, pass dag_file.rel_path from the DagFileInfo object instead of recomputing it with Path.relative_to().",
+      "category": "correctness",
+      "trigger": "dag_processing/processor.py calls Path(path).relative_to(bundle_path) when a DagFileInfo with rel_path is already in the call chain.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:97",
+      "rule": "Guard setproctitle usage in executor entry-points (BaseExecutor.run_workload and friends) with a darwin platform check.",
+      "category": "correctness",
+      "trigger": "Code under airflow-core/src/airflow/executors/ calls setproctitle() without a `sys.platform != \"darwin\"` or equivalent guard.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:99",
+      "rule": "Generate the executor workload type error message from the ExecutorWorkload union rather than listing the type names by hand in an f-string.",
+      "category": "correctness",
+      "trigger": "An f-string in base_executor.py enumerates concrete workload type names manually instead of unpacking the type alias.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:101",
+      "rule": "After queuing a workload with an executor, set the workload state to QUEUED, not RUNNING.",
+      "category": "correctness",
+      "trigger": "callback.state (or an equivalent workload state) is set to RUNNING immediately after executor.queue_workload().",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:103",
+      "rule": "Any new scheduler workload type must check available executor slots before submitting, following _enqueue_executor_callbacks and _critical_section_enqueue_task_instances.",
+      "category": "correctness",
+      "trigger": "A new method calls executor.queue_workload() for a new workload type without first reading available executor slots.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:104",
+      "rule": "Select scheduler-owned rows that concurrent schedulers could pick up with with_row_locks(..., skip_locked=True).",
+      "category": "correctness",
+      "trigger": "session.scalars(select(<Model>).where(...)) inside the scheduler loop returns rows that are then mutated or dispatched, with no with_row_locks wrapper.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:114",
+      "rule": "Extract the duplicated encrypt/decrypt field logic into a shared mixin instead of copying the Connection model's get_extra/set_extra + synonym pattern into a new model.",
+      "category": "correctness",
+      "trigger": "A new model re-implements the get_extra/set_extra property and synonym pattern already present in the Connection model.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:115",
+      "rule": "Guard bundle_version lookups with `is not None` rather than truthiness.",
+      "category": "correctness",
+      "trigger": "A conditional uses `if bundle_version:` instead of `if bundle_version is not None:`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:121",
+      "rule": "When updating a DagVersion record, update bundle_version alongside the other version metadata.",
+      "category": "correctness",
+      "trigger": "Code updates DagVersion (or calls DagVersion.get_latest_version) without also updating the associated bundle_version.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:122",
+      "rule": "Count deferred task instances against max_active_tis_per_dag and max_active_tis_per_dagrun.",
+      "category": "correctness",
+      "trigger": "A query counting active task instances for concurrency limits filters on [running, queued] and omits deferred.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:123",
+      "rule": "In PartitionMapper.to_upstream() implementations, derive the parse format from self.output_format rather than hard-coding a slice length and format string.",
+      "category": "correctness",
+      "trigger": "A to_upstream method in a temporal partition mapper uses a hard-coded downstream_key[:10] slice and a \"%Y-%m-%d\" literal instead of self.output_format.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:124",
+      "rule": "Partition-mapper methods that format upstream/downstream keys must use timezone-aware datetimes anchored to the mapper's configured timezone, never naive datetimes.",
+      "category": "correctness",
+      "trigger": "A to_upstream()/to_downstream() method calls datetime.strptime or does timedelta arithmetic without attaching self._timezone.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:126",
+      "rule": "Implement new task-clearing behaviour flags (only_failed, only_running, and the like) inside clear_task_instances rather than at individual call sites.",
+      "category": "correctness",
+      "trigger": "A new boolean filter for task clearing is added and handled outside clear_task_instances.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:127",
+      "rule": "In create_dagrun(), resolve the requested bundle version to a DagVersion first and validate the partition key against that resolved version, not against self.",
+      "category": "correctness",
+      "trigger": "create_dagrun() calls self.validate_partition_key(partition_key) before resolving bundle_version.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:128",
+      "rule": "Custom sentinel or non-JSON-serialisable types used in template fields must implement a serialize() method following the SetDuringExecution pattern.",
+      "category": "correctness",
+      "trigger": "A new sentinel class (ArgNotSet / NOTSET-style) is introduced in airflow-core with no serialize() method.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:133",
+      "rule": "The meaning of map_index == -1 as a TaskScope sentinel must be identical across every method that filters on it; if two meanings are needed, use an explicit boolean flag instead.",
+      "category": "correctness",
+      "trigger": "Methods in a TaskScope-accepting state class differ in their handling of -1: some skip the map_index filter, others apply an exact-match filter.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:135",
+      "rule": "Asset-store upsert calls must omit the writer-attribution columns from the update set when kind is None.",
+      "category": "correctness",
+      "trigger": "_set_asset_store or a _build_upsert_stmt call for AssetStoreModel unconditionally includes last_updated_by_* columns in the update dict.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:139",
+      "rule": "When RunTrigger or a callback trigger resolves a DAG module by hashed absolute path, document the absence of a run-version pin and the cross-host path skew as a known limitation in the code if it is not addressed.",
+      "category": "correctness",
+      "trigger": "A trigger or callback resolves a DAG file via get_unique_dag_module_name (sha1 of the absolute path) with no bundle_version or run-version identifier on the trigger payload.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/A:153",
+      "rule": "An \"All\" option in a state or status filter must clear the filter by omitting the query parameter, not send state=all to the API.",
+      "category": "correctness",
+      "trigger": "A filter option whose value is the string \"all\" is passed through as a query parameter to an Airflow API endpoint.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:1",
+      "rule": "When a persisted UI state value becomes invalid because the URL context it depends on is absent (e.g. `dagView` set to gantt with no `runId`), add a `useEffect` that coerces the stored value back to a valid default.",
+      "category": "correctness",
+      "trigger": "A `useLocalStorage`-backed view mode is read in a layout that can be rendered without the URL param that mode requires.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:2",
+      "rule": "Check API error HTTP status with `(error as ExpandedApiError).status` or optional chaining `error?.status`; do not use `instanceof ApiError`.",
+      "category": "correctness",
+      "trigger": "diff adds `instanceof ApiError` in a UI query or hook.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:3",
+      "rule": "Normalize field values (e.g. `\"\"` to `undefined`/`null`) before comparing them against the initial value when building an `updateMask`; do not push a field into `updateMask` based on an un-normalized comparison.",
+      "category": "correctness",
+      "trigger": "diff adds an `updateMask.push(...)` guarded by a raw `!==` comparison between a form value and its initial value.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:4",
+      "rule": "When the UI must clear an existing server-side field, send `null` (not `undefined`) in the request body so the field appears in `model_fields_set` on the backend.",
+      "category": "correctness",
+      "trigger": "diff maps an empty form field to `undefined` in a PATCH/PUT request body.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:8",
+      "rule": "Use `total_entries` from the API response when displaying a count for a query that applies a hard `limit`; never display `array.length`.",
+      "category": "correctness",
+      "trigger": "diff renders `someList.length` as a count where the query that produced `someList` passes an explicit `limit`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:10",
+      "rule": "Filter-reset logic must clear only filter search params; it must not delete the ordering/sort param.",
+      "category": "correctness",
+      "trigger": "diff adds a reset handler that deletes search params by iterating broadly or that includes the ordering key in the delete list.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:11",
+      "rule": "Guard on explicit absence (`value !== undefined && value !== null` in TS, `if value is not None` in Python) rather than truthiness whenever `0`, `False` or an empty string are legitimate values — for example counting an active `map_index = 0` filter or pushing a falsy XCom value.",
+      "category": "correctness",
+      "trigger": "diff adds `Boolean(value)`, `if (value)` or `if value:` as a presence check on a field whose valid domain includes falsy values.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/B:14",
+      "rule": "Reset the pagination OFFSET search param whenever a filter or filter mode changes, so the user is not left on a now-empty page.",
+      "category": "correctness",
+      "trigger": "diff adds a handler that sets a filter search param without also clearing/resetting the offset param.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:24",
+      "rule": "In `FileTaskHandler._read`, treat `UP_FOR_RETRY` and `UP_FOR_RESCHEDULE` as states with a completed attempt rather than actively-running states, and serve their logs through the fallback path.",
+      "category": "correctness",
+      "trigger": "diff changes the `ti.state` condition in `FileTaskHandler._read` around `TaskInstanceState.UP_FOR_RETRY` / `UP_FOR_RESCHEDULE`.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:25",
+      "rule": "Express carve-outs from `State.unfinished` as a module-level `frozenset` constant rather than inline `... or state == SPECIFIC_MEMBER` conditions.",
+      "category": "correctness",
+      "trigger": "diff adds a `ti.state not in State.unfinished or ti.state == ...` pattern.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:32",
+      "rule": "airflow-core tests must not import from `airflow.sdk._shared` or other task-SDK internal paths.",
+      "category": "correctness",
+      "trigger": "diff changes an import in an `airflow-core` test from `airflow.X` to `airflow.sdk._shared.X` or another `airflow.sdk` internal namespace.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:34",
+      "rule": "When an airflow-core test exercises code whose raise site now lives in `airflow.sdk`, assert against the exception class imported from the SDK package, not the same-named class in `airflow.exceptions`.",
+      "category": "correctness",
+      "trigger": "diff imports an exception from `airflow.exceptions` in a test whose subject raises the SDK's copy of that class.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:43",
+      "rule": "Version-compat guards in airflow-core tests must name the lowest Airflow version at which the change actually landed (e.g. `AIRFLOW_V_3_0_PLUS` when the move happened in 3.0).",
+      "category": "correctness",
+      "trigger": "diff uses `AIRFLOW_V_3_1_PLUS` or higher to guard a symbol introduced or moved in an earlier 3.x release.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:44",
+      "rule": "Do not add redundant `try/except ImportError` compatibility shims: not in airflow-core tests for symbols that exist in the current core, and not in provider modules for imports that `airflow.providers.common.compat` already redirects.",
+      "category": "correctness",
+      "trigger": "diff introduces a `try: from airflow.X import Y / except ImportError: ...` block where the import cannot fail, or duplicates a redirect the common.compat layer already performs.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/B:45",
+      "rule": "Imports inside test function bodies are permitted only for circular-import avoidance, lazy loading for worker isolation, or `TYPE_CHECKING`; everything else belongs at module level.",
+      "category": "correctness",
+      "trigger": "diff adds an `import` inside a test function body where none of those exceptions apply.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:53",
+      "rule": "In the Helm OTel collector ConfigMap, the traces and metrics pipelines and their exporters must each be gated on their own feature-flag value (e.g. `otelCollector.tracesEnabled` / `otelCollector.metricsEnabled`).",
+      "category": "correctness",
+      "trigger": "diff renders both `traces:` and `metrics:` pipelines unconditionally regardless of which backends are enabled.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:57",
+      "rule": "Sentinel objects such as `NOTSET` and `SET_DURING_EXECUTION` must have `repr()` and `str()` return the same stable string their `serialize()` produces, not the class name.",
+      "category": "correctness",
+      "trigger": "diff changes `__repr__`/`__str__` on a sentinel class to return the class name.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:65",
+      "rule": "CI reproduction instructions generated by Breeze must check out `GITHUB_SHA`, not `FETCH_HEAD`, so the instructions keep pointing at the commit that failed.",
+      "category": "correctness",
+      "trigger": "A `ReproductionCommand` in `reproduce_ci.py` emits `git checkout FETCH_HEAD` after fetching `refs/pull/...`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:66",
+      "rule": "When Breeze renders CLI flags into reproduction commands, emit the long-form alias (`param.opts[-1]` / `param.secondary_opts[-1]`), not the first alias.",
+      "category": "correctness",
+      "trigger": "A flag-pair branch in `build_reproduction_command_from_context()` uses `param.opts[0]` or `param.secondary_opts[0]`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:74",
+      "rule": "Fragile path-derivation logic in Breeze (e.g. locating the main `.git` directory from a worktree gitdir) must live in one helper; do not duplicate it across `docker_command_utils.py` and `shell_params.py`.",
+      "category": "correctness",
+      "trigger": "A `.parent.parent`-style worktree-root derivation appears in more than one file under `dev/breeze/src/`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:75",
+      "rule": "`get_git_worktree_root()` must resolve a relative `gitdir:` path to an absolute path (against `AIRFLOW_ROOT_PATH`) before returning it.",
+      "category": "correctness",
+      "trigger": "`Path(git_content.removeprefix(\"gitdir: \"))` is returned without an `is_absolute()` check and resolution.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:89",
+      "rule": "`execute_complete` must branch on `event[\"status\"]` and handle every status its paired Trigger can emit — raising for error, cancelled and timeout statuses — before reading any payload field as a success.",
+      "category": "correctness",
+      "trigger": "diff implements or edits `execute_complete` that reads payload fields without a prior status check, or a Trigger gains a status (e.g. `\"cancelled\"`) with no matching branch in the operator.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/B:90",
+      "rule": "Do not add a `stream()` stub that raises `NotImplementedError` to a log handler; leave the method absent so the framework's `getattr` check falls back to `read()`.",
+      "category": "correctness",
+      "trigger": "diff adds `def stream(self, ...): raise NotImplementedError` to a class inheriting from a remote log handler.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:92",
+      "rule": "Hooks accepting an enum-like parameter such as `access_type` must validate it against the module's `VALID_*` constants and raise `ValueError` listing the allowed values before making any API call.",
+      "category": "correctness",
+      "trigger": "diff adds a hook method branching on `access_type`/`auth_type` with no `if ... not in VALID_...` guard first.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:105",
+      "rule": "A constraint stated in an operator docstring (e.g. a maximum list size) must be enforced by a runtime check in `__init__`; do not document bounds that are not validated.",
+      "category": "correctness",
+      "trigger": "diff adds a docstring stating a numeric bound for a parameter with no matching validation in `__init__`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:113",
+      "rule": "Do not replace `AirflowException` with `RuntimeError` in operator, sensor or trigger error paths without auditing every caller that catches the original type.",
+      "category": "correctness",
+      "trigger": "diff removes `raise AirflowException(` and adds `raise RuntimeError(` in an operator, sensor or trigger.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:118",
+      "rule": "Instance attributes — resource handles such as a consumer or client, and state flags such as submission status — must be initialised in `__init__` and, for resources, reset to `None` after cleanup; do not first-assign or reset them inside `run()`, `submit()` or `execute()`.",
+      "category": "correctness",
+      "trigger": "diff assigns `self.<resource>` or a state flag for the first time inside `async def run()`, `submit()` or another non-`__init__` method of a trigger, hook or operator.",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/B:120",
+      "rule": "Operator parameters referenced as `self.<param>` in `execute()`/`execute_complete()` must be declared as constructor arguments and assigned in `__init__`.",
+      "category": "correctness",
+      "trigger": "diff references `self.<param>` in an operator method where `<param>` is absent from the class `__init__` signature.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:121",
+      "rule": "In `SparkSubmitHook.submit()`, post-submit commands and cleanup that must run after the job finishes belong in a `try/finally` so they execute whether the job succeeded or raised.",
+      "category": "correctness",
+      "trigger": "diff adds a call such as `self._run_post_submit_commands()` after an `AirflowException` raise site inside `submit()` with no `try/finally`.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:124",
+      "rule": "Compare states against the provider's Enum (e.g. `DmsTaskWaiterStatus`) inside triggers and operators, not raw string literals.",
+      "category": "correctness",
+      "trigger": "diff adds a comparison like `if status != \"<state_string>\"` where a corresponding Enum already exists in the provider.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:131",
+      "rule": "Kerberos auth resolution in the Spark provider hook must handle the krb5 ccache path alongside keytab/principal so REST calls to a Kerberized YARN RM always carry an Authorization header.",
+      "category": "correctness",
+      "trigger": "A method builds an auth object from the `keytab` and `principal` connection fields with no branch for `_use_krb5ccache` or its equivalent.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:132",
+      "rule": "Do not land code nothing reaches: a new module-level constant must be referenced in the same PR, and a runtime-gated branch must be reachable from an entry point added in that PR or carry a TODO naming the follow-up PR that will make it reachable.",
+      "category": "correctness",
+      "trigger": "diff adds a `_SOME_CONF = \"...\"` constant with no call site, or an `if self._hook._is_yarn:`-style branch no added entry point can enter.",
+      "kind": "incident",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/B:134",
+      "rule": "When a broad `except Exception` wraps code that deliberately raises `AirflowException`, re-raise `AirflowException` unchanged before the generic handler.",
+      "category": "correctness",
+      "trigger": "diff adds a specific `raise AirflowException(...)` inside a `try` whose downstream `except Exception as e` re-wraps or swallows it.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:138",
+      "rule": "When persisting pod identity to the task state store, either verify the stored `uid` against the live pod on reconnect or leave `uid` out of the payload.",
+      "category": "correctness",
+      "trigger": "diff stores `uid` alongside `name`/`namespace` for pod identity while the reconnect path compares only `name`/`namespace`.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:141",
+      "rule": "Kubernetes field selectors built from comma-separated `!=` expressions must be checked for the intended Boolean semantics (`NOT A AND NOT B`) before merging.",
+      "category": "correctness",
+      "trigger": "diff introduces a field selector of the form `status.phase!=X,status.phase!=Y` intended to exclude pods in either state.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:142",
+      "rule": "Failures deleting a Kubernetes driver pod must not surface as task errors; wrap the cleanup call in `contextlib.suppress` or a flag that downgrades the failure to a warning.",
+      "category": "correctness",
+      "trigger": "A `_delete_driver_pod()` or equivalent cleanup call appears inline in a polling loop with no error suppression or configurable severity.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:144",
+      "rule": "When calling the Spark Standalone REST submission API, check the response's `success` field before reading `driverState`, and raise with the response's `message` on failure.",
+      "category": "correctness",
+      "trigger": "Code accesses `response.json()[\"driverState\"]` without first asserting `success` is true.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:148",
+      "rule": "Provider CLI commands must raise `SystemExit` for user-facing configuration errors, not `AirflowConfigException`/`AirflowException`.",
+      "category": "correctness",
+      "trigger": "A `raise AirflowConfigException(...)`/`raise AirflowException(...)` appears inside a CLI command function.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:161",
+      "rule": "Do not expose operator or mixin parameters in `__init__` and docstrings before they are implemented; a stub parameter with no effect must be removed, or must raise/warn until the feature ships.",
+      "category": "correctness",
+      "trigger": "An operator stores `self.param = param` in `__init__` but no method in the class or its mixins ever reads it.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:162",
+      "rule": "Do not list `bytes` fields in `template_fields`.",
+      "category": "correctness",
+      "trigger": "An Operator subclass includes a parameter typed `bytes` in its `template_fields` sequence.",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/B:163",
+      "rule": "When building a prompt or string incrementally, do not interpolate the accumulator into the expression being appended to it; construct the string linearly from separate parts.",
+      "category": "correctness",
+      "trigger": "A method contains `prompt = prompt + (... f\"{prompt}\" ...)` where the variable being built is interpolated inside the appended expression.",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:5",
+      "rule": "Put imports at module scope; a function- or method-body import is only acceptable to break a genuine circular import, and must carry a comment naming the cycle it avoids.",
+      "category": "correctness",
+      "trigger": "An `import` / `from ... import` statement inside a function, method, test helper or fixture body without an adjacent comment explaining the circular-import reason",
+      "kind": "convention",
+      "n_candidates": 3
+    },
+    {
+      "cluster_id": "t1/C:37",
+      "rule": "When validation of a GCP resource identifier raises, the exception message must state every constraint the check enforces, including length bounds implied by the regex, not just the format.",
+      "category": "correctness",
+      "trigger": "A regex-based ID validation raising with a message that omits the length range the regex enforces",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:46",
+      "rule": "Read boolean Airflow configuration values with `conf.getboolean()`, never `conf.get()`.",
+      "category": "correctness",
+      "trigger": "`conf.get(\"<section>\", \"<key>\", fallback=...)` for a key used as a boolean elsewhere",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:47",
+      "rule": "Use the same `fallback=` value for every read of the same configuration (section, key) pair within a module.",
+      "category": "correctness",
+      "trigger": "Two or more `conf.get*()` calls for one (section, key) pair with different `fallback=` values in the same file",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:51",
+      "rule": "Instantiate `MessageQueueTrigger` with `queue=` carrying the full URI; `scheme=` takes only a scheme and raises `ValueError` at DAG parse time when given a URI.",
+      "category": "correctness",
+      "trigger": "`MessageQueueTrigger(scheme=\"<scheme>://...\")` in a DAG or example",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:52",
+      "rule": "Items of `triggering_asset_events` are `AssetEvent` ORM objects: read their payload via the `.extra` attribute, not by dict-key subscription.",
+      "category": "correctness",
+      "trigger": "Square-bracket key access such as `event[\"payload\"]` on an item iterated from `triggering_asset_events`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:64",
+      "rule": "Build Azure blob names and paths with `posixpath.join`, never `os.path.join`.",
+      "category": "correctness",
+      "trigger": "`os.path.join` used to construct a blob name or path in an Azure hook or transfer",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:65",
+      "rule": "Use `str.removeprefix()` rather than `str.replace(prefix, \"\", 1)` when stripping a known leading prefix.",
+      "category": "correctness",
+      "trigger": "`.replace(prefix, \"\", 1)` used to strip a leading path prefix",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:70",
+      "rule": "A task log handler's `delete_local_copy` must remove only the uploaded log file (`path.unlink()`), never its parent directory via `shutil.rmtree()`.",
+      "category": "correctness",
+      "trigger": "`shutil.rmtree(os.path.dirname(log_file))` in a task log handler's upload-and-delete path",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:72",
+      "rule": "Read fields that exist directly on the `DagRun` model (e.g. `dagrun.team_name`) from the object itself instead of re-deriving them through `dag_version_info()`.",
+      "category": "correctness",
+      "trigger": "A `cls.dag_version_info(dagrun, \"field_name\")` call for a field that is a plain attribute on `DagRun`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:85",
+      "rule": "Test whether a sentinel is unset with the `is_arg_set()` helper from `airflow.serialization.definitions.notset` rather than an inline `is NOTSET` comparison, and annotate the parameter with `ArgNotSet` in its type signature.",
+      "category": "correctness",
+      "trigger": "An `if value is NOTSET` check without `is_arg_set()` and without `ArgNotSet` in the parameter annotation",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:87",
+      "rule": "Pass the Alembic revision message as a single quoted string rather than `\"${@}\"` when generating migrations from a shell script.",
+      "category": "correctness",
+      "trigger": "`\"${@}\"` passed as the `-m` argument to `alembic revision --autogenerate`",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:93",
+      "rule": "In a deferrable operator, push the query/job identifier to XCom as soon as it is obtained, before entering the poll or defer, not after the wait completes.",
+      "category": "correctness",
+      "trigger": "An `xcom_push` for a query/job id placed after the polling loop in a deferrable operator's `execute`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:94",
+      "rule": "Handle symbols that moved or were added across versions with `try/except ImportError` fallbacks — stdlib first, then the backport — rather than `if AIRFLOW_V_x_y_PLUS` version branches.",
+      "category": "correctness",
+      "trigger": "An `if AIRFLOW_V_x_y_PLUS: from airflow.sdk... else: from airflow.sensors...` import split, or a bare `from typing_extensions import NotRequired` with no stdlib guard",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t1/C:95",
+      "rule": "Mutate an Airflow `ContextVar` with the token/reset pattern — capture the token from `.set()` and `.reset(token)` in a `finally` — following the precedent in `initdb()`.",
+      "category": "correctness",
+      "trigger": "A `ContextVar.set()` whose token is not stored and never `.reset()` in a `finally` block",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:101",
+      "rule": "A shared metrics registry must key every instrument type the same way, or keep separate sub-maps per instrument type, so gauges and histograms cannot collide in one slot.",
+      "category": "correctness",
+      "trigger": "A `MetricsMap`-style registry keying one instrument type by name alone and another by name plus tags, or storing all instrument types in one dict",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:104",
+      "rule": "In the Java coordinator, register the stdout/stderr socketpair pipe readers before starting the connection accept loop.",
+      "category": "correctness",
+      "trigger": "`_accept_connections` called before `_register_pipe_readers` on the socketpair write-ends handed to the subprocess",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:107",
+      "rule": "In Task SDK coordinator modules, log caught exceptions with `exc_info=True` as a structlog keyword rather than `error=str(exc)`.",
+      "category": "correctness",
+      "trigger": "`log.debug(..., error=str(exc))` or `log.warning(..., error=str(exc))` under `task-sdk/src/airflow/sdk/coordinators/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:109",
+      "rule": "Wrap every datetime placed into a callback context dict with `coerce_datetime` from `airflow.sdk._shared.timezones`, matching `RuntimeTaskInstance.get_template_context()` and the triggerer-side context builder.",
+      "category": "correctness",
+      "trigger": "A context dict in `callback_supervisor.py` populated with datetime fields from `DagRunResult` or similar without `coerce_datetime()`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:111",
+      "rule": "Accumulate partition keys for a task instance in a set rather than a list, matching how asset aliases deduplicate repeated keys.",
+      "category": "correctness",
+      "trigger": "A `attrs.field(factory=list)` partition-keys field on a task-instance context object appended to without deduplication",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:112",
+      "rule": "In Asset lookup code, treat `Asset(uri=...)` as having `name == uri` — the DB storage convention — instead of adding `name is None` branches as a distinct state.",
+      "category": "correctness",
+      "trigger": "None-guarded name/uri paths added to Asset or AssetRef handling in `task-sdk/.../execution_time/context.py` without normalising an absent name to the uri",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:115",
+      "rule": "Exceptions defined in `airflow/sdk/exceptions.py` that are only raised inside the Task SDK must not be imported by airflow-core, including its tests; their tests live in the SDK test tree.",
+      "category": "correctness",
+      "trigger": "An import from `airflow.sdk.exceptions` in airflow-core source or `airflow-core/tests/`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:117",
+      "rule": "Pass `context` to a callback callable only when `accepts_context` is true and the context value is not `None`; never forward `context=None`.",
+      "category": "correctness",
+      "trigger": "`**callback_kwargs` forwarded unconditionally when `accepts_context()` is true, without checking the context is not None",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:118",
+      "rule": "Exception log calls in `callback_supervisor.py` must carry structured identifying fields (`callback_id=`, `pid=`), mirroring the `ActivitySubprocess` pattern in `supervisor.py`.",
+      "category": "correctness",
+      "trigger": "A `log.exception(...)`/`log.error(...)` in `callback_supervisor.py` without `callback_id` or `pid` keywords",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:120",
+      "rule": "When instantiating a user-configured class from a config classpath (`import_string(spec.classpath)(**spec.kwargs)`), catch `ImportError`/`TypeError` and re-raise naming the offending key and classpath, and assert the result `isinstance` of the expected base class before caching it.",
+      "category": "correctness",
+      "trigger": "An `import_string(<spec>.classpath)(**<spec>.kwargs)` for a config-driven plugin or coordinator with no error wrapping and no base-class check",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:123",
+      "rule": "Use `partition_key` only for exact-match asset-event filtering; any regex or pattern value must go through `partition_key_pattern`, in tests as well as production code.",
+      "category": "correctness",
+      "trigger": "`partition_key=` set to a value containing regex metacharacters in a `GetAssetEventByAsset` message or asset-event query",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:126",
+      "rule": "Every `Socket` created by the ts-sdk coordinator must register an `error` handler at construction that writes the channel name and message to stderr.",
+      "category": "correctness",
+      "trigger": "A `Socket` constructed or stored under `ts-sdk/src/coordinator/` wiring only `data`/`close`/`connect` handlers",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:127",
+      "rule": "Client-side socket reconnection in a language SDK is only correct if the Airflow coordinator accepts a second connection on the same channel; when adding `scheduleReconnect`/backoff logic, verify and cover the coordinator-side re-accept path in the same PR.",
+      "category": "correctness",
+      "trigger": "Reconnect or backoff logic added to a ts-sdk coordinator socket, e.g. `sock.on(\"close\", ...)` calling `this.scheduleReconnect()`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:129",
+      "rule": "In supervisor message handlers, do not guard Task SDK API client results with `isinstance(resp, XResponse)` plus an `else` branch; client methods return their response model unconditionally and raise `ServerResponseError` on failure, so call `XResult.from_api_response(resp)` directly like the neighbouring handlers.",
+      "category": "correctness",
+      "trigger": "An `isinstance(<resp>, <X>Response)` check with an `else` fallback around a `self.client.<resource>.<method>(...)` call in `supervisor.py`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:131",
+      "rule": "A tracing helper that no-ops below a configured OTel detail level must return `contextlib.nullcontext(trace.INVALID_SPAN)`, not `trace.INVALID_SPAN` itself, so `with detail_span(...) as span` still works and yields `INVALID_SPAN`.",
+      "category": "correctness",
+      "trigger": "A span wrapper whose disabled branch returns `trace.INVALID_SPAN` while `__enter__` calls `self._ctx.__enter__()`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t1/C:132",
+      "rule": "Do not wrap conn-id filesystem injection for `ObjectStoragePath` in a blanket `except Exception: pass`; set the cached filesystem through `self.fs` and either let the error propagate or suppress only the specific provider-unavailable/scheme-unregistered errors while logging at debug.",
+      "category": "correctness",
+      "trigger": "`attach(...).fs` assigned to `__wrapped__._fs_cached` (or similar) under a bare `except Exception: pass` in `sdk/io/path.py`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:3",
+      "rule": "In GitHub Actions steps do not `source .venv/bin/activate` after `uv venv`; uv commands pick up the project virtualenv on their own",
+      "category": "correctness",
+      "trigger": "A workflow `run:` block contains `uv venv` followed by `source .venv/bin/activate` before `uv pip install`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:37",
+      "rule": "Connection-listing methods in auth managers must account for all connection sources (env vars, secrets backends, etc.), not only the database; a DB-only query must be documented as returning a partial list",
+      "category": "correctness",
+      "trigger": "New method on BaseAuthManager queries Connection table without considering non-DB connection sources",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:42",
+      "rule": "All exception types that a service function can raise must be caught at the route level; when a dry-run variant catches an exception (e.g. DagRunTypeNotAllowed) the non-dry-run counterpart must catch it too",
+      "category": "correctness",
+      "trigger": "except tuple in a route handler is missing an exception type that the called service function is documented to raise, while a sibling route (e.g. dry-run) already handles it",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:43",
+      "rule": "Do not duplicate a DB lookup at the route level when the same lookup already occurs inside the service function; raise a domain exception from the service and catch-and-convert it at the route level instead",
+      "category": "correctness",
+      "trigger": "Route handler calls session.scalar/session.get for a model that the downstream service function already queries for the same purpose",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:51",
+      "rule": "Database error handlers in the FastAPI exception layer must follow the existing per-dialect pattern; do not add new string-sniffing markers for individual error sub-types without matching the established dialect-aware structure",
+      "category": "correctness",
+      "trigger": "New tuple of string markers (e.g. _TOO_LARGE_MARKERS) added to an exception handler in api_fastapi/common/exceptions.py without dialect-specific branching",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:55",
+      "rule": "Task-group filters on list endpoints must use exact group-id matching, not pattern/prefix matching, to avoid returning TaskInstances from unrelated groups",
+      "category": "correctness",
+      "trigger": "TaskInstance list filter applies pattern matching (LIKE / regex) against task_group display_name or group_id",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:57",
+      "rule": "DagModel subqueries that filter by file location must also include bundle_name to correctly scope results across bundles",
+      "category": "correctness",
+      "trigger": "select(DagModel.relative_fileloc).distinct().subquery() without bundle_name column",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:61",
+      "rule": "AssetEvent.extra filtering in execution-API routes must use _parse_extra_params() and JsonContains() rather than ad-hoc string splitting on '='",
+      "category": "correctness",
+      "trigger": "for item in extra: if '=' in item: k, v = item.split('=', 1) pattern applied to AssetEvent.extra",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:62",
+      "rule": "Execution-API asset resolvers must filter by AssetModel.active.has() when resolving an asset by name, to prevent workers from reading or writing state against removed assets",
+      "category": "correctness",
+      "trigger": "select(AssetModel.id).where(AssetModel.name == name) inside an execution-API route without .where(AssetModel.active.has())",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:63",
+      "rule": "JWT generation for the execution token must occur inside the same try/except block that commits the TaskInstance state transition, so a token-generation failure does not leave a TI committed as running without a token",
+      "category": "correctness",
+      "trigger": "execution_token = generator.generate(...) or response.headers['X-Execution-Token'] = ... placed after the try/except that commits TI state",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:65",
+      "rule": "Do not use hasattr(state, 'value') guards on Airflow state enum types; all TerminalTIState, TerminalStateNonSuccess, and TaskInstanceState values always have .value",
+      "category": "correctness",
+      "trigger": "hasattr(some_state, 'value') pattern used with a variable typed as TerminalTIState, TerminalStateNonSuccess, or TaskInstanceState",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:72",
+      "rule": "Dashboard DAG state counts (active, failed, running, queued) must use a consistent semantic baseline - either all based on latest run or all based on any run - so counts cannot exceed the total number of DAGs",
+      "category": "correctness",
+      "trigger": "dashboard query mixing latest-run state with any-run state counts in the same response (e.g. failed uses latest_state while running/queued use any DagRun in that state)",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:77",
+      "rule": "Use structlog keyword-argument style for all log calls; do not use `%s` positional format strings as log message arguments",
+      "category": "correctness",
+      "trigger": "A `log.info(...)`, `log.warning(...)`, or similar structlog call passes positional `%s` format arguments instead of keyword arguments for metadata fields",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:83",
+      "rule": "Use `if TYPE_CHECKING: assert x is not None` to narrow a variable's type within a branch rather than widening a downstream function's signature to accept `None`",
+      "category": "correctness",
+      "trigger": "A function's parameter type is widened to `T | None` solely because a caller cannot statically prove the value is non-None at the call site, and the value is known to be non-None at runtime",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:85",
+      "rule": "Setting `_AIRFLOW_PROCESS_CONTEXT` must be centralised in the `action_cli` decorator (when `check_db=True`), not scattered at individual CLI command call sites",
+      "category": "correctness",
+      "trigger": "A CLI command manually sets or reads `os.environ[\"_AIRFLOW_PROCESS_CONTEXT\"]` inside the command body rather than relying on the `action_cli` decorator",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:86",
+      "rule": "When adding a new keyword argument to a DB-command callable passed to `run_db_migrate_command`, all concrete implementations of that callable (including `BaseDBManager.upgradedb` and `FABDBManager.upgradedb`) must accept the new kwarg",
+      "category": "correctness",
+      "trigger": "A new `kwarg` is forwarded to a `command(...)` call inside `run_db_migrate_command` but the corresponding `upgradedb` methods on `BaseDBManager` or `FABDBManager` are not updated to accept it",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:87",
+      "rule": "CLI date arguments that document a `yyyy-mm-dd` format must strictly validate that format and reject ISO-8601 datetime strings (e.g. timestamps with a `T` component)",
+      "category": "correctness",
+      "trigger": "A CLI argument parsed with `parsedate` or similar permissive parser is documented as accepting only `yyyy-mm-dd` but is not validated to reject datetime strings with time components",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:88",
+      "rule": "Only lazy-import a module inside a function body to break an import cycle; stdlib modules (`importlib`, `logging`) must always be imported at module top level",
+      "category": "correctness",
+      "trigger": "`import importlib`, `import logging`, or other stdlib modules appear inside a function body rather than at the top of the file",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:89",
+      "rule": "Use `is None` (not falsiness) when testing `dag.fileloc` in the DAG-bag loader, because ZIP-importer paths may be a non-empty string while a legitimate absence is represented by None",
+      "category": "correctness",
+      "trigger": "Code in dagbag.py checks `if not dag.fileloc:` or `if dag.fileloc` to decide whether to set fileloc",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:90",
+      "rule": "The DAG-importer extension registry must raise or warn when a newly registered importer tries to claim an extension that is already owned by another importer, preventing silent override",
+      "category": "correctness",
+      "trigger": "A `register()` method or dict assignment in the importer registry performs `self._importers[ext] = importer` without first checking for an existing entry",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:94",
+      "rule": "When forcibly failing a stuck queued TaskInstance in the scheduler, update both the TI ORM state (`ti.set_state(FAILED)`) and the executor state (`executor.fail(ti.key)`) together; do not rely solely on executor drift detection to propagate the failure",
+      "category": "correctness",
+      "trigger": "Code in `scheduler_job_runner.py` that handles stuck TIs calls only `executor.fail(ti.key)` without also setting `ti.set_state(TaskInstanceState.FAILED, session=session)`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:95",
+      "rule": "Deadline/callback workloads must capture the `bundle_version` from the DAG run at the time the workload is created, not resolved lazily at execution time, to ensure the correct bundle version is used even after a bundle upgrade",
+      "category": "correctness",
+      "trigger": "Code building a deadline or callback `WorkloadDTO` in `executors/workloads/task.py` sets `bundle_info.version` from `ti.dag_run.bundle_version` at execution time rather than at enqueue/creation time",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:96",
+      "rule": "`trigger_connection_tests()` in `BaseExecutor` must check remaining slot capacity (`self.slots_available`) before dispatching queued connection-test workloads, not assume slots are fully available after `trigger_tasks()` has already consumed some",
+      "category": "correctness",
+      "trigger": "The `trigger_connection_tests()` method in `base_executor.py` dispatches all entries in `queued_connection_tests` via `_process_workloads` without first checking `self.slots_available`",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:99",
+      "rule": "Emit `executor.*` Stats metrics from `SchedulerJobRunner._run_scheduler_loop`, not from `DagProcessor`; DAG-processor metrics must be limited to `dag_processing.*` and `dag_bag.*` namespaces",
+      "category": "correctness",
+      "trigger": "A `Stats.gauge/timing/incr` call with a metric name beginning `executor.` appears inside `dag_processing/manager.py` or `DagProcessorJobRunner`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:101",
+      "rule": "Sanitise DAG relative file paths to a safe stem (e.g. `Path(relative_fileloc).stem`) before embedding them in `Stats.timing` / `Stats.gauge` metric names",
+      "category": "correctness",
+      "trigger": "Code passes a raw filename or path string directly into a `Stats.timing(f\"dag_processing.last_duration.{...}\", ...)` call without stripping the extension and disallowed characters",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:106",
+      "rule": "Deferred task instances must be counted toward `max_active_tis_per_dag`/`max_active_tis_per_dagrun` maps but excluded from the DAG-run active-tasks map that backs `max_active_tasks`, and any divergence between the three limits must be justified in a comment",
+      "category": "correctness",
+      "trigger": "A change to the scheduler's concurrency bookkeeping (`task_concurrency_map`, `task_dagrun_concurrency_map`, `dag_run_active_tasks_map`) adds or removes `TaskInstanceState.DEFERRED` from one map without the same treatment in the others",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:107",
+      "rule": "Conditions that are expected during normal scheduler races must not be logged at WARNING inside methods the scheduler loop re-runs every iteration; use DEBUG/INFO or aggregate the message",
+      "category": "correctness",
+      "trigger": "A new `self.log.warning(...)` is added to a scheduler-loop helper (e.g. `_create_dag_runs_asset_triggered`) on a branch that leaves its queue/ADRQ rows in place, so the same rows re-enter the branch on the next loop",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:108",
+      "rule": "In the triggerer's message dispatch, branches whose handler returns no payload must explicitly assign `resp = OKResponse(ok=True)`, matching how `supervisor.py` dispatches the same message types",
+      "category": "correctness",
+      "trigger": "A new `elif isinstance(msg, <Set|Delete|Clear>...)` branch does `resp, dump_opts = handle_...(...)` for a handler that returns `(None, {})`, leaving `resp` as None",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:116",
+      "rule": "When the scheduler and a UI/API route both select a single record from the same pending-work table, both must apply the same ordering so the UI shows the row the scheduler will actually act on",
+      "category": "correctness",
+      "trigger": "A scheduler query adds `.order_by(<Model>.created_at)` (FIFO) over a pending table such as `AssetPartitionDagRun` while a route under `api_fastapi/core_api/routes/ui/` selects the same table with `.order_by(...created_at.desc()).limit(1)`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:118",
+      "rule": "Asset partition-date resolution must not let a temporal anchor silently supersede a carried identity-mapper date; if identity and temporal mappers are assumed never to feed the same `target_key`, assert or log that assumption at the resolution site",
+      "category": "correctness",
+      "trigger": "`_resolve_partition_date` (or similar) honours `carried_partition_date` only on the `if not anchors` branch while `return anchors.pop()` wins on every other path, with no comparison or warning when the two disagree",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:120",
+      "rule": "Every code path that emits a metric through `DualStatsManager` must supply all variables `metrics_template.yaml` marks required for that metric name; a base-class default that can return empty tags is not acceptable even when the docstring tells subclasses to override it",
+      "category": "correctness",
+      "trigger": "A `metric_tags()` (or equivalent tag-building) default returns `{}` on a fallback branch, while `metrics_template.yaml` declares `name_variables` such as `hostname` for the metrics that consume it",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:121",
+      "rule": "Triggerer per-trigger log files must be closed through a handle stored on the logger factory with an explicit `close()`, mirroring the DAG processor's pattern, not by reaching into structlog internals such as `getattr(raw_logger, \"_file\", None)`",
+      "category": "correctness",
+      "trigger": "New triggerer log-teardown code probes private structlog attributes to find a file object instead of keeping the handle returned by `log_file.open(...)` as an attrs field",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:122",
+      "rule": "Code reading persisted trigger/callback payloads must keep working with the shape written by the previous minor release; when new top-level keys are absent, fall through to the compatibility path instead of skipping the row",
+      "category": "correctness",
+      "trigger": "A workload-building guard returns early or skips a trigger because `callback_data.get(\"dag_id\")`/`run_id` is None, where older releases stored that context nested (e.g. under `data[\"kwargs\"][\"context\"]`)",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:128",
+      "rule": "When the `run_schema_defaults_check.py` script serialises operator field defaults, convert `timedelta` values to `total_seconds()` before writing to schema.json",
+      "category": "correctness",
+      "trigger": "isinstance(default_value, timedelta) check absent in scripts/in_container/run_schema_defaults_check.py when collecting server-side operator defaults",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:129",
+      "rule": "Emit Stats.incr() for task-instance creation only after a successful session.flush(), not before, to avoid counting rolled-back records",
+      "category": "correctness",
+      "trigger": "DualStatsManager.incr('task_instance_created', ...) or Stats.incr(...) called before session.flush() inside a try/except IntegrityError or StaleDataError block",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:132",
+      "rule": "Pass bare column expressions to `LazySelectSequence.from_select(order_by=[...])`, not pre-ordered expressions (`.asc()`/`.desc()`), because the helper applies ordering internally",
+      "category": "correctness",
+      "trigger": "LazySelectSequence.from_select(..., order_by=[SomeColumn.map_index.asc()]) or similar pre-ordered expression in the order_by list",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:133",
+      "rule": "Do not set `encrypted_kwargs` manually when constructing a `Trigger` ORM object; the `Trigger.__init__` handles encryption automatically from `kwargs`",
+      "category": "correctness",
+      "trigger": "Trigger(..., encrypted_kwargs=...) construction where the caller is not handling raw serialised kwargs from an Execution-API patch payload",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:134",
+      "rule": "Apply the same BaseSerialization normalisation to both `trigger_kwargs` and `next_kwargs` from `start_trigger_args` before persisting them to JSON columns",
+      "category": "correctness",
+      "trigger": "start_trigger_args.trigger_kwargs is normalised via _normalize() but start_trigger_args.next_kwargs is written directly to a JSON column without the same treatment",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:135",
+      "rule": "Access `bundle_version` for a task instance via `task_instance.dag_version.bundle_version`, not `task_instance.dag_run.bundle_version`, as the two can diverge",
+      "category": "correctness",
+      "trigger": "task_instance.dag_run.bundle_version used in trigger or callback code where task_instance.dag_version.bundle_version is the canonical source",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:136",
+      "rule": "When deserialising partition-mapper data, provide a default for optional keys (e.g. `wait_policy`) to remain compatible with data serialised before the key existed",
+      "category": "correctness",
+      "trigger": "data[\"wait_policy\"] or similar dict key access in a partition-mapper `from_dict`/`decode` method without a `.get()` or `in data` guard",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:139",
+      "rule": "When creating a DAG run pinned to a specific `bundle_version`, deadline processing must use the resolved DAG version's deadline configuration, not the latest (head) DAG object",
+      "category": "correctness",
+      "trigger": "Code inside `create_dagrun` that processes deadlines or accesses `self.deadline` while a `bundle_version` or resolved DAG argument is also present",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:140",
+      "rule": "Properties that are now delegated to `_runtime_manager` via `__getattr__` in `ProvidersManager` must be removed from any hardcoded property set to avoid redundant dual-handling",
+      "category": "correctness",
+      "trigger": "A property name appears both in a hardcoded set (e.g. `runtime_properties`) and is also reachable via `getattr(object.__getattribute__(self, '_runtime_manager'), name)` in `ProvidersManager.__getattr__`",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:141",
+      "rule": "In DAG serialization helpers, using `to_dict()` as a generic serialization fallback is too broad; scope it explicitly to known Kubernetes client objects (e.g. gate with `inspect.getmodule(obj).__name__.startswith('kubernetes.')`)",
+      "category": "correctness",
+      "trigger": "A serialization helper applies a `to_dict()` fallback unconditionally to any object that has a `to_dict` attribute, without restricting to Kubernetes client types",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:144",
+      "rule": "When sorting dicts that may contain callables as keys for DAG serialization, sort on the serialized (qualname-based) form of the key, not on `repr()`, because `repr` of callables embeds memory addresses causing non-deterministic DagVersion churn",
+      "category": "correctness",
+      "trigger": "A dict-sorting helper in DAG serialization sorts using `repr(key)` or a key function that calls `repr()` on potentially-callable dict keys",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:145",
+      "rule": "DAG serialization leaf-value helpers must preserve the original Python type (int, bool, None, etc.) for non-callable values; only callables should be stringified",
+      "category": "correctness",
+      "trigger": "A serialization helper function returns `str(obj)` as a catch-all for leaf values inside dicts/lists/tuples rather than only for callables",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:146",
+      "rule": "Serialization flag-field patterns (e.g. `has_<field>` stored in place of a non-serializable object) applied to operator-level fields must also be applied consistently in DAG-level `default_args` serialization for the same fields",
+      "category": "correctness",
+      "trigger": "A new `has_<field>` serialization pattern is added for a mapped operator but the same field in `serialize_dag`'s `default_args` loop is left using the `str(obj)` fallback",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:147",
+      "rule": "Numeric defaults for timedelta-backed fields in `schema.json` must be expressed as floats (e.g. `300.0`) to match the Python `timedelta`-to-seconds float representation, ensuring `test_generate_client_defaults_excludes_schema_defaults` passes strict equality",
+      "category": "correctness",
+      "trigger": "A new or updated numeric default in `airflow-core/src/airflow/serialization/schema.json` for a timedelta field is written as an integer literal (e.g. `300`) rather than a float (`300.0`)",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:148",
+      "rule": "Backward-compatibility fallback paths in triggers that extract values from `callback_kwargs` must use `.get()` not `.pop()`, so the trigger is idempotent if `run()` is invoked more than once on the same instance",
+      "category": "correctness",
+      "trigger": "A trigger's `run()` method uses `self.callback_kwargs.pop(key, None)` as a backward-compat fallback to read context or metadata",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:152",
+      "rule": "When using raw fetch() inside a React Query hook, attach the HTTP status code to any thrown Error so the global QueryClient retry guard (which checks error.status) can skip retries on 4xx responses",
+      "category": "correctness",
+      "trigger": "A useQuery queryFn calls fetch() directly and throws a plain Error (without a .status property) on non-OK responses",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:154",
+      "rule": "i18next plural key sets must be fully consistent with how the key is consumed in code; if only the _one suffix is used directly, the plural form must either be added to the codebase or the extra key removed",
+      "category": "correctness",
+      "trigger": "A locale JSON file adds both _one and _other plural variants for a key but the TypeScript/TSX consumer references only one of the variants directly as a string literal",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/A:156",
+      "rule": "Do not pass a non-datetime string literal to the Airflow UI <Time datetime={...}> component; use a real ISO timestamp or leave the prop null/undefined and drive visual state from count fields",
+      "category": "correctness",
+      "trigger": "A TSX file assigns a string literal (e.g. 'received') to a property that is passed as the datetime prop of <Time>",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:0",
+      "rule": "Prefix URL search params owned by the graph view (e.g. `graph-operator`) so they do not collide with the TaskInstance filter params that share the same SearchParamsKeys constants",
+      "category": "correctness",
+      "trigger": "A UI component reads or writes SearchParamsKeys (OPERATOR, TASK_STATE, TASK_GROUP, ...) inside a graph/layout context without a distinguishing prefix",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:5",
+      "rule": "Display counts from the paginated response's `total_entries`, never from `data.items.length` or the length of a fetched array",
+      "category": "correctness",
+      "trigger": "A badge, counter, or summary is set to someData.someArray.length where someData comes from a paginated Airflow API endpoint",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:6",
+      "rule": "Key lookup maps by a schema-enforced unique identifier (id/UUID), not by an entity `name` field whose uniqueness Airflow does not guarantee",
+      "category": "correctness",
+      "trigger": "A Map or dictionary is keyed by alert.name, deadline.name, or another Airflow entity name field that is not unique in the schema",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:10",
+      "rule": "Filter and paginate through the API's query parameters; never apply `.filter()` or `.slice()` in the UI to a page of data already returned by a paginated Airflow endpoint",
+      "category": "correctness",
+      "trigger": "A .filter() or .slice() call is applied to an array returned from a paginated Airflow service hook to simulate backend filtering or pagination",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:12",
+      "rule": "Guard status-rendering components on the query's isLoading/isError flags; never render a settled status from `data?.field ?? fallback` while the query is in flight",
+      "category": "correctness",
+      "trigger": "A status indicator, badge, or card renders a definitive state using data?.field ?? fallback with no check of the query's isLoading or isError flag",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:14",
+      "rule": "To clear an optional field through an Airflow PATCH endpoint send `null`, not `undefined`, so the field is present in the JSON body and model_fields_set records the clear",
+      "category": "correctness",
+      "trigger": "A PATCH mutation converts an empty-string form value to undefined before adding the field to the update mask",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:16",
+      "rule": "Register every new translation key in the matching locale JSON (e.g. ui/public/locales/en/components.json) in the same PR that calls translate() with it",
+      "category": "correctness",
+      "trigger": "A translate() call uses a key string that does not exist in the en locale file",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:25",
+      "rule": "GC freeze applied before forking worker processes must be unfrozen in the parent only, and the fork path must be verified not to leave GC disabled in the child",
+      "category": "correctness",
+      "trigger": "Code in gc_utils.py or the scheduler fork path calls gc.freeze() without confirming GC state inside the spawned subprocess",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:45",
+      "rule": "Pass DagRunState/TaskInstanceState enum members as state values; never raw strings like 'failed' or 'success' to create_dagrun, DagRun() or TaskInstance()",
+      "category": "correctness",
+      "trigger": "A diff passes a raw lowercase state string as the state= argument to create_dagrun, DagRun(...) or TaskInstance(...)",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:53",
+      "rule": "Acquire sessions with `with create_session() as session:` and pass the session explicitly; never call create_session().__enter__() without a matching __exit__()",
+      "category": "correctness",
+      "trigger": "create_session().__enter__() appears without a corresponding __exit__() or with-statement",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:56",
+      "rule": "Build Helm value fallback chains with `or` and `hasKey`, not `| default`: `default` treats an empty map or false as unset, dropping both the global fallback and an intentional empty override",
+      "category": "correctness",
+      "trigger": "| default is used in a chart template (e.g. pod-template-file.kubernetes-helm-yaml) to fall back from workers.kubernetes.<key> to workers.<key> or to a global value",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/B:60",
+      "rule": "Gate a Helm component's feature sub-flag (metricsEnabled, tracesEnabled, ...) on its parent `enabled` flag so Airflow is never pointed at a Service that was not rendered",
+      "category": "correctness",
+      "trigger": "A template sets otel_on or otel_host from a sub-flag without also checking the component's .Values.<component>.enabled",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:66",
+      "rule": "When invoking flit_core provider builds through run_command, pass os.environ merged with SOURCE_DATE_EPOCH rather than a dict containing SOURCE_DATE_EPOCH alone",
+      "category": "correctness",
+      "trigger": "A run_command call for a provider build sets env= to a dict holding only SOURCE_DATE_EPOCH",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:67",
+      "rule": "A gitdir: path read from a .git file must be resolved to an absolute path before being used as a Docker bind-mount source",
+      "category": "correctness",
+      "trigger": "Code reads a gitdir: value from a .git file and builds a Path from it without .resolve() or anchoring to AIRFLOW_ROOT_PATH",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:68",
+      "rule": "Use the `[error]` Rich style tag in Breeze console output, never `[errors]`",
+      "category": "correctness",
+      "trigger": "A Rich markup string in any Breeze utility or command file uses [errors]",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:69",
+      "rule": "Exclude a Python minor version in requires-python with the wildcard form `!=3.x.*`, matching the version excluded across the workspace",
+      "category": "correctness",
+      "trigger": "A pyproject.toml requires-python specifier excludes a minor version without a wildcard (e.g. !=3.14 instead of !=3.14.*)",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:75",
+      "rule": "In the Java/Kotlin SDK, report exceptions through the structured logger with the full stack trace via stackTraceToString(), never printStackTrace() to stderr or thrown.toString(); logger bridges must accept a nullable Throwable",
+      "category": "correctness",
+      "trigger": "e.printStackTrace() appears in an SDK task execution path, or a System.Logger bridge stores an exception as thrown.toString() or declares a non-nullable Throwable parameter",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/B:76",
+      "rule": "In the multiplexed coordinator protocol, an undecodable or unknown-type frame must fail only the request it belongs to (or be treated as a non-fatal sentinel), not every in-flight waiter",
+      "category": "correctness",
+      "trigger": "A catch (Throwable) around readFrame()/decode() in the coordinator communication loop calls failAllWaiters(e) unconditionally",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:77",
+      "rule": "Deferred-operator resume handlers must raise an Airflow exception type (AirflowException, AirflowFailException, AirflowTaskTimeout) on a trigger error or timeout, never a bare RuntimeError or other builtin",
+      "category": "correctness",
+      "trigger": "raise RuntimeError(...) or another builtin exception appears on the failure/timeout branch of execute_complete() or another trigger-event handler",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/B:85",
+      "rule": "Operator-link persistence called from execute_complete() must be guarded on the required context keys being present rather than assuming a full task-instance context",
+      "category": "correctness",
+      "trigger": "execute_complete() unconditionally calls a _persist_links / SomeLink.persist(context) helper that dereferences context['task_instance']",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:87",
+      "rule": "Do not downgrade a caught AirflowException from a log/metadata lookup to INFO with transient-sounding wording unless the transient case is actually distinguished from the error case",
+      "category": "correctness",
+      "trigger": "An except AirflowException handler around a metadata lookup is changed from self.log.warning to self.log.info with wording such as 'not yet available'",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:90",
+      "rule": "execute_complete() must branch explicitly on each trigger event status; do not treat everything that is not 'success' as one failure or cancellation path",
+      "category": "correctness",
+      "trigger": "execute_complete returns on status == 'success' and falls through to a single cancel/failure handler for every other status",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:97",
+      "rule": "When a trigger builds its hook via self.hook(), pass every domain parameter the hook's action methods need (e.g. virtual_cluster_id) so cancel-on-kill and status calls have their required context",
+      "category": "correctness",
+      "trigger": "A trigger's hook() call omits a parameter that the hook's action methods require at the vendor API level",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:109",
+      "rule": "subprocess.run() calls inside polling loops in provider hooks must pass a timeout",
+      "category": "correctness",
+      "trigger": "A subprocess.run(...) call without timeout= appears inside a while/polling loop in a Hook",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:111",
+      "rule": "Configuration a hook needs (e.g. yarn_resourcemanager_webapp_address) must be validated up front in a dedicated validation method, not lazily on the first poll",
+      "category": "correctness",
+      "trigger": "A required configuration value is read or validated only inside a polling loop rather than in an upfront _validate_*_config() method",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:115",
+      "rule": "Spark Standalone HA support must iterate every comma-separated master in the master string and continue to the next one when a master reports failure, rather than using only the first host or re-raising on the first error",
+      "category": "correctness",
+      "trigger": "Code splits a spark:// master string and takes only the first host, or an except RuntimeError inside an HA master loop re-raises instead of continuing",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/B:116",
+      "rule": "post_submit_commands must run on every exit path: wrap the whole poll method, including its early-exit guards, in try/finally so sidecar cleanup happens on success, failure and kill alike",
+      "category": "correctness",
+      "trigger": "A _run_post_submit_commands() call sits outside a finally block, or a raise appears before the try/finally that wraps it in a K8s/YARN poll method",
+      "kind": "convention",
+      "n_candidates": 2
+    },
+    {
+      "cluster_id": "t2/B:117",
+      "rule": "Long-running polling loops in provider hooks must tolerate transient API errors through an error-budget counter (as SparkSubmitHook's missed_job_status_reports does) rather than failing on the first exception",
+      "category": "correctness",
+      "trigger": "A bare API call inside a while True loop in a Hook has no error-budget or retry counter",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:118",
+      "rule": "post_submit_commands and pod deletion must run exactly once when reachable from both the polling loop's finally block and on_kill; share a run-once guard between them",
+      "category": "correctness",
+      "trigger": "_run_post_submit_commands() or a pod-delete call can be reached from both a finally block and on_kill with no shared idempotency guard",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:119",
+      "rule": "Pod deletion in SparkSubmitHook must go through the existing _delete_driver_pod() helper instead of an inline delete_namespaced_pod call",
+      "category": "correctness",
+      "trigger": "An inline client.delete_namespaced_pod() call appears in SparkSubmitHook outside _delete_driver_pod()",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:122",
+      "rule": "When a try block raises AirflowException and is followed by a broad `except Exception`, add `except AirflowException: raise` before the generic handler",
+      "category": "correctness",
+      "trigger": "A function raises AirflowException inside a try block whose only handler is except Exception, with no prior AirflowException re-raise clause",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:128",
+      "rule": "When an isinstance() guard is added defensively against a type the declared annotation excludes (e.g. the Kubernetes API returning str where DateTime is declared), add an inline comment explaining the deviation",
+      "category": "correctness",
+      "trigger": "Code adds `if isinstance(arg, str)` to handle a type absent from the parameter's annotation, with no explanatory comment",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:129",
+      "rule": "Do not configure core.parallelism per team via AIRFLOW__TEAM_<name>___CORE__PARALLELISM; per-team limits must be set through executor-specific config sections",
+      "category": "correctness",
+      "trigger": "Test or production code sets AIRFLOW__TEAM_*___CORE__PARALLELISM or overrides core.parallelism per executor team",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/B:132",
+      "rule": "Remove TYPE_CHECKING annotation blocks that re-declare a local variable already assigned a concrete type by the surrounding runtime logic",
+      "category": "correctness",
+      "trigger": "A function body contains `if TYPE_CHECKING: _var: SomeType` where _var is already assigned by an if/else branch in the same function",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:10",
+      "rule": "Fields that act as discriminators for a polling loop (e.g. a human-in-the-loop XCom `action`) must be typed as `Literal` or an `Enum`, not bare `str`",
+      "category": "correctness",
+      "trigger": "A dataclass/TypedDict/Pydantic field typed `str` is compared against specific literal values (\"approve\", \"reject\", ...) to decide whether a poll loop terminates",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:24",
+      "rule": "When an operator has both a synchronous and a deferred execution path, the two must emit equivalent progress log messages so task logs are comparable between modes",
+      "category": "correctness",
+      "trigger": "A sync code path in an operator that also has a deferred path omits the progress/offset logging the deferred path emits",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:28",
+      "rule": "Every Edge3 job row inserted into the database must carry `team_name` so the fetch endpoint and callback handling can route jobs in multi-team deployments",
+      "category": "correctness",
+      "trigger": "An `EdgeJobModel` (or equivalent) insert inside edge3 executor or callback-handling code omits `team_name`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:30",
+      "rule": "Obtain the FAB auth manager through `get_fab_auth_manager()` or an explicit `isinstance` check that raises a clear error when FAB is not the configured auth manager - never `cast(FabAuthManager, get_auth_manager())`",
+      "category": "correctness",
+      "trigger": "`cast(\"FabAuthManager\", get_auth_manager())` or `cast(FabAuthManager, ...)` in FAB provider route or helper code",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:39",
+      "rule": "Do not mutate Flask-AppBuilder's global `Model.metadata` at import time; scope metadata overrides to Airflow's own mapper registry",
+      "category": "correctness",
+      "trigger": "Assignment to `Model.metadata` or `Base.metadata` at module level inside the FAB provider",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:40",
+      "rule": "`execute_complete` must branch explicitly on the trigger event's success, timeout and error statuses rather than collapsing every non-success state into one error branch",
+      "category": "correctness",
+      "trigger": "`execute_complete` contains `if event[\"status\"] != \"success\": raise ...` with no separate timeout handling",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:41",
+      "rule": "Google provider operator `execute` methods must log what operation they are performing with `self.log.info` before or after calling the hook",
+      "category": "correctness",
+      "trigger": "An operator `execute()` in `providers/google` calls a hook method with no accompanying `self.log.info`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:46",
+      "rule": "Prefer removing an existing `# type: ignore` over broadening it; do not add new error codes to a suppression comment",
+      "category": "correctness",
+      "trigger": "A diff appends a new mypy error code to an existing `# type: ignore[...]` comment",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:47",
+      "rule": "Under Uvicorn, remove the Flask/Werkzeug `Date` response header unconditionally in the FAB app's `after_request` hook so only one `Date` header is emitted",
+      "category": "correctness",
+      "trigger": "A `flask_app.after_request` hook conditionally reads or removes the `Date` header in the FAB ASGI integration",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:59",
+      "rule": "Do not swallow credential-resolution or token-refresh failures in a secrets backend; surface or chain the original error rather than letting it degrade into the backend's generic failure",
+      "category": "correctness",
+      "trigger": "A broad silent handler (`except Exception: pass` or equivalent) wraps `credentials.refresh(...)` or a metadata-server lookup in a secrets backend or its internal client",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:64",
+      "rule": "`get_conn()` must resolve connection-derived configuration into local variables and must never overwrite attributes assigned in `__init__`",
+      "category": "correctness",
+      "trigger": "`get_conn()` assigns to `self.<param>` from `connection.extra_dejson` or a `getattr(..., default)` fallback chain",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:71",
+      "rule": "Probe an optional credential capability with `callable(getattr(credentials, \"with_quota_project\", None))` rather than `hasattr`",
+      "category": "correctness",
+      "trigger": "`if not hasattr(credentials, \"<method>\")` guards a subsequent call to that method on a google-auth credentials object",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:82",
+      "rule": "Use the `NOTSET` sentinel to distinguish \"user explicitly passed None\" from \"parameter not provided\" in Airflow 2.x compatibility branches",
+      "category": "correctness",
+      "trigger": "Code in an Airflow-2.x compat branch tests `getattr(self, attr) is not None` to decide whether the user supplied the parameter",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:83",
+      "rule": "A task-log handler must not set `metadata[\"end_of_log\"] = True` merely because a log fetch returned no records; an empty result can mean logs are not yet indexed",
+      "category": "correctness",
+      "trigger": "A log handler sets `end_of_log` to True inside a branch triggered by an empty `logs_by_host` or equivalent empty response",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:85",
+      "rule": "The `check_provide_session_kwargs` CI script must inspect both `args.posonlyargs` and `args.args` when detecting a positional `session` parameter",
+      "category": "correctness",
+      "trigger": "The script's positional-detection function reads only `args.args`",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:87",
+      "rule": "Import `airflow.settings` only after `AIRFLOW__DATABASE__SQL_ALCHEMY_CONN` has been set, and leave a comment stating why the import is deferred",
+      "category": "correctness",
+      "trigger": "An import of `airflow.settings` inside a function body near `settings.SQL_ALCHEMY_CONN` assignment or `settings.configure_orm()`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:88",
+      "rule": "The structlog serialization fallback in `airflow_shared.logging` must catch `ValueError` (including `UnicodeEncodeError`) in addition to `TypeError`",
+      "category": "correctness",
+      "trigger": "An `enc_hook`/serialization fallback except clause that catches only `TypeError`",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:89",
+      "rule": "Any flag or attribute a `_TaskDecorator.__call__` sets on the operator it builds must also be applied on the mapped-operator path created by `expand`/`expand_kwargs`",
+      "category": "correctness",
+      "trigger": "An operator attribute assigned inside `_TaskDecorator.__call__` with no equivalent assignment in the `expand`/`expand_kwargs` construction path",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:92",
+      "rule": "When `ExecutableCoordinator.find` locates a bundle but rejects it for a schema-version mismatch, include the rejection reason in the raised error instead of a debug log plus a generic `FileNotFoundError`",
+      "category": "correctness",
+      "trigger": "Bundle-lookup code logs the rejection at debug level and raises a generic not-found error",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:94",
+      "rule": "Build dotted import paths for `import_string` from `__qualname__`, not `__name__`, and do not make that opt-in behind a flag",
+      "category": "correctness",
+      "trigger": "`obj.__name__` used to construct a dotted path intended for `import_string`, or a `use_qualname` flag gating `__qualname__`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:95",
+      "rule": "`accepts_context` must not treat `VAR_POSITIONAL` (`*args`) as accepting context; only a named `context` parameter or `VAR_KEYWORD` counts",
+      "category": "correctness",
+      "trigger": "`inspect.Parameter.VAR_POSITIONAL` included in the kinds that make `accepts_context` return True",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:96",
+      "rule": "Deserializing a Connection from a secrets backend must not require `conn_type` or `uri`; connections lacking them stay valid for Airflow 2 to 3 migration",
+      "category": "correctness",
+      "trigger": "Validation in `_deserialize_connection_value` or `BaseSecretsBackend` that raises when a JSON connection blob has neither `conn_type` nor `uri`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:102",
+      "rule": "Keep stdlib imports at the top of the file rather than inside function bodies when the module is already imported at top level and there is no circular-import risk",
+      "category": "correctness",
+      "trigger": "An import of a stdlib module (`sys`, `uuid`, `socket`, `traceback`) inside a function or method body in task-sdk source",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:105",
+      "rule": "Task-SDK supervisor-comms response handlers must raise on an unexpected response type instead of silently returning an empty result, matching `_get_variable`'s error propagation",
+      "category": "correctness",
+      "trigger": "A `SUPERVISOR_COMMS.send(...)` result checked with `isinstance()` where the non-matching branch returns `[]`/`None` without raising, in task-sdk execution_time context functions",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:106",
+      "rule": "Hoist repeated serialisation-envelope string literals (`__type`, `__var`, type tags) to module-level constants with small helper functions instead of repeating them inline",
+      "category": "correctness",
+      "trigger": "The same envelope string literal appears more than once in a file encoding/decoding a task-SDK IPC or state payload",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:107",
+      "rule": "Capture the previous signal handler from `signal.signal()`'s return value rather than making a separate `signal.getsignal()` call",
+      "category": "correctness",
+      "trigger": "`signal.getsignal(SIG...)` immediately before `signal.signal(SIG..., handler)` for the same signal",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:108",
+      "rule": "An error path in a post-`fork()` child must terminate with `os._exit()` unconditionally and never fall through into the parent's code path",
+      "category": "correctness",
+      "trigger": "An exception handler in a post-fork child path (`_fork_main`, `_child_exec_main`) that logs but does not call `os._exit()`",
+      "kind": "convention",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:113",
+      "rule": "Place `otel_context.attach()` inside the `try` block whose `finally` detaches the token in the supervisor request handler",
+      "category": "correctness",
+      "trigger": "`otel_context.attach(...)` before a `try` whose `finally` calls `otel_context.detach(token)` in supervisor.py or task_runner.py",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:120",
+      "rule": "The TS-SDK log channel must buffer records emitted before the coordinator socket is connected and flush them on connect, rather than dropping them or writing only to stderr",
+      "category": "correctness",
+      "trigger": "`LogChannel.write()` returns early or writes only to stderr while `connected === false`, with no buffering",
+      "kind": "incident",
+      "n_candidates": 1
+    },
+    {
+      "cluster_id": "t2/C:123",
+      "rule": "When `clear_on_success` clears task state through a worker backend, clear the asset-state accessors for the same task instance too",
+      "category": "correctness",
+      "trigger": "`context[\"task_state\"].clear()` under `clear_on_success` with no corresponding walk of `context[\"asset_state\"]`",
+      "kind": "incident",
+      "n_candidates": 1
+    }
+  ]
+}
